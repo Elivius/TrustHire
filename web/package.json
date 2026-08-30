@@ -1,13 +1,7 @@
 {
-  "name": "trusthire-prototype",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "openai": "^7.8.0",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
@@ -24,12 +18,24 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@types/node": "^22.13.4",
+    "@types/node": "^26.4.0",
+    "eslint": "^8",
+    "eslint-config-next": "15.1.7",
+    "tsx": "^4.23.12",
+    "typescript": "^5.7.3",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "tailwindcss": "^3.4.17"
+  },
+  "name": "trusthire-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
   }
 }
