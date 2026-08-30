@@ -1,0 +1,91 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-base: #F7F7FB;
+    --surface-glass: #FFFFFF;
+    --surface-glass-border: rgba(0, 0, 0, 0.08);
+    --background: #F7F7FB;
+    --foreground: #111827;
+    --text-primary: #111827;
+    --text-secondary: #6B7280;
+  }
+
+  .dark {
+    --bg-base: #0B0B12;
+    --surface-glass: #151622;
+    --surface-glass-border: rgba(255, 255, 255, 0.1);
+    --background: #0B0B12;
+    --foreground: #F3F4F6;
+    --text-primary: #F3F4F6;
+    --text-secondary: #9CA3AF;
+  }
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for dark UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Gradient text */
+.text-gradient {
+  background: linear-gradient(135deg, #4DA2FF 0%, #7B61FF 50%, #2DD4BF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-ai {
+  background: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 50%, #C084FC 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glass styling */
+.glass-panel {
+  background-color: var(--surface-glass);
+  border: 1px solid var(--surface-glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-panel-subtle {
+  background-color: rgba(21, 22, 34, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.glow-btn {
+  background: linear-gradient(135deg, #4DA2FF 0%, #7B61FF 50%, #2DD4BF 100%);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.glow-btn:hover {
+  box-shadow: 0 0 20px -2px rgba(123, 97, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.glow-btn:active {
+  transform: translateY(0);
+}
