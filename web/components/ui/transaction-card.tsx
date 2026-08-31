@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { ExternalLink, CheckCircle2, ShieldAlert, ArrowUpRight } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -30,7 +30,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({ tx, className 
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[#2DD4BF]">
+        <div className="flex items-center gap-2 text-[#0D9488] dark:text-[#2DD4BF]">
           <CheckCircle2 className="w-4 h-4" />
           <span className="font-semibold uppercase tracking-wider text-[11px] font-sans">
             Sui On-Chain Confirmed
@@ -40,14 +40,14 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({ tx, className 
           href={explorerUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[#4DA2FF] hover:text-[#7B61FF] transition-colors"
+          className="inline-flex items-center gap-1 text-[#2563EB] dark:text-[#4DA2FF] hover:text-[#7B61FF] transition-colors"
         >
           <span>View on Sui Explorer</span>
           <ExternalLink className="w-3 h-3" />
         </a>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-foreground/80 pt-1 border-t border-white/5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-foreground/80 pt-1 border-t border-black/5 dark:border-white/5">
         <div>
           <span className="text-foreground/50 block text-[10px] uppercase font-sans">Tx Hash</span>
           <span className="text-foreground font-medium">{tx.txHash}</span>
@@ -55,7 +55,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({ tx, className 
         {tx.amount !== undefined && (
           <div>
             <span className="text-foreground/50 block text-[10px] uppercase font-sans">Escrow Value</span>
-            <span className="text-[#2DD4BF] font-semibold">${tx.amount.toLocaleString()} USDC</span>
+            <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${tx.amount.toLocaleString()} USDC</span>
           </div>
         )}
         {tx.fromAddress && (

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { Wallet, Copy, Check } from "lucide-react";
@@ -26,13 +26,13 @@ export const WalletChip: React.FC<WalletChipProps> = ({ address, onClick, classN
       onClick={onClick}
       className={twMerge(
         clsx(
-          "inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-mono text-foreground/90 backdrop-blur-sm transition-all select-none cursor-pointer",
+          "inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 text-xs font-mono text-foreground backdrop-blur-sm transition-all select-none cursor-pointer shadow-sm dark:shadow-none",
           className
         )
       )}
     >
-      <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-      <Wallet className="w-3.5 h-3.5 text-[#4DA2FF]" />
+      <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+      <Wallet className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF] shrink-0" />
       <span>{address}</span>
       <button
         type="button"

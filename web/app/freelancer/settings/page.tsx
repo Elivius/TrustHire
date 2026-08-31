@@ -69,7 +69,7 @@ export default function FreelancerSettingsPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Freelancer Settings
           </h1>
           <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -79,9 +79,9 @@ export default function FreelancerSettingsPage() {
 
         {/* Section 1: Account */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <User className="w-4 h-4 text-[#A78BFA]" />
-            <h2 className="text-base font-bold text-white">Account Information</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <User className="w-4 h-4 text-[#7C3AED] dark:text-[#A78BFA]" />
+            <h2 className="text-base font-bold text-foreground">Account Information</h2>
           </div>
 
           <form onSubmit={handleSaveAccount} className="space-y-4">
@@ -94,7 +94,7 @@ export default function FreelancerSettingsPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                 />
               </div>
 
@@ -106,14 +106,14 @@ export default function FreelancerSettingsPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
               {savedSuccess ? (
-                <span className="text-xs text-[#10B981] flex items-center gap-1.5">
+                <span className="text-xs text-[#10B981] flex items-center gap-1.5 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Settings updated successfully!</span>
                 </span>
@@ -128,14 +128,14 @@ export default function FreelancerSettingsPage() {
 
         {/* Section 2: Payout Wallet */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <Wallet className="w-4 h-4 text-[#2DD4BF]" />
-            <h2 className="text-base font-bold text-white">Payout Wallet (Sui)</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <Wallet className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+            <h2 className="text-base font-bold text-foreground">Payout Wallet (Sui)</h2>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
             <div>
-              <span className="text-xs font-semibold text-white block mb-1">Active Payout Address</span>
+              <span className="text-xs font-semibold text-foreground block mb-1">Active Payout Address</span>
               {currentUser.walletAddress ? (
                 <WalletChip address={currentUser.walletAddress} />
               ) : (
@@ -179,14 +179,14 @@ export default function FreelancerSettingsPage() {
 
         {/* Section 3: Privacy & Discoverability */}
         <GlassCard className="p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <Eye className="w-4 h-4 text-[#4DA2FF]" />
-            <h2 className="text-base font-bold text-white">Talent Pool Discoverability</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <Eye className="w-4 h-4 text-[#2563EB] dark:text-[#4DA2FF]" />
+            <h2 className="text-base font-bold text-foreground">Talent Pool Discoverability</h2>
           </div>
 
-          <label className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04]">
+          <label className="flex items-center justify-between p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">
             <div className="space-y-1 pr-4">
-              <span className="text-sm font-semibold text-white block">Make profile visible to AI matching</span>
+              <span className="text-sm font-semibold text-foreground block">Make profile visible to AI matching</span>
               <p className="text-xs text-foreground/60">
                 When enabled, Gonka AI recommends your profile to relevant client project specs. Turning this off does not affect active contracts.
               </p>
@@ -199,21 +199,21 @@ export default function FreelancerSettingsPage() {
                 setIsDiscoverable(val);
                 updateFreelancerProfile({ isDiscoverable: val });
               }}
-              className="rounded border-white/20 text-[#7B61FF] focus:ring-0 w-5 h-5 shrink-0"
+              className="rounded border-black/20 dark:border-white/20 text-[#7B61FF] focus:ring-0 w-5 h-5 shrink-0"
             />
           </label>
         </GlassCard>
 
         {/* Section 4: Dual Role Switch */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <ArrowLeftRight className="w-4 h-4 text-[#7B61FF]" />
-            <h2 className="text-base font-bold text-white">Dual Role Setup</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <ArrowLeftRight className="w-4 h-4 text-[#7C3AED] dark:text-[#7B61FF]" />
+            <h2 className="text-base font-bold text-foreground">Dual Role Setup</h2>
           </div>
 
           <div className="p-5 rounded-2xl border border-[#4DA2FF]/30 bg-[#4DA2FF]/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h3 className="font-semibold text-sm text-white">
+              <h3 className="font-semibold text-sm text-foreground">
                 You're currently in Freelancer Mode
               </h3>
               <p className="text-xs text-foreground/70">

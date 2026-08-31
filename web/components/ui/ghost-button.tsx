@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -25,9 +25,9 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
   }[size];
 
   const variantStyles = {
-    outline: "border border-white/10 dark:border-white/15 bg-white/5 hover:bg-white/10 text-foreground",
-    ghost: "bg-transparent hover:bg-white/5 text-foreground/80 hover:text-foreground",
-    danger: "border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300"
+    outline: "border border-black/15 dark:border-white/15 bg-black/[0.03] dark:bg-white/5 hover:bg-black/[0.06] dark:hover:bg-white/10 hover:border-black/25 text-foreground shadow-sm dark:shadow-none",
+    ghost: "bg-transparent hover:bg-black/5 dark:hover:bg-white/5 text-foreground/80 hover:text-foreground",
+    danger: "border border-red-500/25 dark:border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
   }[variant];
 
   return (

@@ -109,7 +109,7 @@ export default function FreelancerProfileDetailClientViewPage() {
         {/* Back link */}
         <Link
           href={`/project/${projectId}/candidates`}
-          className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Candidate Pool for {project.title}</span>
@@ -122,18 +122,18 @@ export default function FreelancerProfileDetailClientViewPage() {
               <img
                 src={freelancerUser.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"}
                 alt={freelancerUser.name}
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-white/10 shrink-0"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-black/10 dark:border-white/10 shrink-0"
               />
               <div className="space-y-1">
-                <h1 className="text-xl sm:text-2xl font-bold text-white">{freelancerUser.name}</h1>
-                <p className="text-xs sm:text-sm text-[#4DA2FF] font-medium">{profile.headline}</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">{freelancerUser.name}</h1>
+                <p className="text-xs sm:text-sm text-[#2563EB] dark:text-[#4DA2FF] font-medium">{profile.headline}</p>
                 <div className="flex items-center gap-3 pt-1 text-xs text-foreground/60">
-                  <span className="flex items-center gap-1 text-amber-400 font-mono font-semibold">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" />
+                  <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400 font-mono font-semibold">
+                    <Star className="w-3.5 h-3.5 fill-amber-500 dark:fill-amber-400" />
                     {profile.averageRating.toFixed(1)} ({profile.completedProjectsCount} projects)
                   </span>
                   <span>•</span>
-                  <span className="flex items-center gap-1 text-[#2DD4BF] font-mono">
+                  <span className="flex items-center gap-1 text-[#0D9488] dark:text-[#2DD4BF] font-mono">
                     <Clock className="w-3.5 h-3.5" />
                     {profile.onTimeDeliveryPct}% On-Time Delivery
                   </span>
@@ -142,7 +142,7 @@ export default function FreelancerProfileDetailClientViewPage() {
             </div>
 
             {/* Score Rings */}
-            <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-white/10 pt-4 sm:pt-0 sm:pl-6 shrink-0">
+            <div className="flex items-center gap-4 border-t sm:border-t-0 sm:border-l border-black/10 dark:border-white/10 pt-4 sm:pt-0 sm:pl-6 shrink-0">
               <div className="text-center">
                 <ScoreBadge score={profile.trustScore} type="trust" size="md" />
                 <span className="text-[10px] text-foreground/50 font-mono block mt-1">Trust Score</span>
@@ -151,7 +151,7 @@ export default function FreelancerProfileDetailClientViewPage() {
               {fromTab === "recommended" && (
                 <div className="text-center">
                   <ScoreBadge score={matchResult.matchScore} type="ai_match" size="md" />
-                  <span className="text-[10px] text-[#A78BFA] font-mono block mt-1">AI Match</span>
+                  <span className="text-[10px] text-[#7C3AED] dark:text-[#A78BFA] font-mono block mt-1">AI Match</span>
                 </div>
               )}
             </div>
@@ -159,8 +159,8 @@ export default function FreelancerProfileDetailClientViewPage() {
 
           {/* Application Cover Note if arrived from Application */}
           {fromTab === "applications" && existingApplication?.coverNote && (
-            <div className="p-4 rounded-2xl border border-white/10 bg-white/[0.03] space-y-1.5">
-              <span className="text-[11px] font-semibold text-[#4DA2FF] uppercase tracking-wider block">
+            <div className="p-4 rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] space-y-1.5">
+              <span className="text-[11px] font-semibold text-[#2563EB] dark:text-[#4DA2FF] uppercase tracking-wider block">
                 Freelancer's Application Cover Note
               </span>
               <p className="text-xs text-foreground/90 leading-relaxed italic">
@@ -173,11 +173,11 @@ export default function FreelancerProfileDetailClientViewPage() {
           {fromTab === "recommended" && (
             <div className="p-4 rounded-2xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#A78BFA]">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#7C3AED] dark:text-[#A78BFA]">
                   <Sparkles className="w-4 h-4" />
                   <span>GONKA AI MATCH REASONING FOR THIS PROJECT</span>
                 </div>
-                <span className="text-[10px] font-mono text-[#A78BFA]/80">ID: {matchResult.requestId}</span>
+                <span className="text-[10px] font-mono text-[#7C3AED] dark:text-[#A78BFA]/80">ID: {matchResult.requestId}</span>
               </div>
               <p className="text-xs text-foreground/80 leading-relaxed">
                 {matchResult.reasoning}
@@ -207,11 +207,11 @@ export default function FreelancerProfileDetailClientViewPage() {
 
           {/* Portfolio Links */}
           {profile.portfolioLinks.length > 0 && (
-            <div className="space-y-3 pt-2 border-t border-white/5">
+            <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
               <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center justify-between">
                 <span>Verified Portfolio Artifacts</span>
                 {profile.isGithubVerified && (
-                  <span className="text-[10px] text-[#2DD4BF] font-mono font-normal">
+                  <span className="text-[10px] text-[#0D9488] dark:text-[#2DD4BF] font-mono font-normal">
                     GitHub Profile Verified ✓ (@{profile.githubUsername || "alex-rivera-dev"})
                   </span>
                 )}
@@ -225,30 +225,30 @@ export default function FreelancerProfileDetailClientViewPage() {
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20 transition-all text-xs group"
+                      className="flex items-center justify-between p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:border-black/20 dark:hover:border-white/20 transition-all text-xs group"
                     >
                       <div className="flex items-center gap-2.5 overflow-hidden mr-2">
                         {isVerifiedRepo ? (
-                          <div className="p-1.5 rounded-lg bg-white/10 text-white shrink-0">
-                            <Globe className="w-3.5 h-3.5 text-[#2DD4BF]" />
+                          <div className="p-1.5 rounded-lg bg-black/5 dark:bg-white/10 text-foreground dark:text-white shrink-0">
+                            <Globe className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
                           </div>
                         ) : (
-                          <div className="p-1.5 rounded-lg bg-white/5 text-foreground/60 shrink-0">
-                            <Globe className="w-3.5 h-3.5 text-[#4DA2FF]" />
+                          <div className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 text-foreground/60 shrink-0">
+                            <Globe className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF]" />
                           </div>
                         )}
                         <div className="truncate">
-                          <span className="font-semibold text-white group-hover:text-[#4DA2FF] transition-colors truncate block">
+                          <span className="font-semibold text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors truncate block">
                             {link.title}
                           </span>
                           {isVerifiedRepo && (
-                            <span className="text-[10px] text-[#2DD4BF] font-mono block">
+                            <span className="text-[10px] text-[#0D9488] dark:text-[#2DD4BF] font-mono block">
                               GitHub Verified ✓ {link.primaryLanguage ? `• ${link.primaryLanguage}` : ""}
                             </span>
                           )}
                         </div>
                       </div>
-                      <ExternalLink className="w-3.5 h-3.5 text-foreground/40 group-hover:text-white transition-colors shrink-0" />
+                      <ExternalLink className="w-3.5 h-3.5 text-foreground/40 group-hover:text-foreground transition-colors shrink-0" />
                     </a>
                   );
                 })}
@@ -258,22 +258,22 @@ export default function FreelancerProfileDetailClientViewPage() {
 
           {/* Ratings & Client Feedback */}
           {freelancerRatings.length > 0 && (
-            <div className="space-y-3 pt-2 border-t border-white/5">
+            <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
               <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
                 Client Reviews on TrustHire
               </h3>
               <div className="space-y-2">
                 {freelancerRatings.map((r, idx) => (
-                  <div key={idx} className="p-3.5 rounded-xl border border-white/5 bg-white/[0.01] space-y-1.5 text-xs">
+                  <div key={idx} className="p-3.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] space-y-1.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-amber-400 font-mono font-semibold">
+                      <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400 font-mono font-semibold">
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-3 h-3 ${i < r.stars ? "fill-amber-400 text-amber-400" : "text-white/20"}`}
+                            className={`w-3 h-3 ${i < r.stars ? "fill-amber-500 dark:fill-amber-400 text-amber-500 dark:text-amber-400" : "text-black/20 dark:text-white/20"}`}
                           />
                         ))}
-                        <span className="ml-1 text-white">{r.stars}.0</span>
+                        <span className="ml-1 text-foreground">{r.stars}.0</span>
                       </div>
                       <span className="text-[10px] text-foreground/40 font-mono">
                         {new Date(r.ratedAt).toLocaleDateString()}

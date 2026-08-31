@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -16,11 +16,11 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    default: "bg-[#151622]/90 dark:bg-[#151622]/90 border border-white/10 shadow-glass",
-    "accent-ai": "bg-[#151622]/90 border-l-4 border-l-[#8B5CF6] border-y border-r border-white/10 shadow-ai-glow/20",
-    "accent-trust": "bg-[#151622]/90 border-l-4 border-l-[#2DD4BF] border-y border-r border-white/10 shadow-trust-glow/20",
-    subtle: "bg-white/[0.03] border border-white/5",
-    interactive: "bg-[#151622]/80 border border-white/10 hover:border-white/20 hover:bg-[#151622] cursor-pointer transition-all duration-200"
+    default: "bg-white dark:bg-[#151622]/90 border border-black/[0.08] dark:border-white/10 shadow-sm dark:shadow-glass text-foreground",
+    "accent-ai": "bg-white dark:bg-[#151622]/90 border-l-4 border-l-[#8B5CF6] border-y border-r border-black/[0.08] dark:border-white/10 shadow-sm dark:shadow-ai-glow/20 text-foreground",
+    "accent-trust": "bg-white dark:bg-[#151622]/90 border-l-4 border-l-[#2DD4BF] border-y border-r border-black/[0.08] dark:border-white/10 shadow-sm dark:shadow-trust-glow/20 text-foreground",
+    subtle: "bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5 text-foreground",
+    interactive: "bg-white/80 dark:bg-[#151622]/80 border border-black/[0.08] dark:border-white/10 hover:border-black/20 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#151622] cursor-pointer transition-all duration-200 text-foreground"
   }[variant];
 
   return (
