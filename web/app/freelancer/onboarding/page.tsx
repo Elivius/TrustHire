@@ -27,12 +27,14 @@ import { SkillChip } from "@/components/ui/skill-chip";
 import { simulateTrustScoreCalculation, simulateGithubRepoDiscovery } from "@/lib/simulation";
 import { clsx } from "clsx";
 
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+
 export default function FreelancerOnboardingPage() {
   const router = useRouter();
   const { currentUser, updateFreelancerProfile, connectWallet, addRoleToUser } = useApp();
 
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(currentUser.name || "Marcus Vance");
+  const [name, setName] = useState(currentUser.name || "Alex Rivera");
   const [headline, setHeadline] = useState("Senior Full-Stack & Move Developer");
   const [bio, setBio] = useState("Specialized in Sui Move smart contract design, TypeScript SDK integration, and high-performance React frontends.");
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80");
@@ -172,7 +174,7 @@ export default function FreelancerOnboardingPage() {
   // Full Screen Transition during Trust Score Calculation
   if (isCalculatingScore) {
     return (
-      <div className="min-h-screen bg-[#0B0B12] text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-bg-base text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-200">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#8B5CF6]/20 via-[#4DA2FF]/20 to-[#2DD4BF]/20 blur-[130px] rounded-full" />
 
         <div className="max-w-md w-full text-center space-y-6 relative z-10">
@@ -181,7 +183,7 @@ export default function FreelancerOnboardingPage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-white tracking-tight">
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">
               Gonka AI is calculating your Trust Score…
             </h2>
             <p className="text-xs sm:text-sm text-foreground/60 leading-relaxed font-mono">
@@ -189,7 +191,7 @@ export default function FreelancerOnboardingPage() {
             </p>
           </div>
 
-          <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+          <div className="w-full bg-black/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-[#8B5CF6] via-[#4DA2FF] to-[#2DD4BF] w-full animate-pulse" />
           </div>
         </div>
@@ -198,13 +200,18 @@ export default function FreelancerOnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0B12] text-foreground flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-bg-base text-foreground flex flex-col items-center justify-center p-4 relative transition-colors duration-200">
+      {/* Top right controls */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
+
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[400px] bg-gradient-to-tr from-[#8B5CF6]/15 via-[#4DA2FF]/15 to-[#2DD4BF]/15 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="w-full max-w-xl mx-auto space-y-6 relative z-10">
         {/* Step Indicator */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-[#A78BFA]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/5 text-xs text-[#7C3AED] dark:text-[#A78BFA]">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Freelancer Setup • Step {step} of 4</span>
           </div>
@@ -214,7 +221,7 @@ export default function FreelancerOnboardingPage() {
                 key={s}
                 className={clsx(
                   "h-1.5 flex-1 rounded-full transition-all duration-300",
-                  s <= step ? "bg-gradient-to-r from-[#8B5CF6] to-[#2DD4BF]" : "bg-white/10"
+                  s <= step ? "bg-gradient-to-r from-[#8B5CF6] to-[#2DD4BF]" : "bg-black/10 dark:bg-white/10"
                 )}
               />
             ))}
@@ -222,12 +229,12 @@ export default function FreelancerOnboardingPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/10 bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div className="rounded-3xl border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-xl dark:shadow-2xl space-y-6">
           {/* Step 1: Basic Info */}
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Your Developer Profile</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Your Developer Profile</h2>
                 <p className="text-xs text-foreground/60">Introduce your skills and experience to potential clients.</p>
               </div>
 
@@ -235,7 +242,7 @@ export default function FreelancerOnboardingPage() {
                 <img
                   src={avatarUrl}
                   alt="Avatar preview"
-                  className="w-16 h-16 rounded-2xl object-cover border border-white/10"
+                  className="w-16 h-16 rounded-2xl object-cover border border-black/10 dark:border-white/10"
                 />
                 <div>
                   <button
@@ -244,7 +251,7 @@ export default function FreelancerOnboardingPage() {
                       const seed = Math.floor(Math.random() * 1000);
                       setAvatarUrl(`https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80&sig=${seed}`);
                     }}
-                    className="text-xs font-medium text-[#4DA2FF] hover:underline flex items-center gap-1.5"
+                    className="text-xs font-medium text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1.5"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Change avatar photo</span>
@@ -260,7 +267,7 @@ export default function FreelancerOnboardingPage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                   />
                 </div>
 
@@ -270,7 +277,7 @@ export default function FreelancerOnboardingPage() {
                     type="text"
                     value={headline}
                     onChange={(e) => setHeadline(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                     placeholder="e.g. Senior Sui Move & Full-Stack Developer"
                   />
                 </div>
@@ -285,7 +292,7 @@ export default function FreelancerOnboardingPage() {
                     maxLength={350}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
                   />
                 </div>
               </div>
@@ -306,7 +313,7 @@ export default function FreelancerOnboardingPage() {
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Skills & Technical Expertise</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Skills & Technical Expertise</h2>
                 <p className="text-xs text-foreground/60">Add at least 3 skills so Gonka AI can match you with the right projects.</p>
               </div>
 
@@ -314,7 +321,7 @@ export default function FreelancerOnboardingPage() {
                 <label className="block text-xs font-medium text-foreground/80 mb-2">
                   Skills & Frameworks (min. 3 required)
                 </label>
-                <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-white/10 bg-white/[0.02] min-h-[50px]">
+                <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] min-h-[50px]">
                   {skills.map((s) => (
                     <SkillChip key={s} label={s} onRemove={() => handleRemoveSkill(s)} />
                   ))}
@@ -324,7 +331,7 @@ export default function FreelancerOnboardingPage() {
                     onChange={(e) => setNewSkillInput(e.target.value)}
                     onKeyDown={handleAddSkill}
                     placeholder="+ Add skill & Enter"
-                    className="text-xs bg-transparent text-white focus:outline-none px-2 py-1 min-w-[130px]"
+                    className="text-xs bg-transparent text-foreground focus:outline-none px-2 py-1 min-w-[130px]"
                   />
                 </div>
                 {skills.length < 3 && (
@@ -345,8 +352,8 @@ export default function FreelancerOnboardingPage() {
                       className={clsx(
                         "py-3 px-3 rounded-xl border text-xs font-semibold transition-all",
                         experienceLevel === lvl
-                          ? "border-[#7B61FF] bg-[#7B61FF]/15 text-white shadow-sm"
-                          : "border-white/10 bg-white/[0.03] text-foreground/70 hover:border-white/20"
+                          ? "border-[#7B61FF] bg-[#7B61FF]/15 text-[#7C3AED] dark:text-white shadow-sm"
+                          : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-foreground/70 hover:border-black/20 dark:hover:border-white/20"
                       )}
                     >
                       {lvl}
@@ -374,27 +381,27 @@ export default function FreelancerOnboardingPage() {
           {step === 3 && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Portfolio & Verified Code Proof</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Portfolio & Verified Code Proof</h2>
                 <p className="text-xs text-foreground/60">
                   Connect your GitHub profile so Gonka AI can verify your repository ownership, commit signatures, and tech stack.
                 </p>
               </div>
 
               {/* GitHub OAuth Verification Card */}
-              <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+              <div className="p-5 rounded-2xl border border-black/[0.08] dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-white/10 text-white">
+                    <div className="p-2 rounded-xl bg-black/5 dark:bg-white/10 text-foreground">
                       <Github className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-white">GitHub Account Verification</h3>
+                      <h3 className="text-sm font-semibold text-foreground">GitHub Account Verification</h3>
                       <p className="text-[11px] text-foreground/50">Autonomous commit signature & ownership verification</p>
                     </div>
                   </div>
 
                   {isGithubConnected && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/30 font-mono">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/30 font-mono">
                       <Check className="w-3 h-3" /> GitHub Verified
                     </span>
                   )}
@@ -409,7 +416,7 @@ export default function FreelancerOnboardingPage() {
                         value={githubUsername}
                         onChange={(e) => setGithubUsername(e.target.value)}
                         placeholder="username"
-                        className="flex-1 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                        className="flex-1 px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] text-xs text-foreground focus:outline-none focus:border-[#7B61FF]"
                       />
                     </div>
 
@@ -423,13 +430,13 @@ export default function FreelancerOnboardingPage() {
                     </GradientButton>
                   </div>
                 ) : (
-                  <div className="space-y-3 pt-2 border-t border-white/5">
+                  <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-foreground/70">Connected as <strong className="text-white">@{githubUsername}</strong></span>
+                      <span className="text-foreground/70">Connected as <strong className="text-foreground">@{githubUsername}</strong></span>
                       <button
                         type="button"
                         onClick={handleConnectGithub}
-                        className="text-[11px] text-[#4DA2FF] hover:underline flex items-center gap-1"
+                        className="text-[11px] text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1"
                       >
                         <RefreshCw className="w-3 h-3" /> Rescan Repos
                       </button>
@@ -437,15 +444,15 @@ export default function FreelancerOnboardingPage() {
 
                     {/* Auto-discovered Verified Repos */}
                     <div className="space-y-2">
-                      <span className="text-[11px] font-mono text-[#2DD4BF] block font-semibold">
+                      <span className="text-[11px] font-mono text-[#0D9488] dark:text-[#2DD4BF] block font-semibold">
                         Gonka AI Auto-Discovered & Verified Repositories ({verifiedRepos.length}):
                       </span>
                       {verifiedRepos.map((repo, idx) => (
-                        <div key={idx} className="p-3 rounded-xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 flex items-center justify-between gap-2 text-xs">
+                        <div key={idx} className="p-3 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 flex items-center justify-between gap-2 text-xs">
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-white">{repo.repositoryName}</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-foreground/80 font-mono">
+                              <span className="font-semibold text-foreground">{repo.repositoryName}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 text-foreground/80 font-mono">
                                 {repo.primaryLanguage}
                               </span>
                             </div>
@@ -453,7 +460,7 @@ export default function FreelancerOnboardingPage() {
                               Verified Contributor • {repo.commitsCount} commits signed
                             </p>
                           </div>
-                          <span className="text-[10px] font-mono text-[#2DD4BF] bg-[#2DD4BF]/15 px-2 py-1 rounded-md shrink-0 font-semibold">
+                          <span className="text-[10px] font-mono text-[#0D9488] dark:text-[#2DD4BF] bg-[#2DD4BF]/15 px-2 py-1 rounded-md shrink-0 font-semibold">
                             Verified ✓
                           </span>
                         </div>
@@ -479,14 +486,14 @@ export default function FreelancerOnboardingPage() {
                       value={item.title}
                       onChange={(e) => handleUpdateCustomLink(idx, "title", e.target.value)}
                       placeholder="Title (e.g. Live DApp Demo)"
-                      className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                      className="w-1/2 px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#7B61FF]"
                     />
                     <input
                       type="url"
                       value={item.url}
                       onChange={(e) => handleUpdateCustomLink(idx, "url", e.target.value)}
                       placeholder="https://..."
-                      className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                      className="w-1/2 px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#7B61FF]"
                     />
                     <button
                       type="button"
@@ -501,7 +508,7 @@ export default function FreelancerOnboardingPage() {
                 <button
                   type="button"
                   onClick={handleAddCustomLink}
-                  className="text-xs text-[#4DA2FF] hover:underline flex items-center gap-1 pt-1"
+                  className="text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1 pt-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add custom link</span>
@@ -532,17 +539,17 @@ export default function FreelancerOnboardingPage() {
           {step === 4 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Connect Payout Wallet</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Connect Payout Wallet</h2>
                 <p className="text-xs text-foreground/60">Connect your Sui address to receive direct milestone releases.</p>
               </div>
 
-              <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+              <div className="p-5 rounded-2xl border border-black/[0.08] dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#2DD4BF]/10 text-[#2DD4BF] shrink-0">
+                  <div className="p-2.5 rounded-xl bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] shrink-0">
                     <ShieldCheck className="w-5 h-5" />
                   </div>
                   <div className="space-y-1 text-xs text-foreground/75 leading-relaxed">
-                    <p className="font-semibold text-white">Direct Non-Custodial Releases</p>
+                    <p className="font-semibold text-foreground">Direct Non-Custodial Releases</p>
                     <p>
                       Payments are released directly to this address the moment a client approves your milestone — no platform holding period.
                     </p>
@@ -553,11 +560,11 @@ export default function FreelancerOnboardingPage() {
                   {currentUser.walletAddress ? (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#2DD4BF]" />
-                        <span className="text-xs font-semibold text-white">Payout Address:</span>
-                        <span className="font-mono text-xs text-[#2DD4BF]">{currentUser.walletAddress}</span>
+                        <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+                        <span className="text-xs font-semibold text-foreground">Payout Address:</span>
+                        <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF]">{currentUser.walletAddress}</span>
                       </div>
-                      <span className="text-[11px] text-[#2DD4BF] font-medium font-sans">Sui Testnet</span>
+                      <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-medium font-sans">Sui Testnet</span>
                     </div>
                   ) : (
                     <div className="text-center py-4 space-y-3">

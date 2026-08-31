@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Check, Clock, Edit3, AlertCircle, Circle } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -49,7 +49,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
       case "pending":
       default:
         return (
-          <div className="w-7 h-7 rounded-full border border-white/20 bg-white/5 text-foreground/40 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full border border-black/15 dark:border-white/20 bg-black/5 dark:bg-white/5 text-foreground/40 flex items-center justify-center">
             <Circle className="w-2.5 h-2.5 fill-current opacity-40" />
           </div>
         );
@@ -59,15 +59,15 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
   const getStatusLabel = (status: MilestoneStatus) => {
     switch (status) {
       case "released":
-        return <span className="text-[#10B981] font-medium">Released & Paid</span>;
+        return <span className="text-[#0D9488] dark:text-[#10B981] font-medium">Released & Paid</span>;
       case "approved":
-        return <span className="text-[#10B981] font-medium">Approved</span>;
+        return <span className="text-[#0D9488] dark:text-[#10B981] font-medium">Approved</span>;
       case "submitted":
-        return <span className="text-[#F59E0B] font-medium">Submitted for Review</span>;
+        return <span className="text-[#D97706] dark:text-[#F59E0B] font-medium">Submitted for Review</span>;
       case "changes_requested":
-        return <span className="text-[#F59E0B] font-medium">Changes Requested</span>;
+        return <span className="text-[#D97706] dark:text-[#F59E0B] font-medium">Changes Requested</span>;
       case "disputed":
-        return <span className="text-red-400 font-medium">Disputed</span>;
+        return <span className="text-red-500 dark:text-red-400 font-medium">Disputed</span>;
       case "pending":
       default:
         return <span className="text-foreground/50">Upcoming</span>;
@@ -87,7 +87,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               </div>
             </div>
             {idx < milestones.length - 1 && (
-              <div className="w-6 h-0.5 bg-white/10 mx-1" />
+              <div className="w-6 h-0.5 bg-black/10 dark:bg-white/10 mx-1" />
             )}
           </div>
         ))}
@@ -96,7 +96,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
   }
 
   return (
-    <div className={twMerge(clsx("space-y-4", className))}>
+    <div className={twMerge(clsx("space-y-3", className))}>
       {milestones.map((m, idx) => {
         const isSelected = activeMilestoneId === m.id;
         const isClickable = !!onSelectMilestone;
@@ -108,8 +108,8 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
             className={clsx(
               "relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all duration-200",
               isSelected
-                ? "border-[#7B61FF]/60 bg-[#7B61FF]/[0.08]"
-                : "border-white/5 bg-white/[0.02] hover:bg-white/[0.05]",
+                ? "border-[#7B61FF]/60 bg-[#7B61FF]/[0.08] shadow-sm"
+                : "border-black/10 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] hover:border-black/20 dark:hover:border-white/15 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:shadow-none",
               isClickable && "cursor-pointer"
             )}
           >
@@ -127,7 +127,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               <p className="text-xs text-foreground/60 line-clamp-2 mb-2 leading-relaxed">
                 {m.deliverable}
               </p>
-              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+              <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 dark:border-white/5">
                 <div>{getStatusLabel(m.status)}</div>
                 <div className="text-foreground/40 font-mono">
                   Due {new Date(m.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}

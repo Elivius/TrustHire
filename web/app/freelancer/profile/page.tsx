@@ -121,7 +121,7 @@ export default function FreelancerProfilePage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
               My Profile & Trust Score
             </h1>
             <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -141,7 +141,7 @@ export default function FreelancerProfilePage() {
         {/* Edit Mode View */}
         {isEditMode ? (
           <GlassCard className="p-6 sm:p-8 space-y-6">
-            <h2 className="text-lg font-bold text-white">Edit Profile Details</h2>
+            <h2 className="text-lg font-bold text-foreground">Edit Profile Details</h2>
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -150,7 +150,7 @@ export default function FreelancerProfilePage() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                   />
                 </div>
 
@@ -160,7 +160,7 @@ export default function FreelancerProfilePage() {
                     type="text"
                     value={editHeadline}
                     onChange={(e) => setEditHeadline(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                   />
                 </div>
               </div>
@@ -171,14 +171,14 @@ export default function FreelancerProfilePage() {
                   rows={4}
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
                 />
               </div>
 
               {/* Skills */}
               <div>
                 <label className="block text-xs font-semibold text-foreground/80 mb-1.5">Skills</label>
-                <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/[0.02]">
+                <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
                   {editSkills.map((s) => (
                     <SkillChip key={s} label={s} onRemove={() => setEditSkills(editSkills.filter((x) => x !== s))} />
                   ))}
@@ -188,7 +188,7 @@ export default function FreelancerProfilePage() {
                     onChange={(e) => setNewSkill(e.target.value)}
                     onKeyDown={handleAddSkill}
                     placeholder="+ Add skill & Enter"
-                    className="text-xs bg-transparent text-white focus:outline-none px-2 py-1 min-w-[120px]"
+                    className="text-xs bg-transparent text-foreground focus:outline-none px-2 py-1 min-w-[120px]"
                   />
                 </div>
               </div>
@@ -208,7 +208,7 @@ export default function FreelancerProfilePage() {
                           setEditPortfolio(updated);
                         }}
                         placeholder="Title"
-                        className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                        className="w-1/2 px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#7B61FF]"
                       />
                       <input
                         type="url"
@@ -219,12 +219,12 @@ export default function FreelancerProfilePage() {
                           setEditPortfolio(updated);
                         }}
                         placeholder="URL"
-                        className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                        className="w-1/2 px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#7B61FF]"
                       />
                       <button
                         type="button"
                         onClick={() => setEditPortfolio(editPortfolio.filter((_, i) => i !== idx))}
-                        className="p-1 text-foreground/40 hover:text-red-400"
+                        className="p-1 text-foreground/40 hover:text-red-500 dark:hover:text-red-400"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -233,7 +233,7 @@ export default function FreelancerProfilePage() {
                   <button
                     type="button"
                     onClick={() => setEditPortfolio([...editPortfolio, { title: "", url: "" }])}
-                    className="text-xs text-[#4DA2FF] hover:underline flex items-center gap-1"
+                    className="text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Link</span>
@@ -241,7 +241,7 @@ export default function FreelancerProfilePage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-black/10 dark:border-white/10">
                 <GhostButton onClick={() => setIsEditMode(false)}>Cancel</GhostButton>
                 <GradientButton type="submit" loading={isSaving} icon={<Sparkles className="w-4 h-4 ml-1" />}>
                   {isSaving ? "Recalculating Trust Score…" : "Save & Recalculate Trust Score"}
@@ -259,12 +259,12 @@ export default function FreelancerProfilePage() {
                   <img
                     src={currentUser.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"}
                     alt={currentUser.name}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl object-cover border border-white/10 shadow-lg"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl object-cover border border-black/10 dark:border-white/10 shadow-lg"
                   />
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white">{currentUser.name}</h2>
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 font-mono text-foreground/70">
+                      <h2 className="text-xl sm:text-2xl font-bold text-foreground">{currentUser.name}</h2>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 font-mono text-foreground/70">
                         {profile.experienceLevel}
                       </span>
                     </div>
@@ -276,7 +276,7 @@ export default function FreelancerProfilePage() {
                   </div>
                 </div>
 
-                <div className="text-[11px] font-mono text-foreground/45 bg-black/20 px-3 py-1.5 rounded-xl border border-white/5 self-start">
+                <div className="text-[11px] font-mono text-foreground/60 bg-black/[0.03] dark:bg-black/20 px-3 py-1.5 rounded-xl border border-black/5 dark:border-white/5 self-start">
                   Payout: {currentUser.walletAddress || "0x8e3b22...4c19"}
                 </div>
               </div>
@@ -284,7 +284,7 @@ export default function FreelancerProfilePage() {
               {/* Expandable Trust Score Breakdown Block */}
               <div className="rounded-2xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/[0.05] p-5 space-y-4 backdrop-blur-md">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#2DD4BF] font-semibold text-xs uppercase tracking-wider">
+                  <div className="flex items-center gap-2 text-[#0D9488] dark:text-[#2DD4BF] font-semibold text-xs uppercase tracking-wider">
                     <ShieldCheck className="w-4 h-4" />
                     <span>Gonka Trust Score Breakdown ({profile.trustScore}/100)</span>
                   </div>
@@ -292,7 +292,7 @@ export default function FreelancerProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowBreakdown(!showBreakdown)}
-                    className="text-xs text-[#2DD4BF] hover:underline flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-[#0D9488] dark:text-[#2DD4BF] hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>{showBreakdown ? "Hide details" : "Show details"}</span>
                     {showBreakdown ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -303,14 +303,14 @@ export default function FreelancerProfilePage() {
                   <div className="space-y-3 pt-2 border-t border-[#2DD4BF]/20">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                       {profile.trustScoreReasoning.map((item, idx) => (
-                        <div key={idx} className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                          <span className="font-semibold text-white block">{item.label}</span>
+                        <div key={idx} className="p-3 rounded-xl bg-black/[0.03] dark:bg-black/20 border border-black/5 dark:border-white/5 space-y-1">
+                          <span className="font-semibold text-foreground block">{item.label}</span>
                           <p className="text-foreground/70 leading-relaxed text-[11px]">{item.note}</p>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-foreground/50 font-mono pt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between text-[11px] text-foreground/50 font-mono pt-2 border-t border-black/5 dark:border-white/5">
                       <span>Confidence: {profile.trustScoreConfidence}</span>
                       <span>Request ID: {profile.trustScoreRequestId}</span>
                     </div>
@@ -319,7 +319,7 @@ export default function FreelancerProfilePage() {
               </div>
 
               {/* Bio */}
-              <div className="space-y-2 pt-2 border-t border-white/5">
+              <div className="space-y-2 pt-2 border-t border-black/5 dark:border-white/5">
                 <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
                   About Me
                 </h3>
@@ -342,7 +342,7 @@ export default function FreelancerProfilePage() {
 
               {/* Portfolio */}
               {profile.portfolioLinks.length > 0 && (
-                <div className="space-y-3 pt-2 border-t border-white/5">
+                <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
                   <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
                     Portfolio & Code Samples
                   </h3>
@@ -353,15 +353,15 @@ export default function FreelancerProfilePage() {
                         href={link.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20 transition-all text-xs group"
+                        className="flex items-center justify-between p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:border-black/20 dark:hover:border-white/20 transition-all text-xs group"
                       >
                         <div className="flex items-center gap-2">
-                          <Globe className="w-4 h-4 text-[#4DA2FF]" />
-                          <span className="font-semibold text-white group-hover:text-[#4DA2FF] transition-colors">
+                          <Globe className="w-4 h-4 text-[#2563EB] dark:text-[#4DA2FF]" />
+                          <span className="font-semibold text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
                             {link.title}
                           </span>
                         </div>
-                        <ExternalLink className="w-3.5 h-3.5 text-foreground/40 group-hover:text-white transition-colors" />
+                        <ExternalLink className="w-3.5 h-3.5 text-foreground/40 group-hover:text-foreground transition-colors" />
                       </a>
                     ))}
                   </div>
@@ -369,7 +369,7 @@ export default function FreelancerProfilePage() {
               )}
 
               {/* Reputation Section */}
-              <div className="space-y-4 pt-4 border-t border-white/5">
+              <div className="space-y-4 pt-4 border-t border-black/5 dark:border-white/5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
                     On-Chain Reputation Record
@@ -377,9 +377,9 @@ export default function FreelancerProfilePage() {
                   <div className="flex items-center gap-4 text-xs font-mono text-foreground/60">
                     <span>{profile.completedProjectsCount} completed</span>
                     <span>•</span>
-                    <span className="text-[#2DD4BF]">{profile.onTimeDeliveryPct}% on-time</span>
+                    <span className="text-[#0D9488] dark:text-[#2DD4BF]">{profile.onTimeDeliveryPct}% on-time</span>
                     <span>•</span>
-                    <span className="text-amber-400">? {profile.averageRating}</span>
+                    <span className="text-amber-500 dark:text-amber-400">★ {profile.averageRating}</span>
                   </div>
                 </div>
 
@@ -388,10 +388,10 @@ export default function FreelancerProfilePage() {
                     myRatings.map((r, i) => (
                       <div
                         key={i}
-                        className="p-3.5 rounded-xl border border-white/5 bg-white/[0.02] space-y-1.5 text-xs"
+                        className="p-3.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.02] space-y-1.5 text-xs"
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1 text-[#2DD4BF]">
+                          <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
                             {[...Array(r.stars)].map((_, s) => (
                               <Star key={s} className="w-3.5 h-3.5 fill-current" />
                             ))}
@@ -404,7 +404,7 @@ export default function FreelancerProfilePage() {
                       </div>
                     ))
                   ) : (
-                    <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5 text-xs text-foreground/50 text-center">
+                    <div className="p-4 rounded-xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 text-xs text-foreground/50 text-center">
                       14 verified milestone delivery records secured on Sui smart contracts.
                     </div>
                   )}

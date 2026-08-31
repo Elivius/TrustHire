@@ -37,17 +37,17 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-3xl border border-red-500/30 bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5">
-        <div className="flex items-center gap-3 text-red-400">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-3xl border border-red-500/30 bg-white dark:bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5 transition-colors">
+        <div className="flex items-center gap-3 text-red-500 dark:text-red-400">
           <AlertTriangle className="w-6 h-6 shrink-0" />
           <div>
-            <h3 className="text-lg font-bold text-white">Flag Milestone Dispute</h3>
+            <h3 className="text-lg font-bold text-foreground">Flag Milestone Dispute</h3>
             <p className="text-xs text-foreground/60">Milestone: {milestone.title}</p>
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 space-y-1 leading-relaxed">
+        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-300 space-y-1 leading-relaxed">
           <p className="font-semibold">Notice before escalating:</p>
           <p>
             This will lock the milestone for manual review. Only use this if you and the freelancer cannot resolve the deliverables directly.
@@ -63,7 +63,7 @@ export const DisputeModal: React.FC<DisputeModalProps> = ({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Describe the unresolvable issue or violation..."
-            className="w-full p-3.5 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-red-400 resize-none leading-relaxed"
+            className="w-full p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-red-400 resize-none leading-relaxed"
           />
         </div>
 

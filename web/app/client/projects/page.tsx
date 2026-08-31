@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -66,7 +66,7 @@ export default function ClientProjectsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
               My Projects
             </h1>
             <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -108,12 +108,12 @@ export default function ClientProjectsPage() {
                   className={clsx(
                     "px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5",
                     selectedFilter === tab.key
-                      ? "bg-white/15 text-white border border-white/20 shadow-sm"
-                      : "text-foreground/60 hover:text-white hover:bg-white/5 border border-transparent"
+                      ? "bg-black/10 dark:bg-white/15 text-foreground dark:text-white border border-black/15 dark:border-white/20 shadow-sm"
+                      : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 border border-transparent"
                   )}
                 >
                   <span>{tab.label}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-white/10 opacity-80">
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 opacity-80">
                     {count}
                   </span>
                 </button>
@@ -129,7 +129,7 @@ export default function ClientProjectsPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-white/10 bg-white/[0.03] text-white focus:outline-none focus:border-[#4DA2FF]"
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-foreground focus:outline-none focus:border-[#4DA2FF]"
             />
           </div>
         </div>
@@ -165,12 +165,12 @@ export default function ClientProjectsPage() {
                 <div
                   key={project.id}
                   onClick={() => handleRowClick(project)}
-                  className="p-4 sm:p-5 rounded-2xl border border-white/10 bg-[#151622]/80 hover:bg-[#151622] hover:border-[#4DA2FF]/40 cursor-pointer transition-all duration-200 backdrop-blur-md group"
+                  className="p-4 sm:p-5 rounded-2xl border border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#151622]/80 hover:bg-white dark:hover:bg-[#151622] hover:border-[#4DA2FF]/40 cursor-pointer transition-all duration-200 backdrop-blur-md group shadow-sm dark:shadow-none"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <h3 className="text-base font-semibold text-white group-hover:text-[#4DA2FF] transition-colors">
+                        <h3 className="text-base font-semibold text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
                           {project.title}
                         </h3>
                         <StatusBadge status={project.status} />
@@ -181,7 +181,7 @@ export default function ClientProjectsPage() {
                       </p>
 
                       <div className="flex items-center gap-4 text-xs font-mono text-foreground/50 pt-1 flex-wrap">
-                        <span className="text-white font-semibold">
+                        <span className="text-foreground font-semibold">
                           ${project.estimatedBudget.toLocaleString()} <span className="text-[10px] text-foreground/50 font-normal">USDC</span>
                         </span>
                         <span>•</span>

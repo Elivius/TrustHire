@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { TopNav } from "@/components/layout/top-nav";
@@ -6,7 +6,7 @@ import { SidebarNav } from "@/components/layout/sidebar-nav";
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-[#0B0B12] text-foreground">
+    <div className="min-h-screen flex flex-col bg-bg-base text-foreground transition-colors duration-200">
       <TopNav />
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
         <SidebarNav />

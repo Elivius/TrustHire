@@ -47,7 +47,7 @@ export default function FreelancerApplicationsPage() {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Applications & Invitations
           </h1>
           <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -56,20 +56,20 @@ export default function FreelancerApplicationsPage() {
         </div>
 
         {/* 3 Tabs */}
-        <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+        <div className="flex items-center gap-2 border-b border-black/10 dark:border-white/10 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab("applications")}
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "applications"
-                ? "bg-[#4DA2FF]/20 text-[#4DA2FF] border border-[#4DA2FF]/40 shadow-sm"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-[#4DA2FF]/20 text-[#2563EB] dark:text-[#4DA2FF] border border-[#4DA2FF]/40 shadow-sm"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
             <FileCheck2 className="w-4 h-4" />
             <span>Applications</span>
-            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-white/10">
+            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-foreground">
               {myApplications.length}
             </span>
           </button>
@@ -80,8 +80,8 @@ export default function FreelancerApplicationsPage() {
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "invitations"
-                ? "bg-[#7B61FF]/20 text-[#A78BFA] border border-[#7B61FF]/40 shadow-sm"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-[#7B61FF]/20 text-[#7C3AED] dark:text-[#A78BFA] border border-[#7B61FF]/40 shadow-sm"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
             <Send className="w-4 h-4" />
@@ -99,13 +99,13 @@ export default function FreelancerApplicationsPage() {
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "saved"
-                ? "bg-[#2DD4BF]/20 text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-[#2DD4BF]/20 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/40 shadow-sm"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
             <Bookmark className="w-4 h-4" />
             <span>Saved Projects</span>
-            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-white/10">
+            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-foreground">
               {mySaved.length}
             </span>
           </button>
@@ -137,7 +137,7 @@ export default function FreelancerApplicationsPage() {
                       <div className="space-y-1.5 flex-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
                           <Link href={`/project/${proj.id}`}>
-                            <h3 className="font-semibold text-base text-white hover:text-[#4DA2FF] transition-colors">
+                            <h3 className="font-semibold text-base text-foreground hover:text-[#2563EB] dark:hover:text-[#4DA2FF] transition-colors">
                               {proj.title}
                             </h3>
                           </Link>
@@ -145,7 +145,7 @@ export default function FreelancerApplicationsPage() {
                         </div>
 
                         <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono">
-                          <span className="text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
@@ -202,12 +202,12 @@ export default function FreelancerApplicationsPage() {
                             <img
                               src={clientUser.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
                               alt={clientUser.name}
-                              className="w-11 h-11 rounded-xl object-cover border border-white/10"
+                              className="w-11 h-11 rounded-xl object-cover border border-black/10 dark:border-white/10"
                             />
                           )}
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-bold text-base text-white">{proj.title}</h3>
+                              <h3 className="font-bold text-base text-foreground">{proj.title}</h3>
                               <StatusBadge status={inv.status} />
                             </div>
                             <p className="text-xs text-foreground/70">
@@ -277,20 +277,20 @@ export default function FreelancerApplicationsPage() {
                     <GlassCard key={item.projectId} className="p-5 space-y-3 flex flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-bold text-sm sm:text-base text-white line-clamp-1">
+                          <h3 className="font-bold text-sm sm:text-base text-foreground line-clamp-1">
                             {proj.title}
                           </h3>
                           <button
                             type="button"
                             onClick={() => toggleSaveProject(currentUser.id, proj.id)}
-                            className="text-foreground/40 hover:text-red-400 p-1"
+                            className="text-foreground/40 hover:text-red-500 dark:hover:text-red-400 p-1"
                             title="Remove bookmark"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
-                        <div className="text-xs font-mono text-[#2DD4BF] font-semibold">
+                        <div className="text-xs font-mono text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
                           ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
                         </div>
 
@@ -299,7 +299,7 @@ export default function FreelancerApplicationsPage() {
                         </p>
                       </div>
 
-                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <div className="pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
                         <span className="text-[10px] text-foreground/45 font-mono">
                           Saved {new Date(item.savedAt).toLocaleDateString()}
                         </span>
