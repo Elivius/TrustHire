@@ -5,6 +5,7 @@ export type GonkaModel =
 
 export type VerificationVerdict =
   | "TRUE"
+  | "PARTIAL"
   | "FALSE"
   | "UNCERTAIN";
 
@@ -31,6 +32,8 @@ export interface ConsensusResult {
 
   agreementCount: number;
   totalModels: number;
+
+  hasConflict: boolean;
 
   reasoning: string;
 

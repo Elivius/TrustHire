@@ -229,11 +229,33 @@ async function runModel(
 export async function verifyWithAllModels(
   input: RunVerificationInput,
 ): Promise<ModelVerificationResult[]> {
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     GONKA_MODELS.map((model) =>
       runModel(model, input),
     ),
   );
 
-  return results;
+  const successfulResults: ModelVerificationResult[] = [];
+
+  results.forEach((result, index) => {
+    const model = GONKA_MODELS[index];
+
+    if (result.status === "fulfilled") {
+      successfulResults.push(result.value);
+    } else {
+      console.error(
+        `Gonka model failed: ${model}`,
+      );
+      console.error(result.reason);
+    }
+  });
+
+  if (successfulResults.length < 2) {
+    throw new Error(
+      `Not enough successful Gonka models for consensus. ` +
+      `Only ${successfulResults.length} model(s) responded.`,
+    );
+  }
+
+  return successfulResults;
 }
