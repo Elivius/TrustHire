@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -82,12 +82,12 @@ export const TopNav: React.FC = () => {
               type="button"
               onClick={handleToggleRole}
               className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-foreground/90 transition-all ml-4"
-              title="Click to toggle between Client and Freelancer views"
+              title="Click to switch between Client (Elena) and Freelancer (Alex) demo accounts"
             >
               <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B61FF]" />
-              <span>Viewing as:</span>
-              <span className="font-semibold capitalize text-[#2DD4BF]">
-                {activeRole}
+              <span>Demo Account:</span>
+              <span className="font-semibold text-[#2DD4BF]">
+                {activeRole === "client" ? "Elena Vance (Client)" : "Alex Rivera (Freelancer)"}
               </span>
             </button>
           </div>
@@ -146,10 +146,13 @@ export const TopNav: React.FC = () => {
                     className="fixed inset-0 z-40"
                     onClick={() => setProfileDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-white/10 bg-[#151622] p-2 text-xs shadow-2xl z-50 backdrop-blur-xl">
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-[#151622] p-2 text-xs shadow-2xl z-50 backdrop-blur-xl">
                     <div className="px-3 py-2 border-b border-white/5 mb-1">
                       <p className="font-semibold text-foreground truncate">{currentUser.name}</p>
                       <p className="text-foreground/50 truncate text-[11px]">{currentUser.email}</p>
+                      <span className="inline-block text-[10px] font-mono text-[#2DD4BF] mt-0.5">
+                        Active Role: {activeRole.toUpperCase()}
+                      </span>
                     </div>
 
                     <button
@@ -158,10 +161,12 @@ export const TopNav: React.FC = () => {
                         setProfileDropdownOpen(false);
                         handleToggleRole();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/80 hover:text-white hover:bg-white/5 text-left transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/90 hover:text-white hover:bg-white/5 text-left transition-colors font-medium"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B61FF]" />
-                      <span>Switch to {activeRole === "client" ? "Freelancer" : "Client"}</span>
+                      <span>
+                        Switch to {activeRole === "client" ? "Alex Rivera (Freelancer)" : "Elena Vance (Client)"}
+                      </span>
                     </button>
 
                     <Link

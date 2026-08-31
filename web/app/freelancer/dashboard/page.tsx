@@ -61,27 +61,22 @@ export default function FreelancerDashboardPage() {
       <div className="space-y-8 max-w-6xl mx-auto">
         {/* Header with Trust Score Badge */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <ScoreBadge score={profile.trustScore} type="trust" size="lg" showLabel={false} />
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Welcome back, {currentUser.name.split(" ")[0]}
+              </h1>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/30 font-semibold font-mono">
+                Trust Score: {profile.trustScore}/100
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  Welcome back, {currentUser.name.split(" ")[0]}
-                </h1>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/30 font-semibold font-mono">
-                  Trust Score: {profile.trustScore}/100
-                </span>
-              </div>
-              <Link
-                href="/freelancer/profile"
-                className="text-xs text-[#2DD4BF] hover:underline flex items-center gap-1 mt-0.5"
-              >
-                <span>View full Gonka AI trust score breakdown</span>
-                <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
+            <Link
+              href="/freelancer/profile"
+              className="text-xs text-[#2DD4BF] hover:underline flex items-center gap-1 mt-0.5"
+            >
+              <span>View full Gonka AI trust score breakdown</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
 
           <Link href="/freelancer/browse">
@@ -230,11 +225,6 @@ export default function FreelancerDashboardPage() {
                     <div className="text-xs font-mono text-[#2DD4BF] font-semibold">
                       ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
                     </div>
-
-                    <p className="text-xs text-foreground/75 line-clamp-2 leading-relaxed bg-white/[0.02] p-2.5 rounded-xl border border-white/5">
-                      <span className="text-[#A78BFA] font-semibold mr-1">AI Match:</span>
-                      {matchResult.reasoning}
-                    </p>
 
                     <div className="flex flex-wrap gap-1">
                       {proj.requiredSkills.slice(0, 3).map((s) => (

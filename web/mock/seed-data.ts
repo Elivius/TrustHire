@@ -1,4 +1,4 @@
-﻿import {
+import {
   User,
   ClientProfile,
   FreelancerProfile,
@@ -17,16 +17,16 @@ export const SEED_USERS: User[] = [
     id: "user-client-1",
     name: "Elena Vance",
     email: "elena@vanceholdings.xyz",
-    roles: ["client", "freelancer"],
+    roles: ["client"],
     walletAddress: "0x4f2a91...9a2c",
     avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
     companyName: "Nexus Web3 Labs"
   },
   {
     id: "user-free-1",
-    name: "Marcus Vance (Alex)",
-    email: "marcus.dev@trusthire.io",
-    roles: ["freelancer", "client"],
+    name: "Alex Rivera",
+    email: "alex.dev@trusthire.io",
+    roles: ["freelancer"],
     walletAddress: "0x8e3b22...4c19",
     avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
   },

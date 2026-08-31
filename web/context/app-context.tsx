@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
@@ -50,6 +50,7 @@ interface AppContextType {
   // Actions
   setActiveRole: (role: UserRole) => void;
   switchRole: (role: UserRole) => void;
+  switchDemoAccount: (role: UserRole) => void;
   toggleTheme: () => void;
   toggleSimulatedFailures: () => void;
   resetDemoData: () => void;
@@ -214,13 +215,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const switchRole = (role: UserRole) => {
+  const switchDemoAccount = (role: UserRole) => {
     setActiveRole(role);
-    if (!currentUser.roles.includes(role)) {
-      const updatedUser = { ...currentUser, roles: [...currentUser.roles, role] };
-      setCurrentUser(updatedUser);
-      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    if (role === "client") {
+      const clientUser = users.find((u) => u.id === "user-client-1") || SEED_USERS[0];
+      setCurrentUser(clientUser);
+    } else {
+      const freeUser = users.find((u) => u.id === "user-free-1") || SEED_USERS[1];
+      setCurrentUser(freeUser);
     }
+  };
+
+  const switchRole = (role: UserRole) => {
+    switchDemoAccount(role);
   };
 
   const connectWallet = async () => {
@@ -698,6 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         simulatedFailuresEnabled,
         setActiveRole,
         switchRole,
+        switchDemoAccount,
         toggleTheme,
         toggleSimulatedFailures,
         resetDemoData,
