@@ -1,4 +1,4 @@
-﻿import { Milestone, Project, FreelancerProfile, AiMatchResult } from "@/types";
+import { Milestone, Project, FreelancerProfile, AiMatchResult } from "@/types";
 
 export function generateGonkaRequestId(): string {
   const chars = "abcdef0123456789";
@@ -131,10 +131,51 @@ export async function simulateGonkaParse(
   };
 }
 
+export async function simulateGithubRepoDiscovery(username: string): Promise<{
+  title: string;
+  url: string;
+  isVerified: boolean;
+  repositoryName: string;
+  commitsCount: number;
+  primaryLanguage: string;
+}[]> {
+  await delay(1500);
+  const sanitized = username.replace(/^@/, "").trim() || "alex-rivera-dev";
+
+  return [
+    {
+      title: `${sanitized}/sui-dex-liquidity-router`,
+      url: `https://github.com/${sanitized}/sui-dex-liquidity-router`,
+      isVerified: true,
+      repositoryName: "sui-dex-liquidity-router",
+      commitsCount: 48,
+      primaryLanguage: "Sui Move"
+    },
+    {
+      title: `${sanitized}/gonka-ai-oracle-interface`,
+      url: `https://github.com/${sanitized}/gonka-ai-oracle-interface`,
+      isVerified: true,
+      repositoryName: "gonka-ai-oracle-interface",
+      commitsCount: 32,
+      primaryLanguage: "TypeScript"
+    },
+    {
+      title: `${sanitized}/sui-escrow-contract-sdk`,
+      url: `https://github.com/${sanitized}/sui-escrow-contract-sdk`,
+      isVerified: true,
+      repositoryName: "sui-escrow-contract-sdk",
+      commitsCount: 26,
+      primaryLanguage: "Rust"
+    }
+  ];
+}
+
 export async function simulateTrustScoreCalculation(
   skillsCount: number,
   hasPortfolio: boolean,
-  experienceLevel: string
+  experienceLevel: string,
+  isGithubVerified = false,
+  githubUsername?: string
 ): Promise<{
   trustScore: number;
   confidence: "Low" | "Medium" | "High";
@@ -144,24 +185,33 @@ export async function simulateTrustScoreCalculation(
   await delay(2000);
 
   let score = 84;
-  if (skillsCount >= 5) score += 6;
+  if (skillsCount >= 5) score += 5;
   else if (skillsCount >= 3) score += 3;
 
-  if (hasPortfolio) score += 5;
-  if (experienceLevel === "Expert") score += 4;
-  else if (experienceLevel === "Intermediate") score += 2;
+  if (hasPortfolio) score += 3;
+  if (isGithubVerified) score += 5;
+
+  if (experienceLevel === "Expert") score += 3;
+  else if (experienceLevel === "Intermediate") score += 1;
 
   score = Math.min(99, score);
 
+  const reasoning = [
+    { label: "Profile completeness", note: `Verified ${skillsCount} core Web3 skills and credentials.` },
+    {
+      label: "GitHub code verification",
+      note: isGithubVerified
+        ? `Verified commit ownership & cryptographic signatures on GitHub (@${githubUsername || "alex-rivera-dev"}).`
+        : "Portfolio links attached without GitHub OAuth verification."
+    },
+    { label: "Experience assessment", note: `Classified as ${experienceLevel} tier in modern development pipelines.` },
+    { label: "Gonka AI verification", note: "Autonomous pattern matching indicates strong task reliability." }
+  ];
+
   return {
     trustScore: score,
-    confidence: hasPortfolio && skillsCount >= 3 ? "High" : "Medium",
-    reasoning: [
-      { label: "Profile completeness", note: `Verified ${skillsCount} core Web3 skills and credentials.` },
-      { label: "Portfolio depth", note: hasPortfolio ? "Active verified portfolio links and on-chain code samples." : "Basic profile setup completed." },
-      { label: "Experience assessment", note: `Classified as ${experienceLevel} tier in modern development pipelines.` },
-      { label: "Gonka AI verification", note: "Autonomous pattern matching indicates strong task reliability." }
-    ],
+    confidence: isGithubVerified || (hasPortfolio && skillsCount >= 3) ? "High" : "Medium",
+    reasoning,
     requestId: generateGonkaRequestId()
   };
 }

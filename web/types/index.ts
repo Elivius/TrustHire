@@ -1,4 +1,4 @@
-﻿export type UserRole = "client" | "freelancer";
+export type UserRole = "client" | "freelancer";
 
 export interface User {
   id: string;
@@ -24,7 +24,16 @@ export interface FreelancerProfile {
   bio: string;
   skills: string[];
   experienceLevel: "Beginner" | "Intermediate" | "Expert";
-  portfolioLinks: { title: string; url: string }[];
+  portfolioLinks: {
+    title: string;
+    url: string;
+    isVerified?: boolean;
+    repositoryName?: string;
+    commitsCount?: number;
+    primaryLanguage?: string;
+  }[];
+  githubUsername?: string;
+  isGithubVerified?: boolean;
   trustScore: number;                // 0-100
   trustScoreConfidence: "Low" | "Medium" | "High";
   trustScoreReasoning: { label: string; note: string }[]; // e.g. [{label:'Profile completeness', note:'...'}]

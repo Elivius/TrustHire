@@ -13,13 +13,18 @@ import {
   Plus,
   Trash2,
   ShieldCheck,
-  Cpu
+  Cpu,
+  Github,
+  Code,
+  ExternalLink,
+  Check,
+  RefreshCw
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { SkillChip } from "@/components/ui/skill-chip";
-import { simulateTrustScoreCalculation } from "@/lib/simulation";
+import { simulateTrustScoreCalculation, simulateGithubRepoDiscovery } from "@/lib/simulation";
 import { clsx } from "clsx";
 
 export default function FreelancerOnboardingPage() {
@@ -36,8 +41,20 @@ export default function FreelancerOnboardingPage() {
   const [newSkillInput, setNewSkillInput] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<"Beginner" | "Intermediate" | "Expert">("Expert");
 
-  const [portfolioLinks, setPortfolioLinks] = useState<{ title: string; url: string }[]>([
-    { title: "Sui DEX Liquidity Router", url: "https://github.com/example/sui-dex-router" },
+  // GitHub Verification & Custom Links State
+  const [githubUsername, setGithubUsername] = useState("alex-rivera-dev");
+  const [isGithubConnected, setIsGithubConnected] = useState(false);
+  const [isScanningGithub, setIsScanningGithub] = useState(false);
+  const [verifiedRepos, setVerifiedRepos] = useState<{
+    title: string;
+    url: string;
+    isVerified: boolean;
+    repositoryName: string;
+    commitsCount: number;
+    primaryLanguage: string;
+  }[]>([]);
+
+  const [customLinks, setCustomLinks] = useState<{ title: string; url: string }[]>([
     { title: "Gonka AI Interface", url: "https://gonka-interface.vercel.app" }
   ]);
 
@@ -59,18 +76,29 @@ export default function FreelancerOnboardingPage() {
     setSkills(skills.filter((s) => s !== skill));
   };
 
-  const handleAddPortfolio = () => {
-    setPortfolioLinks([...portfolioLinks, { title: "", url: "" }]);
+  const handleConnectGithub = async () => {
+    setIsScanningGithub(true);
+    try {
+      const repos = await simulateGithubRepoDiscovery(githubUsername);
+      setVerifiedRepos(repos);
+      setIsGithubConnected(true);
+    } finally {
+      setIsScanningGithub(false);
+    }
   };
 
-  const handleUpdatePortfolio = (index: number, field: "title" | "url", value: string) => {
-    const updated = [...portfolioLinks];
+  const handleAddCustomLink = () => {
+    setCustomLinks([...customLinks, { title: "", url: "" }]);
+  };
+
+  const handleUpdateCustomLink = (index: number, field: "title" | "url", value: string) => {
+    const updated = [...customLinks];
     updated[index][field] = value;
-    setPortfolioLinks(updated);
+    setCustomLinks(updated);
   };
 
-  const handleRemovePortfolio = (index: number) => {
-    setPortfolioLinks(portfolioLinks.filter((_, i) => i !== index));
+  const handleRemoveCustomLink = (index: number) => {
+    setCustomLinks(customLinks.filter((_, i) => i !== index));
   };
 
   const handleWalletConnect = async () => {
@@ -85,11 +113,29 @@ export default function FreelancerOnboardingPage() {
   const handleFinishOnboarding = async () => {
     setIsCalculatingScore(true);
 
+    const combinedPortfolio = [
+      ...verifiedRepos.map((r) => ({
+        title: r.title,
+        url: r.url,
+        isVerified: true,
+        repositoryName: r.repositoryName,
+        commitsCount: r.commitsCount,
+        primaryLanguage: r.primaryLanguage
+      })),
+      ...customLinks.filter((c) => c.title.trim() && c.url.trim()).map((c) => ({
+        title: c.title,
+        url: c.url,
+        isVerified: false
+      }))
+    ];
+
     try {
       const scoreResult = await simulateTrustScoreCalculation(
         skills.length,
-        portfolioLinks.length > 0,
-        experienceLevel
+        combinedPortfolio.length > 0,
+        experienceLevel,
+        isGithubConnected,
+        githubUsername
       );
 
       setCalculatedScore(scoreResult.trustScore);
@@ -102,7 +148,9 @@ export default function FreelancerOnboardingPage() {
         bio,
         skills,
         experienceLevel,
-        portfolioLinks: portfolioLinks.filter((p) => p.title && p.url),
+        portfolioLinks: combinedPortfolio,
+        githubUsername: isGithubConnected ? githubUsername : undefined,
+        isGithubVerified: isGithubConnected,
         trustScore: scoreResult.trustScore,
         trustScoreConfidence: scoreResult.confidence,
         trustScoreReasoning: scoreResult.reasoning,
@@ -322,36 +370,127 @@ export default function FreelancerOnboardingPage() {
             </div>
           )}
 
-          {/* Step 3: Portfolio */}
+          {/* Step 3: GitHub Verification & Portfolio */}
           {step === 3 && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Portfolio & Proof of Work</h2>
+                <h2 className="text-xl font-bold text-white mb-1">Portfolio & Verified Code Proof</h2>
                 <p className="text-xs text-foreground/60">
-                  Adding verified code samples meaningfully improves your Gonka Trust Score and match frequency.
+                  Connect your GitHub profile so Gonka AI can verify your repository ownership, commit signatures, and tech stack.
                 </p>
               </div>
 
-              <div className="space-y-3">
-                {portfolioLinks.map((item, idx) => (
+              {/* GitHub OAuth Verification Card */}
+              <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-white/10 text-white">
+                      <Github className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">GitHub Account Verification</h3>
+                      <p className="text-[11px] text-foreground/50">Autonomous commit signature & ownership verification</p>
+                    </div>
+                  </div>
+
+                  {isGithubConnected && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/30 font-mono">
+                      <Check className="w-3 h-3" /> GitHub Verified
+                    </span>
+                  )}
+                </div>
+
+                {!isGithubConnected ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-foreground/50 font-mono">github.com/</span>
+                      <input
+                        type="text"
+                        value={githubUsername}
+                        onChange={(e) => setGithubUsername(e.target.value)}
+                        placeholder="username"
+                        className="flex-1 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
+                      />
+                    </div>
+
+                    <GradientButton
+                      loading={isScanningGithub}
+                      onClick={handleConnectGithub}
+                      className="w-full justify-center"
+                      icon={<Github className="w-4 h-4" />}
+                    >
+                      {isScanningGithub ? "Gonka AI Scanning Public Repos…" : "Connect & Verify GitHub Profile"}
+                    </GradientButton>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-foreground/70">Connected as <strong className="text-white">@{githubUsername}</strong></span>
+                      <button
+                        type="button"
+                        onClick={handleConnectGithub}
+                        className="text-[11px] text-[#4DA2FF] hover:underline flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Rescan Repos
+                      </button>
+                    </div>
+
+                    {/* Auto-discovered Verified Repos */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-mono text-[#2DD4BF] block font-semibold">
+                        Gonka AI Auto-Discovered & Verified Repositories ({verifiedRepos.length}):
+                      </span>
+                      {verifiedRepos.map((repo, idx) => (
+                        <div key={idx} className="p-3 rounded-xl border border-[#2DD4BF]/20 bg-[#2DD4BF]/5 flex items-center justify-between gap-2 text-xs">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{repo.repositoryName}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-foreground/80 font-mono">
+                                {repo.primaryLanguage}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-foreground/60 font-mono">
+                              Verified Contributor • {repo.commitsCount} commits signed
+                            </p>
+                          </div>
+                          <span className="text-[10px] font-mono text-[#2DD4BF] bg-[#2DD4BF]/15 px-2 py-1 rounded-md shrink-0 font-semibold">
+                            Verified ✓
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Links Section */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-foreground/90">
+                    Additional Live DApp / Design Links (Optional)
+                  </label>
+                  <span className="text-[11px] text-foreground/50">Figma, Whitepapers, Live DApps</span>
+                </div>
+
+                {customLinks.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
                       type="text"
                       value={item.title}
-                      onChange={(e) => handleUpdatePortfolio(idx, "title", e.target.value)}
-                      placeholder="Project Title (e.g. Sui DEX Router)"
+                      onChange={(e) => handleUpdateCustomLink(idx, "title", e.target.value)}
+                      placeholder="Title (e.g. Live DApp Demo)"
                       className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
                     />
                     <input
                       type="url"
                       value={item.url}
-                      onChange={(e) => handleUpdatePortfolio(idx, "url", e.target.value)}
-                      placeholder="https://github.com/..."
+                      onChange={(e) => handleUpdateCustomLink(idx, "url", e.target.value)}
+                      placeholder="https://..."
                       className="w-1/2 px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF]"
                     />
                     <button
                       type="button"
-                      onClick={() => handleRemovePortfolio(idx)}
+                      onClick={() => handleRemoveCustomLink(idx)}
                       className="p-1 text-foreground/40 hover:text-red-400"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -361,11 +500,11 @@ export default function FreelancerOnboardingPage() {
 
                 <button
                   type="button"
-                  onClick={handleAddPortfolio}
+                  onClick={handleAddCustomLink}
                   className="text-xs text-[#4DA2FF] hover:underline flex items-center gap-1 pt-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Add another portfolio link</span>
+                  <span>Add custom link</span>
                 </button>
               </div>
 
