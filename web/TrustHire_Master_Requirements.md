@@ -223,6 +223,8 @@ interface Project {
   requiredSkills: string[];
   estimatedBudget: number;
   timelineDays: number;
+  experienceLevel?: 'Beginner' | 'Intermediate' | 'Expert';
+  deliverables?: string[];
   status: ProjectStatus;
   matchedFreelancerId?: string;
   gonkaParseRequestId?: string;
@@ -302,7 +304,7 @@ interface Notification {
 
 | Call | Trigger | Delay | Mock Output |
 |---|---|---|---|
-| Parse Project | Client submits free-text project description | 1.5–3s | `{ title, requiredSkills[], estimatedBudget, timelineDays, suggestedMilestones[], gonkaRequestId }` — derive plausible values from keywords in the input text where possible (e.g. detect "$" amounts, "week"/"day" mentions); otherwise fall back to reasonable defaults. |
+| Parse Project | Client chats with Gonka AI / enters project scope | 1.5–3s | `{ title, descriptionRaw, requiredSkills[], estimatedBudget, timelineDays, experienceLevel, deliverables[], suggestedMilestones[], gonkaRequestId }` — derive structured technical plan and milestone breakdown from conversation dialogue; fall back to editable defaults on manual skip. |
 | Match Freelancers | Client opens a project's Candidates → Recommended tab | 1.5–3s | Ranked list of seeded freelancers with `matchScore`, `reasoning`, shared `gonkaRequestId` for the batch |
 | Match Projects | Freelancer opens Dashboard or Browse Projects → Recommended tab | 1.5–3s | Ranked list of seeded open projects with `matchScore`, `reasoning`, shared `gonkaRequestId` |
 | Trust Score | Freelancer profile created or edited | 1.5–3s | `{ trustScore, confidenceLevel, reasoningReport[], gonkaRequestId }` |

@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Clock,
   Trash2,
-  Plus
+  Plus,
+  Layers
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { AppShell } from "@/components/layout/app-shell";
@@ -163,119 +164,194 @@ export default function FinalizeAndFundPage() {
 
         {/* Part 1: Finalize Milestones */}
         {step === 1 && (
-          <GlassCard className="p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-black/10 dark:border-white/10">
-              <div>
-                <h3 className="text-base font-bold text-foreground">
-                  Confirm Milestones with {matchedFreelancer?.name || "Freelancer"}
-                </h3>
-                <p className="text-xs text-foreground/60">
-                  Terms agreed here determine individual release amounts on Sui.
-                </p>
-              </div>
-
-              {/* Running Total Indicator */}
-              <div
-                className={clsx(
-                  "px-3.5 py-1.5 rounded-xl border font-mono text-xs font-semibold flex items-center gap-2 shrink-0",
-                  isBudgetValid
-                    ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF]"
-                    : "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#D97706] dark:text-[#F59E0B]"
-                )}
-              >
-                <span>{totalPercentage.toFixed(0)}% allocated</span>
-                {!isBudgetValid && (
-                  <span className="text-[10px] font-sans font-normal">
-                    (must equal 100%)
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Editable rows */}
-            <div className="space-y-3">
-              {editableMilestones.map((m, idx) => (
-                <div
-                  key={m.id}
-                  className="p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className="font-mono text-xs font-bold text-foreground/50">
-                        #{idx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        value={m.title}
-                        onChange={(e) => handleMilestoneChange(idx, "title", e.target.value)}
-                        className="w-full px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 text-xs font-semibold text-foreground focus:outline-none focus:border-[#2DD4BF]"
-                      />
-                    </div>
-
+          <div className="space-y-6">
+            {/* Escrow Milestone Breakdown Card */}
+            <GlassCard className="p-6 sm:p-7 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/10 dark:border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-amber-500/15 text-[#D97706] dark:text-[#F59E0B]">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 bg-black/[0.03] dark:bg-black/30 border border-black/10 dark:border-white/10 px-2 py-1 rounded-lg">
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={m.percentOfBudget}
-                          onChange={(e) =>
-                            handleMilestoneChange(idx, "percentOfBudget", Number(e.target.value))
-                          }
-                          className="w-12 bg-transparent text-right font-mono text-xs text-foreground focus:outline-none"
-                        />
-                        <span className="text-xs font-mono text-foreground/50">%</span>
+                      <h3 className="text-base font-bold text-foreground">
+                        Confirm Milestones with {matchedFreelancer?.name || "Freelancer"}
+                      </h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#8B5CF6]/15 text-[#7C3AED] dark:text-[#A78BFA]">
+                        100% Invariant
+                      </span>
+                    </div>
+                    <p className="text-xs text-foreground/60">
+                      Terms finalized here determine individual on-chain release tranches on Sui.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Running Total Indicator */}
+                <div
+                  className={clsx(
+                    "px-3.5 py-1.5 rounded-xl border font-mono text-xs font-semibold flex items-center gap-2 shrink-0 self-start sm:self-center",
+                    isBudgetValid
+                      ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF]"
+                      : "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#D97706] dark:text-[#F59E0B]"
+                  )}
+                >
+                  <span className="w-2 h-2 rounded-full bg-current" />
+                  <span>{totalPercentage.toFixed(0)}% Allocated</span>
+                  {!isBudgetValid && (
+                    <span className="text-[10px] font-sans font-normal opacity-90">
+                      (must equal 100%)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Segmented Visual Allocation Bar */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-mono text-foreground/60">
+                  <span>Milestone Funding Distribution:</span>
+                  <span className="font-bold text-foreground">${totalBudget.toLocaleString()} USDC Total</span>
+                </div>
+                <div className="h-3.5 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden flex gap-1 p-0.5">
+                  {editableMilestones.map((m, idx) => {
+                    const colors = [
+                      "bg-[#4DA2FF]",
+                      "bg-[#7B61FF]",
+                      "bg-[#2DD4BF]",
+                      "bg-[#F59E0B]",
+                      "bg-[#EC4899]"
+                    ];
+                    return (
+                      <div
+                        key={m.id || idx}
+                        style={{ width: `${Math.max(4, m.percentOfBudget)}%` }}
+                        className={clsx(
+                          "h-full rounded-full transition-all flex items-center justify-center text-[9px] font-mono text-white font-bold",
+                          colors[idx % colors.length]
+                        )}
+                        title={`Milestone ${idx + 1}: ${m.percentOfBudget}% ($${m.amount} USDC)`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Repeatable Milestone Cards */}
+              <div className="space-y-3.5">
+                {editableMilestones.map((m, idx) => {
+                  const colors = [
+                    "from-[#4DA2FF] to-[#7B61FF]",
+                    "from-[#7B61FF] to-[#8B5CF6]",
+                    "from-[#2DD4BF] to-[#10B981]",
+                    "from-[#F59E0B] to-[#D97706]"
+                  ];
+                  return (
+                    <div
+                      key={m.id || idx}
+                      className="p-4 sm:p-5 rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-[#151622]/70 backdrop-blur-md space-y-3 relative group shadow-sm hover:border-[#7B61FF]/40 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 flex-1">
+                          <div className={clsx(
+                            "w-8 h-8 rounded-xl bg-gradient-to-tr text-white font-mono text-xs font-bold flex items-center justify-center shrink-0 shadow-sm",
+                            colors[idx % colors.length]
+                          )}>
+                            M{idx + 1}
+                          </div>
+                          <input
+                            type="text"
+                            value={m.title}
+                            onChange={(e) => handleMilestoneChange(idx, "title", e.target.value)}
+                            placeholder="Milestone title..."
+                            className="w-full px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:border-[#7B61FF]"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-3 self-end sm:self-center">
+                          {/* Percentage Input */}
+                          <div className="flex items-center gap-1 bg-black/[0.03] dark:bg-black/30 border border-black/10 dark:border-white/10 px-2.5 py-1 rounded-xl">
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={m.percentOfBudget}
+                              onChange={(e) =>
+                                handleMilestoneChange(idx, "percentOfBudget", Number(e.target.value))
+                              }
+                              className="w-10 bg-transparent text-right font-mono text-xs font-bold text-foreground focus:outline-none"
+                            />
+                            <span className="text-xs font-mono text-foreground/50">%</span>
+                          </div>
+
+                          {/* Calculated Amount */}
+                          <div className="px-3 py-1 rounded-xl bg-teal-500/10 border border-teal-500/20 text-right min-w-[85px]">
+                            <span className="font-mono text-xs font-bold text-[#0D9488] dark:text-[#2DD4BF]">
+                              ${m.amount.toLocaleString()}
+                            </span>
+                          </div>
+
+                          {/* Delete Milestone Button */}
+                          {editableMilestones.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMilestone(idx)}
+                              className="p-1.5 text-foreground/30 hover:text-red-500 dark:hover:text-red-400 transition-colors cursor-pointer"
+                              title="Delete milestone"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      <span className="font-mono text-xs font-semibold text-[#0D9488] dark:text-[#2DD4BF] min-w-[70px] text-right">
-                        ${m.amount.toLocaleString()}
-                      </span>
-
-                      {editableMilestones.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMilestone(idx)}
-                          className="p-1 text-foreground/30 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      {/* Deliverables Description */}
+                      <textarea
+                        rows={2}
+                        value={m.deliverable}
+                        onChange={(e) => handleMilestoneChange(idx, "deliverable", e.target.value)}
+                        placeholder="Milestone deliverables and acceptance criteria..."
+                        className="w-full p-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] text-xs text-foreground/80 focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
+                      />
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
 
-                  <textarea
-                    rows={2}
-                    value={m.deliverable}
-                    onChange={(e) => handleMilestoneChange(idx, "deliverable", e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 text-xs text-foreground/80 focus:outline-none focus:border-[#2DD4BF] resize-none"
-                  />
-                </div>
-              ))}
-            </div>
+              <GhostButton
+                size="sm"
+                onClick={handleAddMilestone}
+                icon={<Plus className="w-3.5 h-3.5" />}
+              >
+                Add Another Milestone
+              </GhostButton>
+            </GlassCard>
 
-            <GhostButton
-              size="sm"
-              onClick={handleAddMilestone}
-              icon={<Plus className="w-3.5 h-3.5" />}
-            >
-              Add Milestone
-            </GhostButton>
-
-            <div className="flex items-center justify-between pt-6 border-t border-black/10 dark:border-white/10">
+            {/* Bottom Action Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-[#151622]/80 backdrop-blur-xl shadow-lg">
               <Link href={`/project/${projectId}`}>
-                <GhostButton>Cancel</GhostButton>
+                <GhostButton icon={<ArrowLeft className="w-4 h-4" />}>
+                  Back to Project
+                </GhostButton>
               </Link>
 
-              <GradientButton
-                size="lg"
-                disabled={!isBudgetValid}
-                onClick={() => setStep(2)}
-                icon={<ArrowRight className="w-4 h-4 ml-1" />}
-              >
-                Confirm & Continue to Fund Escrow
-              </GradientButton>
+              <div className="flex items-center gap-3 self-end sm:self-center">
+                {!isBudgetValid && (
+                  <span className="text-xs text-[#D97706] dark:text-[#F59E0B]">
+                    Milestones sum to {totalPercentage.toFixed(0)}% (must equal 100%)
+                  </span>
+                )}
+
+                <GradientButton
+                  size="lg"
+                  disabled={!isBudgetValid}
+                  onClick={() => setStep(2)}
+                  icon={<ArrowRight className="w-4 h-4 ml-1" />}
+                >
+                  Confirm & Continue to Fund Escrow
+                </GradientButton>
+              </div>
             </div>
-          </GlassCard>
+          </div>
         )}
 
         {/* Part 2: Fund Escrow */}
