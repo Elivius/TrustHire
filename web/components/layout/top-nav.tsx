@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { WalletChip } from "@/components/ui/wallet-chip";
+import { WalletConnectButton } from "@/components/ui/wallet-connect-button";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { NotificationsSlideOver } from "@/components/layout/notifications-slideover";
@@ -95,17 +95,9 @@ export const TopNav: React.FC = () => {
           {/* Right Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Wallet Button */}
-            {currentUser.walletAddress ? (
-              <WalletChip address={currentUser.walletAddress} />
-            ) : (
-              <GradientButton
-                size="sm"
-                loading={isConnectingWallet}
-                onClick={handleWalletClick}
-              >
-                Connect Wallet
-              </GradientButton>
-            )}
+            <div className="min-w-[160px]">
+              <WalletConnectButton />
+            </div>
 
             {/* Notification Bell */}
             <button
