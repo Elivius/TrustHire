@@ -1,12 +1,14 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock } from "lucide-react";
+import { Sparkles, ArrowRight, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
+
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -40,7 +42,30 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B12] text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-bg-base text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-200">
+      {/* Top Left: Back Button */}
+      <div className="absolute top-6 left-6 z-20">
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/");
+            }
+          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-foreground/75 hover:text-foreground bg-white/70 dark:bg-[#151622]/70 hover:bg-white dark:hover:bg-[#151622] border border-black/10 dark:border-white/10 backdrop-blur-md transition-all shadow-sm cursor-pointer select-none active:scale-[0.98]"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
+        </button>
+      </div>
+
+      {/* Top right controls */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
+
       {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#4DA2FF]/15 via-[#7B61FF]/15 to-[#2DD4BF]/15 blur-[120px] rounded-full pointer-events-none" />
 
@@ -50,7 +75,7 @@ export default function AuthPage() {
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#4DA2FF] via-[#7B61FF] to-[#2DD4BF] flex items-center justify-center shadow-glass-glow group-hover:scale-105 transition-transform">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
-          <span className="text-2xl font-bold tracking-tight text-white">TrustHire</span>
+          <span className="text-2xl font-bold tracking-tight text-foreground">TrustHire</span>
         </Link>
         <p className="text-xs sm:text-sm text-foreground/60">
           AI-matched talent, smart contract escrow
@@ -58,9 +83,9 @@ export default function AuthPage() {
       </div>
 
       {/* Main Glass Card */}
-      <div className="w-full max-w-[420px] rounded-3xl border border-white/10 bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-[420px] rounded-3xl border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-xl dark:shadow-2xl relative z-10 space-y-6">
         <div className="text-center space-y-1">
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-foreground">
             {isSignUp ? "Create your account" : "Welcome back"}
           </h2>
           <p className="text-xs text-foreground/60">
@@ -75,7 +100,7 @@ export default function AuthPage() {
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-sm font-medium text-white transition-all cursor-pointer select-none active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.04] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-sm font-medium text-foreground transition-all cursor-pointer select-none active:scale-[0.98]"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -98,12 +123,13 @@ export default function AuthPage() {
           <span>Continue with Google</span>
         </button>
 
-        {/* Divider */}
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-white/10 w-full" />
-          <span className="bg-[#151622] px-3 text-[11px] font-mono text-foreground/40 uppercase">
+        {/* Centered Divider with symmetric lines */}
+        <div className="flex items-center gap-3 my-1">
+          <div className="h-px bg-black/[0.08] dark:bg-white/10 flex-1" />
+          <span className="text-[11px] font-mono text-foreground/45 uppercase tracking-wider whitespace-nowrap">
             or continue with email
           </span>
+          <div className="h-px bg-black/[0.08] dark:bg-white/10 flex-1" />
         </div>
 
         {/* Form */}
@@ -117,7 +143,7 @@ export default function AuthPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]/60 transition-colors"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]/60 transition-colors"
                 placeholder="name@company.com"
               />
             </div>
@@ -127,7 +153,7 @@ export default function AuthPage() {
             <div className="flex items-center justify-between">
               <label className="block text-xs font-medium text-foreground/80">Password</label>
               {!isSignUp && (
-                <span className="text-[11px] text-[#4DA2FF] cursor-pointer hover:underline">
+                <span className="text-[11px] text-[#2563EB] dark:text-[#4DA2FF] cursor-pointer hover:underline">
                   Forgot?
                 </span>
               )}
@@ -139,7 +165,7 @@ export default function AuthPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]/60 transition-colors font-mono"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]/60 transition-colors font-mono"
                 placeholder="••••••••"
               />
             </div>
@@ -147,7 +173,7 @@ export default function AuthPage() {
 
           <GradientButton
             type="submit"
-            className="w-full"
+            className="w-full justify-center"
             loading={loading}
             icon={<ArrowRight className="w-4 h-4 ml-1" />}
           >
@@ -161,7 +187,7 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-[#4DA2FF] hover:underline font-semibold ml-1 cursor-pointer"
+            className="text-[#2563EB] dark:text-[#4DA2FF] hover:underline font-semibold ml-1 cursor-pointer"
           >
             {isSignUp ? "Sign In" : "Sign Up"}
           </button>

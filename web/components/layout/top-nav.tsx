@@ -61,7 +61,7 @@ export const TopNav: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full border-b border-white/10 bg-[#0B0B12]/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 w-full border-b border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#0B0B12]/80 backdrop-blur-xl transition-colors">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-3">
@@ -69,9 +69,9 @@ export const TopNav: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4DA2FF] via-[#7B61FF] to-[#2DD4BF] flex items-center justify-center shadow-glass-glow group-hover:scale-105 transition-transform">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-white flex items-center gap-1">
+              <span className="text-lg font-bold tracking-tight text-foreground flex items-center gap-1">
                 TrustHire
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-[#2DD4BF] font-normal tracking-wider">
+                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] font-normal tracking-wider border border-[#2DD4BF]/20">
                   Prototype
                 </span>
               </span>
@@ -81,12 +81,12 @@ export const TopNav: React.FC = () => {
             <button
               type="button"
               onClick={handleToggleRole}
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-foreground/90 transition-all ml-4"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 text-foreground transition-all ml-4 shadow-sm dark:shadow-none cursor-pointer"
               title="Click to switch between Client (Elena) and Freelancer (Alex) demo accounts"
             >
               <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B61FF]" />
               <span>Demo Account:</span>
-              <span className="font-semibold text-[#2DD4BF]">
+              <span className="font-semibold text-[#0D9488] dark:text-[#2DD4BF]">
                 {activeRole === "client" ? "Elena Vance (Client)" : "Alex Rivera (Freelancer)"}
               </span>
             </button>
@@ -111,12 +111,12 @@ export const TopNav: React.FC = () => {
             <button
               type="button"
               onClick={() => setNotificationsOpen(true)}
-              className="relative p-2 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-foreground/80 hover:text-foreground transition-all"
+              className="relative p-2 rounded-xl border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 text-foreground/80 hover:text-foreground transition-all shadow-sm dark:shadow-none cursor-pointer"
               aria-label="Notifications"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4DA2FF] text-[10px] font-bold text-white flex items-center justify-center shadow-sm">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#2563EB] dark:bg-[#4DA2FF] text-[10px] font-bold text-white flex items-center justify-center shadow-sm">
                   {unreadCount}
                 </span>
               )}
@@ -130,7 +130,7 @@ export const TopNav: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-1.5 p-1 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] transition-all"
+                className="flex items-center gap-1.5 p-1 rounded-xl border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.03] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 transition-all shadow-sm dark:shadow-none cursor-pointer"
               >
                 <img
                   src={currentUser.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
@@ -146,11 +146,11 @@ export const TopNav: React.FC = () => {
                     className="fixed inset-0 z-40"
                     onClick={() => setProfileDropdownOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-white/10 bg-[#151622] p-2 text-xs shadow-2xl z-50 backdrop-blur-xl">
-                    <div className="px-3 py-2 border-b border-white/5 mb-1">
+                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151622] p-2 text-xs shadow-2xl z-50 backdrop-blur-xl">
+                    <div className="px-3 py-2 border-b border-black/5 dark:border-white/5 mb-1">
                       <p className="font-semibold text-foreground truncate">{currentUser.name}</p>
                       <p className="text-foreground/50 truncate text-[11px]">{currentUser.email}</p>
-                      <span className="inline-block text-[10px] font-mono text-[#2DD4BF] mt-0.5">
+                      <span className="inline-block text-[10px] font-mono text-[#0D9488] dark:text-[#2DD4BF] mt-0.5">
                         Active Role: {activeRole.toUpperCase()}
                       </span>
                     </div>
@@ -161,7 +161,7 @@ export const TopNav: React.FC = () => {
                         setProfileDropdownOpen(false);
                         handleToggleRole();
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/90 hover:text-white hover:bg-white/5 text-left transition-colors font-medium"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground hover:bg-black/5 dark:hover:bg-white/5 text-left transition-colors font-medium"
                     >
                       <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B61FF]" />
                       <span>
@@ -172,9 +172,9 @@ export const TopNav: React.FC = () => {
                     <Link
                       href={activeRole === "client" ? "/client/settings" : "/freelancer/profile"}
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/80 hover:text-white hover:bg-white/5 text-left transition-colors"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground hover:bg-black/5 dark:hover:bg-white/5 text-left transition-colors"
                     >
-                      <UserIcon className="w-3.5 h-3.5 text-[#2DD4BF]" />
+                      <UserIcon className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
                       <span>My Profile & Settings</span>
                     </Link>
 
@@ -193,11 +193,11 @@ export const TopNav: React.FC = () => {
                       <span>Reset Demo Data</span>
                     </button>
 
-                    <div className="border-t border-white/5 mt-1 pt-1">
+                    <div className="border-t border-black/5 dark:border-white/5 mt-1 pt-1">
                       <Link
                         href="/auth"
                         onClick={() => setProfileDropdownOpen(false)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-400 hover:bg-red-500/10 text-left transition-colors"
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 text-left transition-colors"
                       >
                         <LogOut className="w-3.5 h-3.5" />
                         <span>Sign Out / Switch Demo</span>

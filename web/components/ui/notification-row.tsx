@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import Link from "next/link";
 import {
   Send,
@@ -100,15 +100,15 @@ export const NotificationRow: React.FC<NotificationRowProps> = ({
       onClick={handleClick}
       className={twMerge(
         clsx(
-          "block p-3.5 rounded-xl border-y border-r border-white/5 border-l-4 transition-all duration-150 hover:bg-white/[0.06] text-xs",
+          "block p-3.5 rounded-xl border-y border-r border-black/5 dark:border-white/5 border-l-4 transition-all duration-150 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] text-xs",
           border,
-          notification.read ? "bg-white/[0.01] opacity-70" : "bg-white/[0.04] opacity-100 font-medium",
+          notification.read ? "bg-black/[0.01] dark:bg-white/[0.01] opacity-70" : "bg-black/[0.03] dark:bg-white/[0.04] opacity-100 font-medium",
           className
         )
       )}
     >
       <div className="flex items-start gap-2.5">
-        <div className="p-1 rounded-md bg-white/5 mt-0.5 shrink-0">{icon}</div>
+        <div className="p-1.5 rounded-lg bg-black/[0.03] dark:bg-white/5 mt-0.5 shrink-0">{icon}</div>
         <div className="flex-1 min-w-0">
           <p className="text-foreground/90 leading-snug">{notification.text}</p>
           <span className="text-[10px] text-foreground/45 mt-1 block font-mono">

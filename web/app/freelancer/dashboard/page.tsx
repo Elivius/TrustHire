@@ -63,16 +63,16 @@ export default function FreelancerDashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                 Welcome back, {currentUser.name.split(" ")[0]}
               </h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#2DD4BF] border border-[#2DD4BF]/30 font-semibold font-mono">
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/30 font-semibold font-mono">
                 Trust Score: {profile.trustScore}/100
               </span>
             </div>
             <Link
               href="/freelancer/profile"
-              className="text-xs text-[#2DD4BF] hover:underline flex items-center gap-1 mt-0.5"
+              className="text-xs text-[#0D9488] dark:text-[#2DD4BF] hover:underline flex items-center gap-1 mt-0.5"
             >
               <span>View full Gonka AI trust score breakdown</span>
               <ArrowRight className="w-3 h-3" />
@@ -90,17 +90,17 @@ export default function FreelancerDashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Active Contracts</span>
-            <div className="text-2xl font-bold text-white mt-1 font-mono">{activeContracts.length}</div>
+            <div className="text-2xl font-bold text-foreground mt-1 font-mono">{activeContracts.length}</div>
             <span className="text-[11px] text-foreground/40 mt-1 block">In development</span>
           </GlassCard>
 
           <Link href="/freelancer/earnings" className="block">
-            <GlassCard className="p-5 hover:border-white/20 transition-all cursor-pointer">
+            <GlassCard className="p-5 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer">
               <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Earned</span>
-              <div className="text-2xl font-bold text-[#2DD4BF] mt-1 font-mono">
+              <div className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
                 ${(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">USDC</span>
               </div>
-              <span className="text-[11px] text-[#2DD4BF]/80 mt-1 flex items-center gap-1">
+              <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF]/80 mt-1 flex items-center gap-1">
                 <span>View earnings proof</span>
                 <ArrowRight className="w-3 h-3" />
               </span>
@@ -109,7 +109,7 @@ export default function FreelancerDashboardPage() {
 
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Completed Projects</span>
-            <div className="text-2xl font-bold text-white mt-1 font-mono">
+            <div className="text-2xl font-bold text-foreground mt-1 font-mono">
               {profile.completedProjectsCount || 14}
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">100% on-chain delivery</span>
@@ -117,7 +117,7 @@ export default function FreelancerDashboardPage() {
 
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Gonka Match Rank</span>
-            <div className="text-2xl font-bold text-[#A78BFA] mt-1 font-mono">Top 2%</div>
+            <div className="text-2xl font-bold text-[#7C3AED] dark:text-[#A78BFA] mt-1 font-mono">Top 2%</div>
             <span className="text-[11px] text-foreground/40 mt-1 block">Move / React Ecosystem</span>
           </GlassCard>
         </div>
@@ -125,11 +125,11 @@ export default function FreelancerDashboardPage() {
         {/* Active Work Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-[#4DA2FF]" />
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-[#2563EB] dark:text-[#4DA2FF]" />
               <span>Active Work & Contracts</span>
             </h2>
-            <Link href="/freelancer/active-work" className="text-xs text-[#4DA2FF] hover:underline flex items-center gap-1">
+            <Link href="/freelancer/active-work" className="text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1">
               <span>View all active contracts</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -150,10 +150,10 @@ export default function FreelancerDashboardPage() {
 
                 return (
                   <Link key={proj.id} href={`/project/${proj.id}/workspace`} className="block group">
-                    <GlassCard hoverEffect className="p-5 sm:p-6 space-y-4 h-full border-white/10 group-hover:border-[#4DA2FF]/40">
+                    <GlassCard hoverEffect className="p-5 sm:p-6 space-y-4 h-full border-black/[0.08] dark:border-white/10 group-hover:border-[#4DA2FF]/40">
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1">
-                          <h3 className="font-semibold text-sm sm:text-base text-white group-hover:text-[#4DA2FF] transition-colors">
+                          <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
                             {proj.title}
                           </h3>
                           <p className="text-xs text-foreground/50 font-mono">
@@ -168,12 +168,12 @@ export default function FreelancerDashboardPage() {
                       </div>
 
                       {nextPending && (
-                        <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                          <span className="text-xs text-foreground/60 truncate max-w-[200px]">
+                        <div className="pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                          <span className="text-xs text-foreground/70 truncate max-w-[200px]">
                             Next: {nextPending.title}
                           </span>
-                          <span className="text-xs font-semibold text-[#2DD4BF] group-hover:underline">
-                            Submit Deliverables ?
+                          <span className="text-xs font-semibold text-[#0D9488] dark:text-[#2DD4BF] group-hover:underline">
+                            Submit Deliverables ✓
                           </span>
                         </div>
                       )}
@@ -189,16 +189,16 @@ export default function FreelancerDashboardPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1 rounded-md bg-[#8B5CF6]/20 text-[#A78BFA]">
+              <div className="p-1 rounded-md bg-[#8B5CF6]/20 text-[#7C3AED] dark:text-[#A78BFA]">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">AI-Recommended Projects For You</h2>
-                <span className="text-[11px] text-[#A78BFA] font-mono">Powered by Gonka Router AI</span>
+                <h2 className="text-lg font-bold text-foreground">AI-Recommended Projects For You</h2>
+                <span className="text-[11px] text-[#7C3AED] dark:text-[#A78BFA] font-mono">Powered by Gonka Router AI</span>
               </div>
             </div>
 
-            <Link href="/freelancer/browse" className="text-xs text-[#A78BFA] hover:underline flex items-center gap-1">
+            <Link href="/freelancer/browse" className="text-xs text-[#7C3AED] dark:text-[#A78BFA] hover:underline flex items-center gap-1">
               <span>See all recommendations</span>
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -216,13 +216,13 @@ export default function FreelancerDashboardPage() {
                 <GlassCard key={proj.id} className="p-5 space-y-3.5 flex flex-col justify-between">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-sm sm:text-base text-white line-clamp-1">
+                      <h3 className="font-semibold text-sm sm:text-base text-foreground line-clamp-1">
                         {proj.title}
                       </h3>
                       <ScoreBadge score={matchResult.matchScore} type="ai_match" size="sm" />
                     </div>
 
-                    <div className="text-xs font-mono text-[#2DD4BF] font-semibold">
+                    <div className="text-xs font-mono text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
                       ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
                     </div>
 
@@ -238,7 +238,7 @@ export default function FreelancerDashboardPage() {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                  <div className="pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
                     <span className="text-[10px] text-foreground/45 font-mono">
                       Posted {new Date(proj.createdAt).toLocaleDateString()}
                     </span>

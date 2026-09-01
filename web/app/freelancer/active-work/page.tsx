@@ -34,7 +34,7 @@ export default function FreelancerActiveWorkPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
               Active Work & Contracts
             </h1>
             <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -50,7 +50,7 @@ export default function FreelancerActiveWorkPage() {
         {/* Section 1: Matched — Awaiting Escrow Funding */}
         {matchedAwaitingEscrow.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F59E0B] flex items-center gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[#D97706] dark:text-[#F59E0B] flex items-center gap-2">
               <Clock className="w-4 h-4" />
               <span>Matched — Waiting on Client Escrow Funding</span>
             </h2>
@@ -65,13 +65,13 @@ export default function FreelancerActiveWorkPage() {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-base text-white">{proj.title}</h3>
+                        <h3 className="font-bold text-base text-foreground">{proj.title}</h3>
                         <StatusBadge status="matched" />
                       </div>
                       <p className="text-xs text-foreground/70">
                         Matched with <strong>{clientUser?.name}</strong> • ${proj.estimatedBudget.toLocaleString()} USDC
                       </p>
-                      <p className="text-[11px] text-[#F59E0B] font-mono">
+                      <p className="text-[11px] text-[#D97706] dark:text-[#F59E0B] font-mono">
                         Client is currently reviewing finalized terms and funding escrow on Sui.
                       </p>
                     </div>
@@ -88,8 +88,8 @@ export default function FreelancerActiveWorkPage() {
 
         {/* Section 2: In-Progress Contracts */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[#2DD4BF]" />
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Lock className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
             <span>Funded Active Contracts</span>
           </h2>
 
@@ -116,11 +116,11 @@ export default function FreelancerActiveWorkPage() {
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <h3 className="text-lg font-bold text-white">{proj.title}</h3>
+                          <h3 className="text-lg font-bold text-foreground">{proj.title}</h3>
                           <StatusBadge status="in_progress" />
                         </div>
                         <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono">
-                          <span className="text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
@@ -135,15 +135,15 @@ export default function FreelancerActiveWorkPage() {
                       </Link>
                     </div>
 
-                    <div className="pt-2 border-t border-white/5">
+                    <div className="pt-2 border-t border-black/5 dark:border-white/5">
                       <MilestoneStepper milestones={projMs} />
                     </div>
 
                     {nextPending && (
-                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
+                      <div className="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5 flex items-center justify-between">
                         <div>
                           <span className="text-xs text-foreground/60 block">Current Actionable Milestone:</span>
-                          <span className="text-xs font-semibold text-white">{nextPending.title} (${nextPending.amount.toLocaleString()} USDC)</span>
+                          <span className="text-xs font-semibold text-foreground">{nextPending.title} (${nextPending.amount.toLocaleString()} USDC)</span>
                         </div>
                         <Link href={`/project/${proj.id}/workspace`}>
                           <GradientButton size="sm">
@@ -161,8 +161,8 @@ export default function FreelancerActiveWorkPage() {
 
         {/* Section 3: Completed Contracts */}
         {completedContracts.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-white/5">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
+          <div className="space-y-4 pt-4 border-t border-black/5 dark:border-white/5">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
               <span>Completed Work History</span>
             </h2>
@@ -171,7 +171,7 @@ export default function FreelancerActiveWorkPage() {
               {completedContracts.map((proj) => (
                 <GlassCard key={proj.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-semibold text-sm sm:text-base text-white">{proj.title}</h4>
+                    <h4 className="font-semibold text-sm sm:text-base text-foreground">{proj.title}</h4>
                     <span className="text-xs text-foreground/50 font-mono">
                       ${proj.estimatedBudget.toLocaleString()} USDC • 100% Released
                     </span>

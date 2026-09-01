@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,7 @@ import { GhostButton } from "@/components/ui/ghost-button";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { WalletChip } from "@/components/ui/wallet-chip";
 import { clsx } from "clsx";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ClientOnboardingPage() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function ClientOnboardingPage() {
     try {
       await connectWallet();
     } catch (e) {
-      setWalletError("Wallet connection failed. Try again.");
+      setWalletError("Failed to simulate wallet connection. Please retry.");
     } finally {
       setIsConnecting(false);
     }
@@ -64,15 +65,15 @@ export default function ClientOnboardingPage() {
 
   const handleFinish = () => {
     if (!currentUser.walletAddress) {
-      setWalletError("Please connect your Sui wallet to complete client setup.");
+      setWalletError("Please connect your wallet to finish setup.");
       return;
     }
 
     updateClientProfile({
       name,
+      avatarUrl,
       companyName,
       bio,
-      avatarUrl,
       hiringCategories: selectedCategories,
       typicalBudgetRange: budgetRange
     });
@@ -81,13 +82,18 @@ export default function ClientOnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B12] text-foreground flex flex-col items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-bg-base text-foreground flex flex-col items-center justify-center p-4 relative transition-colors duration-200">
+      {/* Top right controls */}
+      <div className="absolute top-6 right-6 z-20">
+        <ThemeToggle />
+      </div>
+
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[400px] bg-gradient-to-tr from-[#4DA2FF]/15 via-[#7B61FF]/15 to-[#2DD4BF]/15 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="w-full max-w-xl mx-auto space-y-6 relative z-10">
         {/* Step Indicator */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-[#4DA2FF]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/5 text-xs text-[#2563EB] dark:text-[#4DA2FF]">
             <Sparkles className="w-3.5 h-3.5" />
             <span>Client Setup • Step {step} of 3</span>
           </div>
@@ -97,7 +103,7 @@ export default function ClientOnboardingPage() {
                 key={s}
                 className={clsx(
                   "h-1.5 flex-1 rounded-full transition-all duration-300",
-                  s <= step ? "bg-gradient-to-r from-[#4DA2FF] to-[#2DD4BF]" : "bg-white/10"
+                  s <= step ? "bg-gradient-to-r from-[#4DA2FF] to-[#2DD4BF]" : "bg-black/10 dark:bg-white/10"
                 )}
               />
             ))}
@@ -105,12 +111,12 @@ export default function ClientOnboardingPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl border border-white/10 bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div className="rounded-3xl border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-xl dark:shadow-2xl space-y-6">
           {/* Step 1: Basic Info */}
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Tell us about yourself & organization</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Tell us about yourself & organization</h2>
                 <p className="text-xs text-foreground/60">This information will be displayed to freelancers on your posted projects.</p>
               </div>
 
@@ -118,7 +124,7 @@ export default function ClientOnboardingPage() {
                 <img
                   src={avatarUrl}
                   alt="Avatar preview"
-                  className="w-16 h-16 rounded-2xl object-cover border border-white/10"
+                  className="w-16 h-16 rounded-2xl object-cover border border-black/10 dark:border-white/10"
                 />
                 <div>
                   <button
@@ -143,7 +149,7 @@ export default function ClientOnboardingPage() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
                     placeholder="e.g. Elena Vance"
                   />
                 </div>
@@ -156,7 +162,7 @@ export default function ClientOnboardingPage() {
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
                     placeholder="e.g. Nexus Web3 Labs"
                   />
                 </div>
@@ -167,7 +173,7 @@ export default function ClientOnboardingPage() {
                     rows={3}
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF] resize-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF] resize-none"
                     placeholder="Briefly describe what you build..."
                   />
                 </div>
@@ -189,7 +195,7 @@ export default function ClientOnboardingPage() {
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Hiring Preferences</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Hiring Preferences</h2>
                 <p className="text-xs text-foreground/60">Help Gonka AI pre-tune candidate recommendations for your team.</p>
               </div>
 
@@ -218,8 +224,8 @@ export default function ClientOnboardingPage() {
                       className={clsx(
                         "py-2.5 px-3 rounded-xl border text-xs font-mono font-medium transition-all",
                         budgetRange === r
-                          ? "border-[#4DA2FF] bg-[#4DA2FF]/15 text-white"
-                          : "border-white/10 bg-white/[0.03] text-foreground/70 hover:border-white/20"
+                          ? "border-[#4DA2FF] bg-[#4DA2FF]/15 text-[#2563EB] dark:text-white"
+                          : "border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-foreground/70 hover:border-black/20 dark:hover:border-white/20"
                       )}
                     >
                       {r === "<500" ? "< $500" : r === "500-2k" ? "$500 – $2k" : r === "2k-10k" ? "$2k – $10k" : "$10k+"}
@@ -243,17 +249,17 @@ export default function ClientOnboardingPage() {
           {step === 3 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-bold text-white mb-1">Connect Escrow Wallet</h2>
+                <h2 className="text-xl font-bold text-foreground mb-1">Connect Escrow Wallet</h2>
                 <p className="text-xs text-foreground/60">Connect your Sui address to fund milestone escrows when hiring.</p>
               </div>
 
-              <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-4">
+              <div className="p-5 rounded-2xl border border-black/[0.08] dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#2DD4BF]/10 text-[#2DD4BF] shrink-0">
+                  <div className="p-2.5 rounded-xl bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] shrink-0">
                     <Lock className="w-5 h-5" />
                   </div>
                   <div className="space-y-1 text-xs text-foreground/75 leading-relaxed">
-                    <p className="font-semibold text-white">Non-Custodial Escrow Assurance</p>
+                    <p className="font-semibold text-foreground">Non-Custodial Escrow Assurance</p>
                     <p>
                       Your funds stay in your control until you approve a milestone — TrustHire never holds a balance on your behalf.
                     </p>
@@ -264,11 +270,11 @@ export default function ClientOnboardingPage() {
                   {currentUser.walletAddress ? (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#2DD4BF]" />
-                        <span className="text-xs font-semibold text-white">Connected:</span>
-                        <span className="font-mono text-xs text-[#2DD4BF]">{currentUser.walletAddress}</span>
+                        <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+                        <span className="text-xs font-semibold text-foreground">Connected:</span>
+                        <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF]">{currentUser.walletAddress}</span>
                       </div>
-                      <span className="text-[11px] text-[#2DD4BF] font-medium font-sans">Sui Testnet Active</span>
+                      <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-medium font-sans">Sui Testnet Active</span>
                     </div>
                   ) : (
                     <div className="text-center py-4 space-y-3">

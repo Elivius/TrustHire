@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -46,11 +46,11 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   }
 
   const styles: Record<BadgeVariant, string> = {
-    neutral: "bg-white/10 text-foreground/75 border-white/10",
-    success: "bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30",
-    warning: "bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30",
-    danger: "bg-red-500/15 text-red-400 border-red-500/30",
-    ai: "bg-[#8B5CF6]/15 text-[#A78BFA] border-[#8B5CF6]/30"
+    neutral: "bg-black/5 dark:bg-white/10 text-foreground/80 dark:text-foreground/75 border-black/15 dark:border-white/10",
+    success: "bg-emerald-500/10 dark:bg-[#10B981]/15 text-emerald-700 dark:text-[#10B981] border-emerald-500/30 dark:border-[#10B981]/30",
+    warning: "bg-amber-500/10 dark:bg-[#F59E0B]/15 text-amber-700 dark:text-[#F59E0B] border-amber-500/30 dark:border-[#F59E0B]/30",
+    danger: "bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",
+    ai: "bg-purple-500/10 dark:bg-[#8B5CF6]/15 text-purple-700 dark:text-[#A78BFA] border-purple-500/30 dark:border-[#8B5CF6]/30"
   };
 
   const formatText = (text: string) => {
@@ -61,7 +61,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     <span
       className={twMerge(
         clsx(
-          "inline-flex items-center font-medium border rounded-full capitalize",
+          "inline-flex items-center font-medium border rounded-full capitalize whitespace-nowrap shrink-0",
           size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-xs sm:text-sm",
           styles[resolvedVariant],
           className
