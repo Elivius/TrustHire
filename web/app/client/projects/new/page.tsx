@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -197,11 +197,11 @@ export default function PostProjectPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 text-xs text-[#A78BFA] mb-2 font-mono">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#8B5CF6]/30 bg-[#8B5CF6]/10 text-xs text-[#7C3AED] dark:text-[#A78BFA] mb-2 font-mono">
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI Hiring Assistant • Gonka Router</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Post a New Project
           </h1>
           <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -213,7 +213,7 @@ export default function PostProjectPage() {
         {stage === 1 && (
           <GlassCard className="p-6 sm:p-8 space-y-6">
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-white">
+              <label className="block text-sm font-semibold text-foreground">
                 Describe what you want to build
               </label>
               <p className="text-xs text-foreground/60">
@@ -224,13 +224,13 @@ export default function PostProjectPage() {
                 value={descriptionInput}
                 onChange={(e) => setDescriptionInput(e.target.value)}
                 placeholder="e.g. We need a frontend developer to build an interactive Web3 dashboard in Next.js 15 and Tailwind CSS. We have $3,500 USDC budget and need 3 milestones over 2 weeks."
-                className="w-full p-4 rounded-2xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#7B61FF]/60 resize-none leading-relaxed"
+                className="w-full p-4 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#7B61FF]/60 resize-none leading-relaxed"
               />
             </div>
 
             {/* Error Message with Fallback */}
             {parseError && (
-              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 space-y-2">
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 space-y-2">
                 <div className="flex items-center gap-2 font-semibold">
                   <AlertCircle className="w-4 h-4" />
                   <span>{parseError}</span>
@@ -239,14 +239,14 @@ export default function PostProjectPage() {
                   <button
                     type="button"
                     onClick={handleGenerateAI}
-                    className="text-white underline hover:opacity-80"
+                    className="text-foreground underline hover:opacity-80 font-medium"
                   >
                     Try Again
                   </button>
                   <button
                     type="button"
                     onClick={handleSkipToManual}
-                    className="text-[#4DA2FF] underline hover:opacity-80"
+                    className="text-[#2563EB] dark:text-[#4DA2FF] underline hover:opacity-80 font-medium"
                   >
                     Skip AI and fill in manually →
                   </button>
@@ -254,7 +254,7 @@ export default function PostProjectPage() {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-black/5 dark:border-white/5">
               <button
                 type="button"
                 onClick={handleSkipToManual}
@@ -282,13 +282,13 @@ export default function PostProjectPage() {
             {/* AI Banner */}
             <div className="rounded-2xl border border-[#8B5CF6]/30 bg-[#8B5CF6]/[0.08] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-[#8B5CF6]/20 text-[#A78BFA] shrink-0">
+                <div className="p-2 rounded-xl bg-[#8B5CF6]/20 text-[#7C3AED] dark:text-[#A78BFA] shrink-0">
                   <Cpu className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-xs sm:text-sm text-white flex items-center gap-2">
+                  <h4 className="font-semibold text-xs sm:text-sm text-foreground flex items-center gap-2">
                     <span>AI-Generated Milestone Proposal</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40 text-[#A78BFA]">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/10 dark:bg-black/40 text-[#7C3AED] dark:text-[#A78BFA]">
                       {gonkaRequestId}
                     </span>
                   </h4>
@@ -318,7 +318,7 @@ export default function PostProjectPage() {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm sm:text-base font-semibold text-white focus:outline-none focus:border-[#7B61FF]"
+                    className="w-full px-4 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm sm:text-base font-semibold text-foreground focus:outline-none focus:border-[#7B61FF]"
                   />
                 </div>
 
@@ -342,7 +342,7 @@ export default function PostProjectPage() {
                             }))
                           );
                         }}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm font-mono text-white focus:outline-none focus:border-[#7B61FF]"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm font-mono text-foreground focus:outline-none focus:border-[#7B61FF]"
                       />
                     </div>
                   </div>
@@ -357,7 +357,7 @@ export default function PostProjectPage() {
                         type="number"
                         value={timelineDays}
                         onChange={(e) => setTimelineDays(Number(e.target.value))}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm font-mono text-white focus:outline-none focus:border-[#7B61FF]"
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm font-mono text-foreground focus:outline-none focus:border-[#7B61FF]"
                       />
                     </div>
                   </div>
@@ -368,7 +368,7 @@ export default function PostProjectPage() {
                   <label className="block text-xs font-semibold text-foreground/80 mb-2 uppercase tracking-wider">
                     Required Skills & Technologies
                   </label>
-                  <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/[0.02]">
+                  <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
                     {requiredSkills.map((s) => (
                       <SkillChip key={s} label={s} onRemove={() => handleRemoveSkill(s)} />
                     ))}
@@ -378,17 +378,17 @@ export default function PostProjectPage() {
                       onChange={(e) => setNewSkillInput(e.target.value)}
                       onKeyDown={handleAddSkill}
                       placeholder="+ Add skill & press Enter"
-                      className="text-xs bg-transparent text-white focus:outline-none px-2 py-1 min-w-[140px]"
+                      className="text-xs bg-transparent text-foreground focus:outline-none px-2 py-1 min-w-[140px]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Milestones Breakdown */}
-              <div className="space-y-4 pt-4 border-t border-white/10">
+              <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/10">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-base font-bold text-white">Milestone Allocation Plan</h3>
+                    <h3 className="text-base font-bold text-foreground">Milestone Allocation Plan</h3>
                     <p className="text-xs text-foreground/60">
                       Funds will be escrowed and released incrementally per milestone.
                     </p>
@@ -399,8 +399,8 @@ export default function PostProjectPage() {
                     className={clsx(
                       "px-3.5 py-1.5 rounded-xl border font-mono text-xs font-semibold flex items-center gap-2 shrink-0",
                       isBudgetValid
-                        ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#2DD4BF]"
-                        : "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#F59E0B]"
+                        ? "border-[#2DD4BF]/40 bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF]"
+                        : "border-[#F59E0B]/40 bg-[#F59E0B]/10 text-[#D97706] dark:text-[#F59E0B]"
                     )}
                   >
                     <span>{totalPercentage.toFixed(0)}% allocated</span>
@@ -417,11 +417,11 @@ export default function PostProjectPage() {
                   {milestones.map((m, idx) => (
                     <div
                       key={idx}
-                      className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-3 relative group"
+                      className="p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-3 relative group"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 flex-1">
-                          <span className="font-mono text-xs font-bold text-foreground/40">
+                          <span className="font-mono text-xs font-bold text-foreground/50">
                             #{idx + 1}
                           </span>
                           <input
@@ -429,12 +429,12 @@ export default function PostProjectPage() {
                             value={m.title}
                             onChange={(e) => handleMilestoneChange(idx, "title", e.target.value)}
                             placeholder="Milestone title"
-                            className="w-full px-3 py-1.5 rounded-lg border border-white/10 bg-black/20 text-xs font-semibold text-white focus:outline-none focus:border-[#7B61FF]"
+                            className="w-full px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 text-xs font-semibold text-foreground focus:outline-none focus:border-[#7B61FF]"
                           />
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1 bg-black/30 border border-white/10 px-2 py-1 rounded-lg">
+                          <div className="flex items-center gap-1 bg-black/[0.03] dark:bg-black/30 border border-black/10 dark:border-white/10 px-2 py-1 rounded-lg">
                             <input
                               type="number"
                               min={1}
@@ -443,12 +443,12 @@ export default function PostProjectPage() {
                               onChange={(e) =>
                                 handleMilestoneChange(idx, "percentOfBudget", Number(e.target.value))
                               }
-                              className="w-12 bg-transparent text-right font-mono text-xs text-white focus:outline-none"
+                              className="w-12 bg-transparent text-right font-mono text-xs text-foreground focus:outline-none"
                             />
                             <span className="text-xs font-mono text-foreground/50">%</span>
                           </div>
 
-                          <span className="font-mono text-xs font-semibold text-[#2DD4BF] min-w-[70px] text-right">
+                          <span className="font-mono text-xs font-semibold text-[#0D9488] dark:text-[#2DD4BF] min-w-[70px] text-right">
                             ${Math.round((estimatedBudget * m.percentOfBudget) / 100).toLocaleString()}
                           </span>
 
@@ -456,7 +456,7 @@ export default function PostProjectPage() {
                             <button
                               type="button"
                               onClick={() => handleRemoveMilestone(idx)}
-                              className="p-1 text-foreground/30 hover:text-red-400 transition-colors"
+                              className="p-1 text-foreground/30 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                               title="Delete milestone"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -470,7 +470,7 @@ export default function PostProjectPage() {
                         value={m.deliverable}
                         onChange={(e) => handleMilestoneChange(idx, "deliverable", e.target.value)}
                         placeholder="Detailed deliverables for this milestone..."
-                        className="w-full p-2.5 rounded-lg border border-white/10 bg-black/20 text-xs text-foreground/80 focus:outline-none focus:border-[#7B61FF] resize-none"
+                        className="w-full p-2.5 rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 text-xs text-foreground/80 focus:outline-none focus:border-[#7B61FF] resize-none"
                       />
                     </div>
                   ))}
@@ -486,7 +486,7 @@ export default function PostProjectPage() {
               </div>
 
               {/* Bottom Action Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-white/10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-black/10 dark:border-white/10">
                 <GhostButton
                   onClick={() => handleSaveDraftOrPost(true)}
                   disabled={isPosting}
@@ -496,7 +496,7 @@ export default function PostProjectPage() {
 
                 <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
                   {!isBudgetValid && (
-                    <span className="text-xs text-[#F59E0B]">
+                    <span className="text-xs text-[#D97706] dark:text-[#F59E0B]">
                       Milestone allocations sum to {totalPercentage.toFixed(0)}% (must equal 100%)
                     </span>
                   )}

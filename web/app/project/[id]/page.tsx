@@ -112,7 +112,7 @@ export default function ProjectDetailPage() {
         <div>
           <Link
             href={isClientOwner ? "/client/projects" : "/freelancer/browse"}
-            className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-white transition-colors mb-2"
+            className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-foreground transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to {isClientOwner ? "My Projects" : "Browse Projects"}</span>
@@ -122,11 +122,11 @@ export default function ProjectDetailPage() {
         {isClientOwner && project.status === "matched" && matchedFreelancer && (
           <div className="rounded-2xl border border-[#2DD4BF]/40 bg-[#2DD4BF]/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 backdrop-blur-md">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-[#2DD4BF]/20 text-[#2DD4BF] shrink-0">
+              <div className="p-2 rounded-xl bg-[#2DD4BF]/20 text-[#0D9488] dark:text-[#2DD4BF] shrink-0">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-sm sm:text-base text-white">
+                <h4 className="font-bold text-sm sm:text-base text-foreground">
                   You've matched with {matchedFreelancer.name}!
                 </h4>
                 <p className="text-xs text-foreground/75">
@@ -147,13 +147,13 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div className="space-y-2 flex-1">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                   {project.title}
                 </h1>
                 <StatusBadge status={project.status} />
               </div>
               <div className="flex items-center gap-4 text-xs font-mono text-foreground/60 flex-wrap">
-                <span className="text-[#2DD4BF] font-semibold text-sm">
+                <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold text-sm">
                   ${project.estimatedBudget.toLocaleString()} USDC
                 </span>
                 <span>•</span>
@@ -168,11 +168,11 @@ export default function ProjectDetailPage() {
                 <button
                   type="button"
                   onClick={() => toggleSaveProject(currentUser.id, projectId)}
-                  className="p-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-foreground/75 hover:text-white transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-foreground/75 hover:text-foreground transition-all cursor-pointer"
                   title={isSaved ? "Saved" : "Save for later"}
                 >
                   {isSaved ? (
-                    <BookmarkCheck className="w-4 h-4 text-[#2DD4BF]" />
+                    <BookmarkCheck className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
                   ) : (
                     <Bookmark className="w-4 h-4" />
                   )}
@@ -197,7 +197,7 @@ export default function ProjectDetailPage() {
             />
           )}
 
-          <div className="space-y-2 pt-2 border-t border-white/5">
+          <div className="space-y-2 pt-2 border-t border-black/5 dark:border-white/5">
             <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
               Project Description
             </h3>
@@ -221,10 +221,10 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
-          <div className="space-y-4 pt-4 border-t border-white/10">
+          <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/10">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-white">Escrow Milestone Plan</h3>
+                <h3 className="text-base font-bold text-foreground">Escrow Milestone Plan</h3>
                 <p className="text-xs text-foreground/60">
                   Deliverables and budget allocations agreed for this contract.
                 </p>
@@ -238,7 +238,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {isFreelancerRole && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-black/10 dark:border-white/10">
               <div className="flex items-center gap-2">
                 <GhostButton size="sm" onClick={() => setMessageModalOpen(true)}>
                   <MessageSquare className="w-3.5 h-3.5 mr-1" />
@@ -248,8 +248,8 @@ export default function ProjectDetailPage() {
 
               <div>
                 {myApplication ? (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-medium text-foreground/80">
-                    <CheckCircle2 className="w-4 h-4 text-[#2DD4BF]" />
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs font-medium text-foreground/80">
+                    <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
                     <span>Applied — Pending Client Review</span>
                   </div>
                 ) : (
@@ -269,12 +269,12 @@ export default function ProjectDetailPage() {
         {applyModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div
-              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => setApplyModalOpen(false)}
             />
-            <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5">
+            <div className="relative w-full max-w-lg rounded-3xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5 transition-colors">
               <div>
-                <h3 className="text-xl font-bold text-white">Apply to {project.title}</h3>
+                <h3 className="text-xl font-bold text-foreground">Apply to {project.title}</h3>
                 <p className="text-xs text-foreground/60 mt-1">
                   Your Trust Score ({myProfile?.trustScore || 90}/100) and verified portfolio will be attached automatically.
                 </p>
@@ -289,7 +289,7 @@ export default function ProjectDetailPage() {
                   value={coverNote}
                   onChange={(e) => setCoverNote(e.target.value)}
                   placeholder="Explain why you're a great fit, highlight similar projects you've shipped on Sui..."
-                  className="w-full p-3.5 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
+                  className="w-full p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#7B61FF] resize-none leading-relaxed"
                 />
               </div>
 
@@ -300,7 +300,7 @@ export default function ProjectDetailPage() {
                   onClick={handleApply}
                   icon={<Send className="w-4 h-4 ml-1" />}
                 >
-                  {appliedSuccess ? "Application Sent ?" : "Confirm Application"}
+                  {appliedSuccess ? "Application Sent ✓" : "Confirm Application"}
                 </GradientButton>
               </div>
             </div>

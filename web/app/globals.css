@@ -1,16 +1,19 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --bg-base: #F7F7FB;
-    --surface-glass: #FFFFFF;
+    --bg-base: #F8F9FC;
+    --surface-glass: rgba(255, 255, 255, 0.9);
     --surface-glass-border: rgba(0, 0, 0, 0.08);
-    --background: #F7F7FB;
-    --foreground: #111827;
-    --text-primary: #111827;
-    --text-secondary: #6B7280;
+    --background: #F8F9FC;
+    --foreground: #0F172A;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --card: #FFFFFF;
+    --card-foreground: #0F172A;
+    --border: rgba(0, 0, 0, 0.08);
   }
 
   .dark {
@@ -21,18 +24,22 @@
     --foreground: #F3F4F6;
     --text-primary: #F3F4F6;
     --text-secondary: #9CA3AF;
+    --card: #151622;
+    --card-foreground: #F3F4F6;
+    --border: rgba(255, 255, 255, 0.1);
   }
 }
 
 body {
   background-color: var(--bg-base);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom scrollbar for dark UI */
+/* Custom scrollbar for dark/light UI */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -41,21 +48,37 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(150, 150, 150, 0.2);
   border-radius: 9999px;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 150, 150, 0.35);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
 }
 
 /* Gradient text */
 .text-gradient {
+  background: linear-gradient(135deg, #2563EB 0%, #7B61FF 50%, #0D9488 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dark .text-gradient {
   background: linear-gradient(135deg, #4DA2FF 0%, #7B61FF 50%, #2DD4BF 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-ai {
+  background: linear-gradient(135deg, #7C3AED 0%, #9333EA 50%, #C026D3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dark .text-gradient-ai {
   background: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 50%, #C084FC 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -70,19 +93,26 @@ body {
 }
 
 .glass-panel-subtle {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(12px);
+}
+.dark .glass-panel-subtle {
   background-color: rgba(21, 22, 34, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(12px);
 }
 
 .glow-btn {
-  background: linear-gradient(135deg, #4DA2FF 0%, #7B61FF 50%, #2DD4BF 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #7B61FF 50%, #14B8A6 100%);
   position: relative;
   transition: all 0.2s ease;
 }
+.dark .glow-btn {
+  background: linear-gradient(135deg, #4DA2FF 0%, #7B61FF 50%, #2DD4BF 100%);
+}
 
 .glow-btn:hover {
-  box-shadow: 0 0 20px -2px rgba(123, 97, 255, 0.5);
+  box-shadow: 0 0 20px -2px rgba(123, 97, 255, 0.4);
   transform: translateY(-1px);
 }
 

@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { FolderOpen } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -22,12 +22,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     <div
       className={twMerge(
         clsx(
-          "flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-2xl border border-white/5 bg-white/[0.02]",
+          "flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-2xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02]",
           className
         )
       )}
     >
-      <div className="p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 mb-4 text-foreground/60 shadow-inner">
+      <div className="p-3.5 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 mb-4 text-foreground/60 shadow-inner">
         {icon}
       </div>
       <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1.5">{title}</h3>

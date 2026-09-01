@@ -40,17 +40,17 @@ export const MilestoneSubmissionModal: React.FC<MilestoneSubmissionModalProps> =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-3xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151622] p-6 sm:p-8 shadow-2xl space-y-5 transition-colors">
         <div>
-          <h3 className="text-xl font-bold text-white">Submit Deliverables: {milestone.title}</h3>
+          <h3 className="text-xl font-bold text-foreground">Submit Deliverables: {milestone.title}</h3>
           <p className="text-xs text-foreground/60 mt-1">
-            Payout upon client approval: <strong className="text-[#2DD4BF] font-mono">${milestone.amount.toLocaleString()} USDC</strong>
+            Payout upon client approval: <strong className="text-[#0D9488] dark:text-[#2DD4BF] font-mono">${milestone.amount.toLocaleString()} USDC</strong>
           </p>
         </div>
 
         {milestone.revisionNote && (
-          <div className="p-3.5 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-xs text-[#F59E0B]">
+          <div className="p-3.5 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-xs text-[#D97706] dark:text-[#F59E0B]">
             <strong>Client Note:</strong> "{milestone.revisionNote}"
           </div>
         )}
@@ -64,7 +64,7 @@ export const MilestoneSubmissionModal: React.FC<MilestoneSubmissionModalProps> =
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Describe your completed work, architectural choices, and test verification proof..."
-            className="w-full p-3.5 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#2DD4BF] resize-none leading-relaxed"
+            className="w-full p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#2DD4BF] resize-none leading-relaxed"
           />
         </div>
 
@@ -82,7 +82,7 @@ export const MilestoneSubmissionModal: React.FC<MilestoneSubmissionModalProps> =
                   updated[idx] = e.target.value;
                   setLinks(updated);
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/[0.03] text-xs text-white focus:outline-none focus:border-[#2DD4BF]"
+                className="w-full px-3 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs text-foreground focus:outline-none focus:border-[#2DD4BF]"
                 placeholder="https://..."
               />
               {links.length > 1 && (
@@ -99,15 +99,15 @@ export const MilestoneSubmissionModal: React.FC<MilestoneSubmissionModalProps> =
           <button
             type="button"
             onClick={() => setLinks([...links, ""])}
-            className="text-xs text-[#4DA2FF] hover:underline flex items-center gap-1"
+            className="text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-1"
           >
             <Plus className="w-3 h-3" />
             <span>Add another link</span>
           </button>
         </div>
 
-        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-foreground/60 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#2DD4BF]" />
+        <div className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 text-[11px] text-foreground/60 flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
           <span>A cryptographic content hash is recorded on-chain for verification integrity.</span>
         </div>
 

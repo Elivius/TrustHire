@@ -71,7 +71,7 @@ export default function ClientSettingsPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Client Settings
           </h1>
           <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -81,9 +81,9 @@ export default function ClientSettingsPage() {
 
         {/* Section 1: Account Info */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <User className="w-4 h-4 text-[#4DA2FF]" />
-            <h2 className="text-base font-bold text-white">Account Information</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <User className="w-4 h-4 text-[#2563EB] dark:text-[#4DA2FF]" />
+            <h2 className="text-base font-bold text-foreground">Account Information</h2>
           </div>
 
           <form onSubmit={handleSaveAccount} className="space-y-4">
@@ -96,7 +96,7 @@ export default function ClientSettingsPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
                 />
               </div>
 
@@ -108,7 +108,7 @@ export default function ClientSettingsPage() {
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
                 />
               </div>
             </div>
@@ -121,13 +121,13 @@ export default function ClientSettingsPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-white focus:outline-none focus:border-[#4DA2FF]"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
               />
             </div>
 
             <div className="flex items-center justify-between pt-2">
               {savedSuccess ? (
-                <span className="text-xs text-[#10B981] flex items-center gap-1.5">
+                <span className="text-xs text-[#10B981] flex items-center gap-1.5 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Profile updated successfully!</span>
                 </span>
@@ -142,14 +142,14 @@ export default function ClientSettingsPage() {
 
         {/* Section 2: Wallet Management */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <Wallet className="w-4 h-4 text-[#2DD4BF]" />
-            <h2 className="text-base font-bold text-white">Sui Escrow Wallet</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <Wallet className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+            <h2 className="text-base font-bold text-foreground">Sui Escrow Wallet</h2>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
             <div>
-              <span className="text-xs font-semibold text-white block mb-1">Active Connected Address</span>
+              <span className="text-xs font-semibold text-foreground block mb-1">Active Connected Address</span>
               {currentUser.walletAddress ? (
                 <WalletChip address={currentUser.walletAddress} />
               ) : (
@@ -193,14 +193,14 @@ export default function ClientSettingsPage() {
 
         {/* Section 3: Dual Roles Switch */}
         <GlassCard className="p-6 sm:p-8 space-y-6">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <ArrowLeftRight className="w-4 h-4 text-[#7B61FF]" />
-            <h2 className="text-base font-bold text-white">Roles & Account Modes</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <ArrowLeftRight className="w-4 h-4 text-[#7C3AED] dark:text-[#7B61FF]" />
+            <h2 className="text-base font-bold text-foreground">Roles & Account Modes</h2>
           </div>
 
           <div className="p-5 rounded-2xl border border-[#7B61FF]/30 bg-[#7B61FF]/[0.05] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h3 className="font-semibold text-sm text-white">
+              <h3 className="font-semibold text-sm text-foreground">
                 You're currently in Client Mode
               </h3>
               <p className="text-xs text-foreground/70">
@@ -221,9 +221,9 @@ export default function ClientSettingsPage() {
 
         {/* Section 4: Notifications */}
         <GlassCard className="p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2.5 pb-2 border-b border-white/5">
-            <Bell className="w-4 h-4 text-[#F59E0B]" />
-            <h2 className="text-base font-bold text-white">Notification Preferences</h2>
+          <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
+            <Bell className="w-4 h-4 text-[#D97706] dark:text-[#F59E0B]" />
+            <h2 className="text-base font-bold text-foreground">Notification Preferences</h2>
           </div>
 
           <div className="space-y-3 text-xs">
@@ -233,7 +233,7 @@ export default function ClientSettingsPage() {
               { key: "recommendations", label: "Autonomous Gonka AI recommendation updates" },
               { key: "escrow", label: "On-chain escrow confirmations and release receipts" }
             ].map(({ key, label }) => (
-              <label key={key} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.04]">
+              <label key={key} className="flex items-center justify-between p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.04]">
                 <span className="text-foreground/80">{label}</span>
                 <input
                   type="checkbox"
@@ -241,7 +241,7 @@ export default function ClientSettingsPage() {
                   onChange={() =>
                     setNotifToggles((prev) => ({ ...prev, [key]: !(prev as any)[key] }))
                   }
-                  className="rounded border-white/20 text-[#7B61FF] focus:ring-0 w-4 h-4"
+                  className="rounded border-black/20 dark:border-white/20 text-[#7B61FF] focus:ring-0 w-4 h-4"
                 />
               </label>
             ))}

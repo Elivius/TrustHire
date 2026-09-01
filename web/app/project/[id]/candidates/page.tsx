@@ -91,14 +91,14 @@ export default function CandidatesPage() {
         <div>
           <Link
             href={`/project/${project.id}`}
-            className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-white transition-colors mb-2"
+            className="inline-flex items-center gap-1.5 text-xs text-foreground/60 hover:text-foreground transition-colors mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Project Hub</span>
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
                 Candidates: {project.title}
               </h1>
               <p className="text-xs sm:text-sm text-foreground/60 mt-1">
@@ -113,7 +113,7 @@ export default function CandidatesPage() {
         {project.status === "matched" && matchedFreelancer && (
           <div className="p-4 rounded-2xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 text-xs text-foreground/80 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#2DD4BF]" />
+              <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
               <span>This project has already been matched with <strong>{matchedFreelancer.name}</strong>.</span>
             </div>
             <Link href={`/project/${project.id}/fund`}>
@@ -123,20 +123,20 @@ export default function CandidatesPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+        <div className="flex items-center gap-2 border-b border-black/10 dark:border-white/10 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab("recommended")}
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "recommended"
-                ? "bg-[#8B5CF6]/20 text-[#A78BFA] border border-[#8B5CF6]/40"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-[#8B5CF6]/20 text-[#7C3AED] dark:text-[#A78BFA] border border-[#8B5CF6]/40"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
-            <Sparkles className="w-4 h-4 text-[#8B5CF6]" />
+            <Sparkles className="w-4 h-4 text-[#7C3AED] dark:text-[#8B5CF6]" />
             <span>Recommended</span>
-            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-white/10">
+            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-foreground">
               {rankedFreelancers.length}
             </span>
           </button>
@@ -147,14 +147,14 @@ export default function CandidatesPage() {
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "applications"
-                ? "bg-[#4DA2FF]/20 text-[#4DA2FF] border border-[#4DA2FF]/40"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-[#4DA2FF]/20 text-[#2563EB] dark:text-[#4DA2FF] border border-[#4DA2FF]/40"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
             <FileCheck2 className="w-4 h-4" />
             <span>Applications</span>
             {projectApplications.length > 0 && (
-              <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-[#4DA2FF] text-white">
+              <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-[#2563EB] dark:bg-[#4DA2FF] text-white">
                 {projectApplications.length}
               </span>
             )}
@@ -166,13 +166,13 @@ export default function CandidatesPage() {
             className={clsx(
               "px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2",
               activeTab === "invited"
-                ? "bg-white/15 text-white border border-white/20"
-                : "text-foreground/60 hover:text-white hover:bg-white/5"
+                ? "bg-black/10 dark:bg-white/15 text-foreground dark:text-white border border-black/15 dark:border-white/20"
+                : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5"
             )}
           >
             <Send className="w-4 h-4" />
             <span>Invited</span>
-            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-white/10">
+            <span className="font-mono text-xs px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 text-foreground">
               {projectInvitations.length}
             </span>
           </button>
@@ -183,10 +183,10 @@ export default function CandidatesPage() {
           <div className="space-y-4">
             {isMatchingLoading ? (
               <div className="p-12 text-center rounded-2xl border border-[#8B5CF6]/20 bg-[#8B5CF6]/[0.04] space-y-3">
-                <div className="w-8 h-8 rounded-full bg-[#8B5CF6]/20 text-[#A78BFA] flex items-center justify-center mx-auto animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-[#8B5CF6]/20 text-[#7C3AED] dark:text-[#A78BFA] flex items-center justify-center mx-auto animate-pulse">
                   <Sparkles className="w-5 h-5 animate-spin-slow" />
                 </div>
-                <h3 className="text-sm font-semibold text-white">Finding your best matches…</h3>
+                <h3 className="text-sm font-semibold text-foreground">Finding your best matches…</h3>
                 <p className="text-xs text-foreground/60 max-w-sm mx-auto font-mono">
                   Gonka AI is evaluating verified skill vectors & on-chain trust scores.
                 </p>
@@ -200,17 +200,17 @@ export default function CandidatesPage() {
                   return (
                     <GlassCard
                       key={user.id}
-                      className="p-5 sm:p-6 space-y-4 hover:border-white/20 transition-all"
+                      className="p-5 sm:p-6 space-y-4 hover:border-black/20 dark:hover:border-white/20 transition-all"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div className="flex items-start gap-3.5">
                           <img
                             src={user.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80"}
                             alt={user.name}
-                            className="w-12 h-12 rounded-2xl object-cover border border-white/10"
+                            className="w-12 h-12 rounded-2xl object-cover border border-black/10 dark:border-white/10"
                           />
                           <div className="space-y-1">
-                            <h3 className="text-base font-bold text-white">{user.name}</h3>
+                            <h3 className="text-base font-bold text-foreground">{user.name}</h3>
                             <p className="text-xs text-foreground/60 line-clamp-1">{profile.headline}</p>
                             <div className="flex items-center gap-2 pt-1">
                               <ScoreBadge score={match.matchScore} type="ai_match" size="sm" />
@@ -240,8 +240,8 @@ export default function CandidatesPage() {
                       </div>
 
                       {/* AI Reasoning */}
-                      <p className="text-xs text-foreground/75 leading-relaxed bg-white/[0.02] p-3 rounded-xl border border-white/5">
-                        <span className="text-[#A78BFA] font-semibold mr-1.5">Gonka AI:</span>
+                      <p className="text-xs text-foreground/75 leading-relaxed bg-black/[0.02] dark:bg-white/[0.02] p-3 rounded-xl border border-black/5 dark:border-white/5">
+                        <span className="text-[#7C3AED] dark:text-[#A78BFA] font-semibold mr-1.5">Gonka AI:</span>
                         {match.reasoning}
                       </p>
 
@@ -292,10 +292,10 @@ export default function CandidatesPage() {
                           <img
                             src={applicant.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80"}
                             alt={applicant.name}
-                            className="w-11 h-11 rounded-2xl object-cover border border-white/10"
+                            className="w-11 h-11 rounded-2xl object-cover border border-black/10 dark:border-white/10"
                           />
                           <div>
-                            <h4 className="font-semibold text-sm sm:text-base text-white">{applicant.name}</h4>
+                            <h4 className="font-semibold text-sm sm:text-base text-foreground">{applicant.name}</h4>
                             <p className="text-xs text-foreground/50">{prof.headline}</p>
                           </div>
                         </div>
@@ -307,13 +307,13 @@ export default function CandidatesPage() {
                       </div>
 
                       {app.coverNote && (
-                        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-foreground/80 leading-relaxed">
+                        <div className="p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5 text-xs text-foreground/80 leading-relaxed">
                           <span className="text-foreground/50 block mb-1 font-semibold">Cover Note:</span>
                           "{app.coverNote}"
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                      <div className="flex items-center justify-between pt-2 border-t border-black/5 dark:border-white/5">
                         <span className="text-[11px] font-mono text-foreground/45">
                           Applied {new Date(app.appliedAt).toLocaleDateString()}
                         </span>
@@ -358,10 +358,10 @@ export default function CandidatesPage() {
                         <img
                           src={invitee.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"}
                           alt={invitee.name}
-                          className="w-10 h-10 rounded-xl object-cover border border-white/10"
+                          className="w-10 h-10 rounded-xl object-cover border border-black/10 dark:border-white/10"
                         />
                         <div>
-                          <h4 className="font-semibold text-sm text-white">{invitee.name}</h4>
+                          <h4 className="font-semibold text-sm text-foreground">{invitee.name}</h4>
                           <p className="text-xs text-foreground/50">{prof.headline}</p>
                         </div>
                       </div>
