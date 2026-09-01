@@ -1,3 +1,8 @@
+/**
+ * Custom hook for route protection based on Sui wallet connection status.
+ * Provides a brief grace period on initial load for the wallet to connect
+ * before automatically redirecting unauthorized users to the /auth page.
+ */
 "use client";
 
 import { useEffect, useState } from "react";

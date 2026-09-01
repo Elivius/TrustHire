@@ -1,3 +1,9 @@
+/**
+ * Wrapper component to protect private routes.
+ * Utilizes the useAuthProtection hook to verify authentication state.
+ * Displays a full-screen loading spinner while checking or redirecting,
+ * and only renders its children if the user is successfully authenticated.
+ */
 "use client";
 
 import { useAuthProtection } from "@/hooks/use-auth-protection";
