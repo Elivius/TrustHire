@@ -68,7 +68,7 @@ export default function AuthPage() {
       {/* Main Glass Card */}
       <div className="w-full max-w-[420px] rounded-3xl border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-[#151622]/90 backdrop-blur-2xl p-6 sm:p-8 shadow-xl dark:shadow-2xl relative z-10 space-y-6">
         <div className="text-center space-y-1">
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-foreground">
             Welcome to TrustHire
           </h2>
           <p className="text-xs text-foreground/60">
@@ -82,10 +82,10 @@ export default function AuthPage() {
         {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10" />
+            <div className="w-full border-t border-black/10 dark:border-white/10" />
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="bg-[#151622] px-3 text-[11px] font-mono text-foreground/40 uppercase">
+            <span className="bg-white dark:bg-[#151622] px-3 text-[11px] font-mono text-foreground/40 uppercase">
               or connect wallet
             </span>
           </div>
