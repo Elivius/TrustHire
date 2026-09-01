@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
     useWallets,
     useDAppKit,
@@ -16,6 +17,7 @@ function truncateAddress(address: string) {
 }
 
 export function WalletConnectButton({ disabled }: { disabled?: boolean }) {
+    const router = useRouter();
     const dAppKit = useDAppKit();
     const { status } = useWalletConnection();
     const currentAccount = useCurrentAccount();
@@ -66,6 +68,7 @@ export function WalletConnectButton({ disabled }: { disabled?: boolean }) {
         setShowAccountMenu(false);
         await dAppKit.disconnectWallet();
         setIsDisconnecting(false);
+        router.replace("/");
     };
 
     if (isDisconnecting) {

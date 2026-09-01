@@ -36,13 +36,7 @@ export default function AuthPage() {
       <div className="absolute top-6 left-6 z-20">
         <button
           type="button"
-          onClick={() => {
-            if (window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/");
-            }
-          }}
+          onClick={() => router.push("/")}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium text-foreground/75 hover:text-foreground bg-white/70 dark:bg-[#151622]/70 hover:bg-white dark:hover:bg-[#151622] border border-black/10 dark:border-white/10 backdrop-blur-md transition-all shadow-sm cursor-pointer select-none active:scale-[0.98]"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
