@@ -34,7 +34,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
     <button
       className={twMerge(
         clsx(
-          "inline-flex items-center justify-center transition-all duration-150 cursor-pointer select-none active:scale-[0.98]",
+          "inline-flex items-center justify-center whitespace-nowrap shrink-0 transition-all duration-150 cursor-pointer select-none active:scale-[0.98]",
           variantStyles,
           sizeClasses,
           disabled && "opacity-50 cursor-not-allowed transform-none hover:bg-transparent",
@@ -45,7 +45,7 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
       {...props}
     >
       {icon}
-      <span>{children}</span>
+      {children}
     </button>
   );
 };

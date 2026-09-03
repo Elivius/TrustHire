@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, Space_Grotesk, JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/app-context";
 import { Providers } from "@/context/providers";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({
   subsets: ["latin"],
@@ -33,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
       <body className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-[#0B0B12] text-foreground`}>
         <Providers>
           <AppProvider>{children}</AppProvider>

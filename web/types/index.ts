@@ -75,6 +75,8 @@ export interface Project {
   requiredSkills: string[];
   estimatedBudget: number;
   timelineDays: number;
+  experienceLevel?: "Beginner" | "Intermediate" | "Expert";
+  deliverables?: string[];
   status: ProjectStatus;
   matchedFreelancerId?: string;
   gonkaParseRequestId?: string;
