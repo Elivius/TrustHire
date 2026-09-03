@@ -92,12 +92,34 @@ function getWinningVerdict(
 
   let winner: VerificationVerdict = "UNCERTAIN";
   let highestCount = 0;
+  let winners = 0;
 
   for (const verdict of verdicts) {
     if (counts[verdict] > highestCount) {
       winner = verdict;
       highestCount = counts[verdict];
+      winners = 1;
+    } else if (
+      counts[verdict] === highestCount &&
+      highestCount > 0
+    ) {
+      winners++;
     }
+  }
+
+  // No clear majority or tie between multiple verdicts
+  if (winners > 1) {
+    return "UNCERTAIN";
+  }
+
+  const totalVotes = Object.values(counts).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
+  // Must have a strict majority (> 50% of total model responses)
+  if (highestCount <= totalVotes / 2) {
+    return "UNCERTAIN";
   }
 
   return winner;
@@ -139,55 +161,17 @@ function buildConsensusReasoning(
     );
   }
 
+  if (winningVerdict === "UNCERTAIN" && agreementCount === 0) {
+    return (
+      `No consensus could be established among ${totalModels} models. ` +
+      `Model results: ${modelSummary}.`
+    );
+  }
+
   return (
     `${agreementCount} of ${totalModels} models ` +
     `returned ${winningVerdict}. ` +
     `The models were not unanimous. ` +
     `Model results: ${modelSummary}.`
   );
-
-  function getWinningVerdict(
-  counts: Record<VerificationVerdict, number>,
-  ): VerificationVerdict {
-    const verdicts: VerificationVerdict[] = [
-      "TRUE",
-      "PARTIAL",
-      "FALSE",
-      "UNCERTAIN",
-    ];
-
-  let winner: VerificationVerdict = "UNCERTAIN";
-  let highestCount = 0;
-  let winners = 0;
-
-  for (const verdict of verdicts) {
-    if (counts[verdict] > highestCount) {
-      winner = verdict;
-      highestCount = counts[verdict];
-      winners = 1;
-    } else if (
-      counts[verdict] === highestCount &&
-      highestCount > 0
-    ) {
-      winners++;
-    }
-  }
-
-  // No clear majority
-  if (winners > 1) {
-    return "UNCERTAIN";
-  }
-
-  // A single model cannot establish consensus
-  const totalVotes = Object.values(counts).reduce(
-    (sum, count) => sum + count,
-    0,
-  );
-
-  if (highestCount <= totalVotes / 2) {
-    return "UNCERTAIN";
-  }
-
-  return winner;
-}
 }

@@ -9,5 +9,16 @@
     "dev": "pnpm --filter ./web run dev",
     "build": "pnpm --filter ./web run build",
     "lint": "pnpm --filter ./web run lint"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "hono": "^4.13.5",
+    "openai": "^7.8.0",
+    "tsx": "^4.23.13"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^5.9.3"
   }
 }
