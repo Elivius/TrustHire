@@ -76,7 +76,7 @@ export default function ClientProjectsPage() {
 
           <Link href="/client/projects/new">
             <GradientButton size="md" icon={<PlusCircle className="w-4 h-4" />}>
-              + New Project
+              New Project
             </GradientButton>
           </Link>
         </div>

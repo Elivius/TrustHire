@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -36,7 +36,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
     <button
       className={twMerge(
         clsx(
-          "relative inline-flex items-center justify-center transition-all duration-200 cursor-pointer select-none active:scale-[0.98]",
+          "relative inline-flex items-center justify-center whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer select-none active:scale-[0.98]",
           variantGradients,
           sizeClasses,
           (disabled || loading) && "opacity-50 cursor-not-allowed transform-none hover:opacity-50 active:scale-100",
@@ -54,7 +54,7 @@ export const GradientButton: React.FC<GradientButtonProps> = ({
       ) : (
         icon
       )}
-      <span>{children}</span>
+      {children}
     </button>
   );
 };

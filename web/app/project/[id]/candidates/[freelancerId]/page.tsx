@@ -33,7 +33,7 @@ export default function FreelancerProfileDetailClientViewPage() {
   const searchParams = useSearchParams();
   const projectId = params.id as string;
   const freelancerId = params.freelancerId as string;
-  const fromTab = searchParams.get("from") || "recommended";
+  const fromTab = searchParams.get("from") || searchParams.get("source") || "recommended";
 
   const {
     projects,
