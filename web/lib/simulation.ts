@@ -31,9 +31,12 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 
 export interface ParsedProjectOutput {
   title: string;
+  descriptionRaw?: string;
   requiredSkills: string[];
   estimatedBudget: number;
   timelineDays: number;
+  experienceLevel: "Beginner" | "Intermediate" | "Expert";
+  deliverables: string[];
   suggestedMilestones: {
     title: string;
     deliverable: string;
@@ -101,9 +104,17 @@ export async function simulateGonkaParse(
 
   return {
     title: title.charAt(0).toUpperCase() + title.slice(1),
+    descriptionRaw: description,
     requiredSkills: finalSkills,
     estimatedBudget: budget,
     timelineDays: days,
+    experienceLevel: budget >= 4000 ? "Expert" : budget >= 1500 ? "Intermediate" : "Beginner",
+    deliverables: [
+      "Architecture specification and system interface design",
+      "Core smart contract implementation and frontend integration",
+      "Unit and integration test suites with testnet verification",
+      "Technical handoff documentation and deployment scripts"
+    ],
     suggestedMilestones: [
       {
         title: "Specification, Architecture & Design System",

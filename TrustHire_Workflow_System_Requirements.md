@@ -60,28 +60,30 @@ TrustHire is a global freelance marketplace where **AI decides who to trust** an
 
 ## 4. Core Workflows (Detailed)
 
-### 4.1 Workflow A — Client Posts a Project (AI Hiring Assistant)  — **P1 Priority**
+### 4.1 Workflow A — Client Posts a Project (Conversational AI Hiring Assistant) — **P1 Priority**
 
-**Goal:** Turn a plain-English project description into structured, actionable project data.
+**Goal:** Turn natural language client dialogue into structured, actionable project specifications and milestone plans.
 
 **Steps:**
 1. Client logs in (wallet connect / zkLogin — stretch).
-2. Client types a free-text project description into a form, e.g. *"I need a landing page built in Next.js with Tailwind, budget around $500, done in 2 weeks."*
-3. Frontend sends this text to a Next.js API route: `POST /api/ai/parse-project`.
-4. API route calls **Gonka Router** with a structured-extraction prompt, requesting JSON output only.
-5. Gonka returns structured fields:
+2. Client opens the AI Hiring Assistant chat and describes their project naturally (e.g. *"I need a Sui payment app for small businesses"*).
+3. Gonka AI engages in a multi-turn clarification loop asking targeted questions regarding target audience, core user flows, technical stack, deliverables, budget, and timeline.
+4. Client responds naturally or taps suggested quick-reply chips.
+5. On conclusion (or upon clicking "Generate Specification"), Gonka extracts structured fields:
    - `title`
+   - `description_raw` / scope summary
    - `required_skills[]`
+   - `experience_level` (`Beginner` | `Intermediate` | `Expert`)
    - `estimated_budget`
    - `timeline_days`
+   - `deliverables[]` (key tangible deliverables)
    - `suggested_milestones[]` (title, deliverable, % of budget, deadline)
    - `gonka_request_id`
-6. API route returns this structured JSON to the frontend.
-7. Client reviews the AI-generated fields in an editable form — **can override anything** before confirming.
-8. On confirm, frontend calls `POST /api/projects/create`, which:
+6. Client reviews the AI-generated specification and milestone allocation in an editable form — **can override, add, or delete anything** before confirming.
+7. On confirm (with validated 100% milestone allocation), frontend calls `POST /api/projects/create`, which:
    - Inserts the project into **Supabase** (`projects` table) with status `open`.
    - Stores the `gonka_request_id` used for the parsing step (for audit trail).
-9. Project is now visible in the open-projects pool.
+8. Project is now visible in the open-projects pool and routes directly to the Candidate Matching Hub.
 
 **Data touched:** Supabase `projects` table only at this stage (no on-chain action yet — escrow happens after a freelancer is chosen, see Workflow C).
 
@@ -210,7 +212,7 @@ This is two mirrored flows sharing the same Gonka scoring logic.
 |---|---|
 | `users` | id, wallet_address, role (client/freelancer), created_at |
 | `freelancer_profiles` | user_id, skills[], bio, portfolio_links[], trust_score, trust_score_reasoning, trust_score_request_id, trust_score_updated_at |
-| `projects` | id, client_id, title, description_raw, required_skills[], budget, timeline_days, status, gonka_parse_request_id, created_at |
+| `projects` | id, client_id, title, description_raw, required_skills[], budget, timeline_days, experience_level, deliverables[], status, gonka_parse_request_id, created_at |
 | `milestones` | id, project_id, title, deliverable, amount, deadline, status, submission_content, on_chain_milestone_id |
 | `invitations` | id, project_id, freelancer_id, status |
 | `applications` | id, project_id, freelancer_id, status |
@@ -230,13 +232,13 @@ This is two mirrored flows sharing the same Gonka scoring logic.
 
 | Call | Trigger | Returns |
 |---|---|---|
-| Parse Project | Client submits project text | structured project JSON + request_id |
+| Conversational Scoping & Spec Parse | Client chats with Gonka AI scoping agent / finalizes plan | Per-reply message Request IDs + final structured project specification JSON & request_id |
 | Match Freelancers | Client views recommendations | ranked list + scores + reasoning + request_id |
 | Match Projects | Freelancer views recommendations | ranked list + scores + reasoning + request_id |
 | Trust Score | Profile create/update | trust_score + confidence + reasoning + request_id |
 | Verify Submission (stretch) | Milestone submitted | verification_score + reasoning + request_id |
 
-All `gonka_request_id` values should be stored and displayed somewhere in the UI (even a small "AI Reasoning Log" panel) — this directly satisfies the Gonka track's transparency/verifiability requirement.
+All `gonka_request_id` values should be stored and displayed throughout the UI (chat bubbles, specification banners, match breakdown cards, and trust score panels) — this directly satisfies the Gonka track's transparency and verifiability requirements.
 
 ---
 
