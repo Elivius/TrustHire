@@ -22,6 +22,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Invalid Project Assistant messages." }, { status: 400 });
     }
     const result = await chatWithProjectAssistant(body.messages);
+
+    console.log("========== PROJECT ASSISTANT RESULT ==========");
+    console.log(JSON.stringify(result, null, 2));
+    console.log("==============================================");
+
+
     return NextResponse.json({
       success: true,
       ...result,

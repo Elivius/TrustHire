@@ -181,7 +181,7 @@ Analyse the confirmed project and determine:
 5. Core features
 6. Project complexity ("Simple" | "Moderate" | "Complex" | "Highly Complex")
 7. Required skills (Technical skills for freelancer matching)
-8. Recommended experience level ("Beginner" | "Intermediate" | "Senior" | "Expert")
+8. Recommended experience level ("Beginner" | "Senior" | "Expert")
 9. Key deliverables
 10. Technical considerations
 11. Budget assessment ("REASONABLE" | "POSSIBLY_LOW" | "POSSIBLY_HIGH" | "UNKNOWN")
