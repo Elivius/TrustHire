@@ -39,6 +39,7 @@ interface ChatMessage {
   timestamp: string;
   suggestions?: string[];
   requestId?: string;
+  showGenerateSpecification?: boolean;
 }
 
 interface MilestoneRow {
@@ -50,6 +51,125 @@ interface MilestoneRow {
 }
 
 
+function extractExplicitClientSkills(
+  requirements: unknown,
+  chatMessages: ChatMessage[],
+): string[] {
+  const clientText = chatMessages
+    .filter((message) => message.sender === "client")
+    .map((message) => message.text)
+    .join("\n");
+
+  const requirementTexts = Array.isArray(requirements)
+    ? requirements
+        .filter((item) => item && typeof item === "object")
+        .map((item) => {
+          const data = item as Record<string, unknown>;
+          return typeof data.requirement === "string" ? data.requirement : "";
+        })
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
+  const sourceText = `${clientText}\n${requirementTexts}`;
+
+  const candidates: Array<{ skill: string; pattern: RegExp }> = [
+    { skill: "Sui Move", pattern: /\b(?:sui\s+move|move\s+(?:smart\s+)?contract|move\s+language)\b/i },
+    { skill: "Sui blockchain", pattern: /\b(?:sui\s+blockchain|sui\s+network|sui\s+cryptocurrency|sui\s+token|sui\s+tokens|on\s+sui|built?\s+on\s+sui)\b/i },
+    { skill: "Solidity", pattern: /\bsolidity\b/i },
+    { skill: "Ethereum", pattern: /\bethereum\b/i },
+    { skill: "Solana", pattern: /\bsolana\b/i },
+    { skill: "Polygon", pattern: /\bpolygon\b/i },
+    { skill: "Rust", pattern: /\brust\b/i },
+    { skill: "React", pattern: /\breact(?:\.js)?\b/i },
+    { skill: "Next.js", pattern: /\bnext\.?js\b/i },
+    { skill: "Vue.js", pattern: /\bvue(?:\.js)?\b/i },
+    { skill: "Angular", pattern: /\bangular\b/i },
+    { skill: "TypeScript", pattern: /\btypescript\b/i },
+    { skill: "JavaScript", pattern: /\bjavascript\b/i },
+    { skill: "Flutter", pattern: /\bflutter\b/i },
+    { skill: "React Native", pattern: /\breact\s+native\b/i },
+    { skill: "Node.js", pattern: /\bnode\.?js\b/i },
+    { skill: "Python", pattern: /\bpython\b/i },
+    { skill: "Django", pattern: /\bdjango\b/i },
+    { skill: "FastAPI", pattern: /\bfastapi\b/i },
+    { skill: "PHP", pattern: /\bphp\b/i },
+    { skill: "Laravel", pattern: /\blaravel\b/i },
+    { skill: "PostgreSQL", pattern: /\bpostgres(?:ql)?\b/i },
+    { skill: "MySQL", pattern: /\bmysql\b/i },
+    { skill: "MongoDB", pattern: /\bmongodb\b/i },
+    { skill: "Supabase", pattern: /\bsupabase\b/i },
+    { skill: "Firebase", pattern: /\bfirebase\b/i },
+    { skill: "Sui SDK", pattern: /\bsui\s+sdk\b/i },
+    { skill: "Stripe", pattern: /\bstripe\b/i },
+    { skill: "PayPal", pattern: /\bpaypal\b/i },
+  ];
+
+  const seen = new Set<string>();
+  const skills: string[] = [];
+
+  for (const candidate of candidates) {
+    if (!candidate.pattern.test(sourceText)) continue;
+
+    if (
+      candidate.skill === "Sui blockchain" &&
+      seen.has("sui move") &&
+      !/\b(?:sui\s+blockchain|sui\s+network|sui\s+cryptocurrency|sui\s+token|sui\s+tokens|on\s+sui|built?\s+on\s+sui)\b/i.test(clientText)
+    ) {
+      continue;
+    }
+
+    const key = candidate.skill.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    skills.push(candidate.skill);
+  }
+
+  return skills;
+}
+
+function renderInlineGonkaMarkdown(text: string) {
+  // Gonka can return escaped markdown such as \**Key Feature\**.
+  const normalized = text.replace(/\\+\*/g, "*");
+  const parts = normalized.split(/(\*\*[^*]+\*\*)/g);
+
+  return parts.map((part, index) => {
+    if (
+      part.startsWith("**") &&
+      part.endsWith("**") &&
+      part.length >= 4
+    ) {
+      return (
+        <strong key={index} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function renderGonkaMessage(text: string) {
+  return text.split(/\r?\n/).map((line, index) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return <div key={index} className="h-2" />;
+    }
+
+    if (trimmed.startsWith("- ")) {
+      return (
+        <div key={index} className="flex gap-2">
+          <span>•</span>
+          <span>{renderInlineGonkaMarkdown(trimmed.slice(2))}</span>
+        </div>
+      );
+    }
+
+    return <p key={index}>{renderInlineGonkaMarkdown(line)}</p>;
+  });
+}
 
 export default function PostProjectPage() {
   const router = useRouter();
@@ -58,8 +178,11 @@ export default function PostProjectPage() {
   const [stage, setStage] = useState<1 | 2>(1);
   const [chatInput, setChatInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
-  const [gonkaRequestId, setGonkaRequestId] = useState("gonka_req_init7a");
+  const [gonkaRequestId, setGonkaRequestId] = useState("");
   const [projectAssistantResult, setProjectAssistantResult] = useState<any>(null);
+  const [projectAnalysisResult, setProjectAnalysisResult] = useState<any>(null);
+  const [projectConfirmed, setProjectConfirmed] = useState(false);
+  const [isProjectAnalysisRunning, setIsProjectAnalysisRunning] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Chat Conversation State
@@ -80,13 +203,7 @@ export default function PostProjectPage() {
   // Stage 2 Form Fields (AI Structured Specification)
   const [title, setTitle] = useState("Sui Merchant Payment App & Checkout Widget");
   const [descriptionRaw, setDescriptionRaw] = useState("");
-  const [requiredSkills, setRequiredSkills] = useState<string[]>([
-    "Sui Move",
-    "Next.js",
-    "TypeScript",
-    "Tailwind CSS",
-    "Sui Wallet SDK"
-  ]);
+  const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
   const [newSkillInput, setNewSkillInput] = useState("");
   const [experienceLevel, setExperienceLevel] = useState<"Beginner" | "Intermediate" | "Expert">("Expert");
   const [estimatedBudget, setEstimatedBudget] = useState(4500);
@@ -136,7 +253,7 @@ export default function PostProjectPage() {
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || chatInput).trim();
 
-    if (!text || isThinking) return;
+    if (!text || isThinking || projectConfirmed || isProjectAnalysisRunning) return;
 
     const userMsg: ChatMessage = {
       id: `msg-user-${Date.now()}`,
@@ -180,8 +297,18 @@ export default function PostProjectPage() {
         );
       }
 
-      // Keep the complete structured Gonka result for Project Analysis.
-      setProjectAssistantResult(result);
+      const completed =
+        result.confirmed === true ||
+        (result.status === "COMPLETED" && !!result.proposal);
+
+      // Latch the approved proposal. Do not allow a later casual message
+      // to replace the approved result.
+      if (completed) {
+        setProjectConfirmed(true);
+        setProjectAssistantResult(result);
+      } else if (!projectConfirmed) {
+        setProjectAssistantResult(result);
+      }
 
       // Show the real Gonka request ID in the UI.
       if (result.requestId) {
@@ -197,7 +324,8 @@ export default function PostProjectPage() {
           "I received your request. Let me help you refine the project requirements.",
         timestamp: "Just now",
         requestId: result.requestId,
-        suggestions: []
+        suggestions: [],
+        showGenerateSpecification: completed
       };
 
       setMessages([...newMessages, aiMsg]);
@@ -220,98 +348,194 @@ export default function PostProjectPage() {
     }
   };
 
-  // Convert Chat History into Structured Spec (Stage 2)
-  const handleTransitionToStage2 = (customPrompt?: string) => {
-    const allUserTexts = messages
-      .filter((m) => m.sender === "client")
-      .map((m) => m.text)
-      .join(" ");
+  // Manual configuration bypasses Project Assistant and Project Analysis.
+  const handleManualStage2 = () => {
+    setStage(2);
+  };
 
-    const combinedText = customPrompt || (allUserTexts.length > 10 ? allUserTexts : "Sui Merchant Payment App with Next.js and Move smart contracts");
+  // Run Project Analysis only after the client explicitly clicks
+  // "Generate Specification" on the completed Project Assistant message.
+  const handleTransitionToStage2 = async () => {
+    const proposal = projectAssistantResult?.proposal;
 
-    // Dynamic budget detection
-    let detectedBudget = 4500;
-    if (combinedText.includes("3,000") || combinedText.includes("3000")) detectedBudget = 3000;
-    else if (combinedText.includes("6,000") || combinedText.includes("6000")) detectedBudget = 6000;
-    else if (combinedText.includes("5,000") || combinedText.includes("5000")) detectedBudget = 5000;
-
-    // Dynamic timeline detection
-    let detectedDays = 21;
-    if (combinedText.includes("2 week") || combinedText.includes("14")) detectedDays = 14;
-    else if (combinedText.includes("4 week") || combinedText.includes("1 month")) detectedDays = 30;
-
-    // Set Title
-    if (combinedText.toLowerCase().includes("payment")) {
-      setTitle("Sui Merchant Payment App & Checkout SDK");
-      setDescriptionRaw(
-        "Build a non-custodial merchant payment application on Sui network. Allows businesses to generate payment request links/invoices, accept payments in USDC/SUI, and view real-time transaction settlements on an interactive Next.js dashboard."
+    if (
+      !projectConfirmed ||
+      projectAssistantResult?.status !== "COMPLETED" ||
+      !proposal
+    ) {
+      console.error(
+        "Cannot start Project Analysis: Project Assistant proposal has not been approved."
       );
-      setRequiredSkills(["Sui Move", "Next.js", "TypeScript", "Tailwind CSS", "Sui Wallet SDK"]);
-      setDeliverables([
-        "Sui Move smart contract for merchant payment requests and settlements",
-        "Next.js merchant portal to create payment invoices and view transaction status",
-        "Embeddable customer checkout modal supporting Sui Wallet & zkLogin",
-        "Comprehensive testnet verification suite and developer documentation"
-      ]);
-    } else if (combinedText.toLowerCase().includes("escrow")) {
-      setTitle("Sui Move Smart Escrow & TypeScript SDK");
-      setDescriptionRaw(
-        "Develop a production-grade Move smart contract for multi-milestone escrow locking on Sui, paired with a TypeScript SDK and comprehensive test verification."
-      );
-      setRequiredSkills(["Sui Move", "Rust", "TypeScript", "Smart Contracts", "Security Audit"]);
-      setDeliverables([
-        "Move Escrow module with milestone deposit and auto-release logic",
-        "TypeScript client SDK wrapping Programmable Transaction Blocks",
-        "Dispute flag locking and administrative review module",
-        "Automated unit and integration test suite with testnet demo scripts"
-      ]);
-    } else {
-      setTitle("Web3 Full-Stack Application on Sui");
-      setDescriptionRaw(
-        `Full-stack decentralized application built on Sui blockchain. Key focus areas: ${combinedText}`
-      );
-      setRequiredSkills(["Next.js", "React", "TypeScript", "Tailwind CSS", "Sui Move"]);
-      setDeliverables([
-        "Architecture specification and system interface design",
-        "Core smart contract implementation and frontend integration",
-        "Unit and integration test suites with testnet verification",
-        "Technical handoff documentation and deployment scripts"
-      ]);
+      return;
     }
 
-    setEstimatedBudget(detectedBudget);
-    setTimelineDays(detectedDays);
-    setExperienceLevel(detectedBudget >= 4500 ? "Expert" : "Intermediate");
+    if (isProjectAnalysisRunning) return;
 
-    const m1Amt = Math.round(detectedBudget * 0.35);
-    const m2Amt = Math.round(detectedBudget * 0.4);
-    const m3Amt = detectedBudget - m1Amt - m2Amt;
+    setIsProjectAnalysisRunning(true);
+    setIsThinking(true);
 
-    setMilestones([
-      {
-        title: "Milestone 1: Architecture, Smart Contract & Design System",
-        deliverable: "Technical specification document, Move contracts, and UI component wireframes.",
-        percentOfBudget: 35,
-        amount: m1Amt,
-        deadlineDays: Math.max(5, Math.round(detectedDays * 0.3))
-      },
-      {
-        title: "Milestone 2: Frontend Implementation & Wallet Integration",
-        deliverable: "Interactive Next.js UI, transaction signers, and contract integration.",
-        percentOfBudget: 40,
-        amount: m2Amt,
-        deadlineDays: Math.max(12, Math.round(detectedDays * 0.7))
-      },
-      {
-        title: "Milestone 3: End-to-End QA, Testnet Deployment & Handoff",
-        deliverable: "Full integration test suite, live testnet deployment, and documentation.",
-        percentOfBudget: 25,
-        amount: m3Amt,
-        deadlineDays: detectedDays
+    try {
+      const requirements = {
+        projectTitle: proposal.title,
+        description: proposal.description,
+        coreFeatures: Array.isArray(proposal.coreFeatures)
+          ? proposal.coreFeatures
+          : [],
+        explicitSkills: extractExplicitClientSkills(
+          projectAssistantResult?.requirements,
+          messages,
+        ),
+        budget: {
+          amount: Number(proposal.budgetUsdc),
+          currency: "USDC"
+        },
+        timeline: {
+          days: Number(proposal.timelineDays)
+        }
+      };
+
+      if (
+        !requirements.projectTitle?.trim() ||
+        !requirements.description?.trim() ||
+        requirements.coreFeatures.length === 0 ||
+        !Number.isFinite(requirements.budget.amount) ||
+        requirements.budget.amount <= 0 ||
+        !Number.isInteger(requirements.timeline.days) ||
+        requirements.timeline.days <= 0
+      ) {
+        throw new Error(
+          "The approved Project Assistant proposal is incomplete."
+        );
       }
-    ]);
 
-    setStage(2);
+      console.log(
+        "Sending approved requirements to Project Analysis:",
+        requirements
+      );
+
+      const response = await fetch("/api/gonka/project-analysis", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          requirements
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Project Analysis request failed."
+        );
+      }
+
+      const analysis = result.analysis;
+
+      if (!analysis) {
+        throw new Error("Project Analysis returned no analysis.");
+      }
+
+      console.log("Gonka Project Analysis result:", result);
+
+      setProjectAnalysisResult(result);
+
+      // Populate Stage 2 from Project Analysis only.
+      setTitle(analysis.projectTitle);
+      setDescriptionRaw(analysis.projectDescription);
+
+      // IMPORTANT:
+      // requiredSkills are decided by projectAnalysis.ts.
+      // The UI must not hardcode React/TypeScript/etc.
+      setRequiredSkills(
+        Array.isArray(analysis.requiredSkills)
+          ? analysis.requiredSkills
+          : []
+      );
+
+      setDeliverables(
+        Array.isArray(analysis.keyDeliverables)
+          ? analysis.keyDeliverables
+          : []
+      );
+
+      setEstimatedBudget(
+        Number(analysis.budget?.amount) ||
+          requirements.budget.amount
+      );
+
+      setTimelineDays(
+        Number(analysis.estimatedTimelineDays) ||
+          requirements.timeline.days
+      );
+
+      if (
+        analysis.experienceLevel === "Beginner" ||
+        analysis.experienceLevel === "Intermediate" ||
+        analysis.experienceLevel === "Expert"
+      ) {
+        setExperienceLevel(analysis.experienceLevel);
+      } else if (analysis.experienceLevel === "Senior") {
+        setExperienceLevel("Expert");
+      }
+
+      const uiMilestones: MilestoneRow[] =
+        Array.isArray(analysis.milestones)
+          ? analysis.milestones.map(
+              (
+                milestone: {
+                  title: string;
+                  description: string;
+                  percentageAllocation: number;
+                  amount: number;
+                },
+                index: number
+              ) => ({
+                title: `Milestone ${index + 1}: ${milestone.title}`,
+                deliverable: milestone.description,
+                percentOfBudget: Number(
+                  milestone.percentageAllocation
+                ),
+                amount: Number(milestone.amount),
+                deadlineDays: Math.max(
+                  1,
+                  Math.round(
+                    (Number(analysis.estimatedTimelineDays) *
+                      Number(milestone.percentageAllocation)) /
+                      100
+                  )
+                )
+              })
+            )
+          : [];
+
+      if (uiMilestones.length > 0) {
+        setMilestones(uiMilestones);
+      }
+
+      // Only move to Stage 2 after Project Analysis succeeds.
+      setStage(2);
+    } catch (error) {
+      console.error("Project Analysis failed:", error);
+
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Project Analysis request failed.";
+
+      const aiErrorMsg: ChatMessage = {
+        id: `msg-analysis-error-${Date.now()}`,
+        sender: "gonka",
+        text: `I couldn't generate the project specification yet. ${errorMessage}`,
+        timestamp: "Just now"
+      };
+
+      setMessages((current) => [...current, aiErrorMsg]);
+    } finally {
+      setIsThinking(false);
+      setIsProjectAnalysisRunning(false);
+    }
   };
 
   // Skill Add / Remove
@@ -443,7 +667,7 @@ export default function PostProjectPage() {
           {stage === 1 && (
             <GhostButton
               size="sm"
-              onClick={() => handleTransitionToStage2("Custom Project Plan")}
+              onClick={handleManualStage2}
             >
               Skip AI & Configure Manually →
             </GhostButton>
@@ -471,14 +695,6 @@ export default function PostProjectPage() {
                     <p className="text-[10px] font-mono text-foreground/50">Gonka Router v2.4 • Active Session</p>
                   </div>
                 </div>
-
-                <GradientButton
-                  size="sm"
-                  onClick={() => handleTransitionToStage2()}
-                  icon={<Sparkles className="w-3.5 h-3.5 ml-1" />}
-                >
-                  Generate Specification
-                </GradientButton>
               </div>
 
               {/* Messages Stream */}
@@ -511,6 +727,35 @@ export default function PostProjectPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Client-approved Project Analysis action */}
+                        {msg.showGenerateSpecification && projectConfirmed && (
+                          <div className="mt-2 p-4 rounded-2xl border border-[#8B5CF6]/30 bg-gradient-to-r from-[#8B5CF6]/10 via-[#7B61FF]/5 to-[#4DA2FF]/10 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-[#8B5CF6]/15 text-[#7C3AED] dark:text-[#A78BFA] flex items-center justify-center shrink-0">
+                                <Sparkles className="w-4 h-4" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm font-semibold text-foreground">
+                                  Your project proposal is confirmed.
+                                </p>
+                                <p className="text-[11px] sm:text-xs text-foreground/60 mt-1 leading-relaxed">
+                                  The approved requirements are ready. Click Generate Specification to let Gonka Project Analysis build the structured project specification.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleTransitionToStage2}
+                                  disabled={isProjectAnalysisRunning}
+                                  className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#4DA2FF] text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Sparkles className="w-4 h-4" />
+                                  {isProjectAnalysisRunning ? "Generating Specification..." : "Generate Specification"}
+                                  {!isProjectAnalysisRunning && <ArrowRight className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Suggested Quick Reply Chips */}
                         {msg.suggestions && msg.suggestions.length > 0 && (
@@ -565,7 +810,7 @@ export default function PostProjectPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" style={{ animationDelay: "150ms" }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-[#8B5CF6] animate-bounce" style={{ animationDelay: "300ms" }} />
                       </span>
-                      <span>Gonka AI is analyzing requirements…</span>
+                      <span>{isProjectAnalysisRunning ? "Gonka is analyzing your project specification…" : "Gonka AI is analyzing requirements…"}</span>
                     </div>
                   </div>
                 )}
@@ -586,13 +831,13 @@ export default function PostProjectPage() {
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Type requirements, deliverables, or answer Gonka's questions…"
+                    placeholder={projectConfirmed ? "Proposal confirmed — click Generate Specification above to continue." : "Type requirements, deliverables, or answer Gonka's questions…"}
                     className="flex-1 px-4 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-black/30 text-xs sm:text-sm text-foreground focus:outline-none focus:border-[#7B61FF]"
                   />
                   <GradientButton
                     size="md"
                     type="submit"
-                    disabled={!chatInput.trim() || isThinking}
+                    disabled={!chatInput.trim() || isThinking || projectConfirmed || isProjectAnalysisRunning}
                     icon={<Send className="w-3.5 h-3.5" />}
                   >
                     Send

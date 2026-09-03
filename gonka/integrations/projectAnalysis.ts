@@ -1,7 +1,7 @@
-import { gonka } from "../client.js";
-import { parseGonkaJson } from "../responseParser.js";
-import { runAcrossModels } from "../multiModel.js";
-import { GONKA_MODELS } from "../models.js";
+import { gonka } from "../client";
+import { parseGonkaJson } from "../responseParser";
+import { runAcrossModels } from "../multiModel";
+import { GONKA_MODELS } from "../models";
 
 /* ============================================================
    TYPES

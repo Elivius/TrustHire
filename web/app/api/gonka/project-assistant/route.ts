@@ -1,74 +1,37 @@
 import { NextResponse } from "next/server";
-import { chatWithProjectAssistant } from "../../../../../gonka/integrations/projectAssistant";
+import { chatWithProjectAssistant, type ProjectChatMessage } from "../../../../../gonka/integrations/projectAssistant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-interface ProjectChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+interface RequestBody { messages?: unknown; }
 
-interface RequestBody {
-  messages?: ProjectChatMessage[];
-}
-
-function isValidMessage(value: unknown): value is ProjectChatMessage {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const message = value as Record<string, unknown>;
-
-  return (
-    (message.role === "user" || message.role === "assistant") &&
-    typeof message.content === "string" &&
-    message.content.trim().length > 0
-  );
+function isValidMessages(value: unknown): value is ProjectChatMessage[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  return value.every((message) => {
+    if (!message || typeof message !== "object") return false;
+    const m = message as Record<string, unknown>;
+    return (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim().length > 0;
+  });
 }
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RequestBody;
-
-    if (!Array.isArray(body.messages) || body.messages.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "At least one project chat message is required.",
-        },
-        { status: 400 }
-      );
+    if (!isValidMessages(body.messages)) {
+      return NextResponse.json({ success: false, message: "Invalid Project Assistant messages." }, { status: 400 });
     }
-
-    if (!body.messages.every(isValidMessage)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid project chat message format.",
-        },
-        { status: 400 }
-      );
-    }
-
     const result = await chatWithProjectAssistant(body.messages);
-
     return NextResponse.json({
       success: true,
       ...result,
+      confirmed: result.status === "COMPLETED" && !!result.proposal,
     });
   } catch (error) {
     console.error("Project Assistant API error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Project Assistant request failed.",
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      message: error instanceof Error ? error.message : "Project Assistant request failed.",
+    }, { status: 500 });
   }
 }
