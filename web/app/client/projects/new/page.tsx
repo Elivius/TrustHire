@@ -29,7 +29,6 @@ import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { SkillChip } from "@/components/ui/skill-chip";
-import { generateGonkaRequestId } from "@/lib/simulation";
 import { Milestone } from "@/types";
 import { clsx } from "clsx";
 
@@ -60,6 +59,7 @@ export default function PostProjectPage() {
   const [chatInput, setChatInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [gonkaRequestId, setGonkaRequestId] = useState("gonka_req_init7a");
+  const [projectAssistantResult, setProjectAssistantResult] = useState<any>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Chat Conversation State
@@ -69,7 +69,6 @@ export default function PostProjectPage() {
       sender: "gonka",
       text: "Hello! I'm Gonka AI, your Web3 hiring architect. Describe what you'd like to build, and I'll help you refine the technical scope, deliverables, and milestone breakdown.",
       timestamp: "Just now",
-      requestId: "gonka_req_init7a",
       suggestions: [
         "Hi, I need a Sui payment app for businesses.",
         "I need a Sui Move smart contract for escrow.",
@@ -136,71 +135,89 @@ export default function PostProjectPage() {
   // Handle Client Sending a Chat Message
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || chatInput).trim();
-    if (!text) return;
 
-    const userMsgId = `msg-user-${Date.now()}`;
+    if (!text || isThinking) return;
+
     const userMsg: ChatMessage = {
-      id: userMsgId,
+      id: `msg-user-${Date.now()}`,
       sender: "client",
       text,
       timestamp: "Just now"
     };
 
     const newMessages = [...messages, userMsg];
+
     setMessages(newMessages);
     setChatInput("");
     setIsThinking(true);
 
-    // Simulate AI response logic
-    await new Promise((r) => setTimeout(r, 1000 + Math.random() * 600));
+    try {
+      // Keep the initial static greeting out of the AI conversation.
+      // Real assistant responses are included so Gonka retains context
+      // across multiple turns.
+      const conversation = newMessages
+        .filter((message) => message.id !== "msg-init")
+        .map((message) => ({
+          role: message.sender === "client" ? "user" : "assistant",
+          content: message.text
+        }));
 
-    const lower = text.toLowerCase();
-    let replyText = "";
-    let nextSuggestions: string[] = [];
+      const response = await fetch("/api/gonka/project-assistant", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: conversation
+        })
+      });
 
-    const userMsgCount = newMessages.filter((m) => m.sender === "client").length;
+      const result = await response.json();
 
-    if (userMsgCount === 1) {
-      if (lower.includes("payment") || lower.includes("sui")) {
-        replyText = "Sure! I can help you turn that idea into a complete project requirement.\n\nFirst, who will be using the payment app — individual users, businesses, or both?";
-        nextSuggestions = ["Mostly small businesses.", "Individual consumers.", "Both B2B and consumers."];
-      } else if (lower.includes("escrow") || lower.includes("smart contract") || lower.includes("move")) {
-        replyText = "Excellent. Sui Move is great for escrow logic with object-centric custody.\n\nWill this contract handle multi-party milestones, dispute arbitration, or automated conditional release?";
-        nextSuggestions = ["Multi-party milestone releases.", "Simple 2-party escrow with dispute flag.", "Automated time-locked release."];
-      } else {
-        replyText = "Got it! That sounds like a solid Web3 initiative.\n\nWhat are the primary user flows you'd like the freelancer to build first?";
-        nextSuggestions = ["Core wallet connect & transaction flow.", "Full-stack UI and backend integration.", "Smart contract architecture and tests."];
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message || "Project Assistant request failed."
+        );
       }
-    } else if (userMsgCount === 2) {
-      if (lower.includes("business") || lower.includes("merchant") || lower.includes("consumer")) {
-        replyText = "Got it. What would you like businesses to do with it? For example, receive payments from customers, send batch payments, or both?";
-        nextSuggestions = ["Mainly receive customer payments.", "Send batch payouts to vendors.", "Both receiving and sending payments."];
-      } else {
-        replyText = "Understood. Would you also like merchants to see their payment history, invoice analytics, and real-time transaction status?";
-        nextSuggestions = ["Yes, include payment history & analytics.", "Keep it minimal for MVP.", "Add CSV exports as well."];
+
+      // Keep the complete structured Gonka result for Project Analysis.
+      setProjectAssistantResult(result);
+
+      // Show the real Gonka request ID in the UI.
+      if (result.requestId) {
+        setGonkaRequestId(result.requestId);
       }
-    } else if (userMsgCount === 3) {
-      replyText = "Great. I'd suggest a merchant payment flow where businesses can create invoice payment requests and customers pay directly using their Sui wallet.\n\nWhat estimated budget and timeline do you have in mind for this scope?";
-      nextSuggestions = ["Budget around $4,500 USDC in 3 weeks.", "$3,000 USDC in 2 weeks.", "$6,000+ USDC for high priority."];
-    } else {
-      replyText = "Perfect! I have gathered all necessary details and generated a complete project specification, deliverables list, and a 3-phase milestone allocation plan.\n\nClick **'Review & Finalize Specification'** to inspect and customize the proposal before posting.";
-      nextSuggestions = ["Review & Finalize Specification →", "Can we adjust the tech stack?", "Add an extra milestone"];
+
+      // Display Gonka's real natural-language response.
+      const aiMsg: ChatMessage = {
+        id: `msg-ai-${Date.now()}`,
+        sender: "gonka",
+        text:
+          result.message ||
+          "I received your request. Let me help you refine the project requirements.",
+        timestamp: "Just now",
+        requestId: result.requestId,
+        suggestions: []
+      };
+
+      setMessages([...newMessages, aiMsg]);
+    } catch (error) {
+      console.error("Project Assistant request failed:", error);
+
+      const errorMsg: ChatMessage = {
+        id: `msg-ai-error-${Date.now()}`,
+        sender: "gonka",
+        text:
+          error instanceof Error
+            ? `Sorry, I couldn't process your request. ${error.message}`
+            : "Sorry, I couldn't reach Gonka AI right now. Please try again.",
+        timestamp: "Just now"
+      };
+
+      setMessages([...newMessages, errorMsg]);
+    } finally {
+      setIsThinking(false);
     }
-
-    const newReqId = generateGonkaRequestId();
-    setGonkaRequestId(newReqId);
-
-    const aiMsg: ChatMessage = {
-      id: `msg-ai-${Date.now()}`,
-      sender: "gonka",
-      text: replyText,
-      timestamp: "Just now",
-      suggestions: nextSuggestions,
-      requestId: newReqId
-    };
-
-    setMessages([...newMessages, aiMsg]);
-    setIsThinking(false);
   };
 
   // Convert Chat History into Structured Spec (Stage 2)
@@ -294,7 +311,6 @@ export default function PostProjectPage() {
       }
     ]);
 
-    setGonkaRequestId(generateGonkaRequestId());
     setStage(2);
   };
 
@@ -391,7 +407,6 @@ export default function PostProjectPage() {
         experienceLevel,
         deliverables,
         status: isDraft ? "draft" : "open",
-        gonkaParseRequestId: gonkaRequestId || generateGonkaRequestId()
       },
       milestonePayload
     );
@@ -609,7 +624,6 @@ export default function PostProjectPage() {
                       Synthesized & Ready
                     </span>
                     <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-purple-500/10 dark:bg-black/30 border border-purple-500/20 dark:border-white/10 text-[#7C3AED] dark:text-[#A78BFA]">
-                      {gonkaRequestId || "gonka_req_8f92a1bc"}
                     </span>
                   </div>
                   <p className="text-xs text-foreground/70 leading-relaxed">

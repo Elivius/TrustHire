@@ -1,4 +1,4 @@
-import { gonka } from "../client.js";
+import { gonka } from "../client";
 
 export type ProjectChatRole = "user" | "assistant";
 
