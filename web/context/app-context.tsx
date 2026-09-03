@@ -94,7 +94,7 @@ const STORAGE_KEY = "trusthire_prototype_state_v1";
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activeRole, setActiveRole] = useState<UserRole>("client");
   const [simulatedFailuresEnabled, setSimulatedFailuresEnabled] = useState(false);
 

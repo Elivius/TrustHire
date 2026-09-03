@@ -69,11 +69,8 @@ export const TopNav: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4DA2FF] via-[#7B61FF] to-[#2DD4BF] flex items-center justify-center shadow-glass-glow group-hover:scale-105 transition-transform">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-foreground flex items-center gap-1">
+              <span className="text-lg font-bold tracking-tight text-foreground">
                 TrustHire
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] font-normal tracking-wider border border-[#2DD4BF]/20">
-                  Prototype
-                </span>
               </span>
             </Link>
 
@@ -95,8 +92,8 @@ export const TopNav: React.FC = () => {
           {/* Right Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Wallet Button */}
-            <div className="min-w-[160px]">
-              <WalletConnectButton />
+            <div className="shrink-0">
+              <WalletConnectButton variant="nav" />
             </div>
 
             {/* Notification Bell */}

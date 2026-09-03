@@ -36,8 +36,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
-      <body className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-[#0B0B12] text-foreground`}>
+    <html lang="en" className={cn("font-sans", geist.variable)}>
+      <body className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased bg-bg-base text-foreground`}>
         <Providers>
           <AppProvider>{children}</AppProvider>
         </Providers>
@@ -45,3 +45,4 @@ export default function RootLayout({
     </html>
   );
 }
+
