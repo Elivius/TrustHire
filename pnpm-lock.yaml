@@ -9,7 +9,33 @@ overrides:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^2.1.1
+        version: 2.1.1(hono@4.13.5)
+      '@supabase/supabase-js':
+        specifier: ^2.114.0
+        version: 2.114.0
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
+      hono:
+        specifier: ^4.13.5
+        version: 4.13.5
+      openai:
+        specifier: ^7.8.0
+        version: 7.8.0(undici@7.29.0)(zod@3.25.76)
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.0
+        version: 26.4.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   web:
     dependencies:
