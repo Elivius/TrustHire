@@ -20,16 +20,25 @@ import { SkillChip } from "@/components/ui/skill-chip";
 import { WalletChip } from "@/components/ui/wallet-chip";
 import { clsx } from "clsx";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-
+import { createClient } from "@/lib/supabase/client";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 export default function ClientOnboardingPage() {
   const router = useRouter();
-  const { currentUser, clientProfiles, updateClientProfile, connectWallet } = useApp();
+  const { currentUser, updateClientProfile } = useApp();
+  const currentAccount = useCurrentAccount();
+  const fundingWallet = currentAccount?.address || currentUser.walletAddress || currentUser.id;
 
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(currentUser.name || "Elena Vance");
-  const [companyName, setCompanyName] = useState(currentUser.companyName || "Nexus Web3 Labs");
-  const [bio, setBio] = useState("Building decentralized coordination and automated liquidity tools on Sui.");
-  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80");
+  const [name, setName] = useState(
+    currentUser.name && currentUser.name !== "Elena Vance" && currentUser.name !== "Alex Rivera"
+      ? currentUser.name
+      : ""
+  );
+  const [companyName, setCompanyName] = useState(currentUser.companyName || "");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(
+    currentUser.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+  );
   
   const allCategories = [
     "Web Development",
@@ -42,7 +51,6 @@ export default function ClientOnboardingPage() {
   ];
   const [selectedCategories, setSelectedCategories] = useState<string[]>(["Web Development", "Smart Contracts", "Design & UI/UX"]);
   const [budgetRange, setBudgetRange] = useState<"<500" | "500-2k" | "2k-10k" | "10k+">("2k-10k");
-  const [isConnecting, setIsConnecting] = useState(false);
   const [walletError, setWalletError] = useState("");
 
   const toggleCategory = (cat: string) => {
@@ -51,24 +59,7 @@ export default function ClientOnboardingPage() {
     );
   };
 
-  const handleWalletConnect = async () => {
-    setIsConnecting(true);
-    setWalletError("");
-    try {
-      await connectWallet();
-    } catch (e) {
-      setWalletError("Failed to simulate wallet connection. Please retry.");
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleFinish = () => {
-    if (!currentUser.walletAddress) {
-      setWalletError("Please connect your wallet to finish setup.");
-      return;
-    }
-
+  const handleFinish = async () => {
     updateClientProfile({
       name,
       avatarUrl,
@@ -77,6 +68,31 @@ export default function ClientOnboardingPage() {
       hiringCategories: selectedCategories,
       typicalBudgetRange: budgetRange
     });
+
+    try {
+      const supabase = createClient();
+      const targetUserId = fundingWallet;
+
+      // 1. Ensure user row exists in public.users with role CLIENT
+      const userEmail = `${targetUserId.slice(0, 10).toLowerCase()}@trusthire.io`;
+      await supabase.from("users").upsert({
+        user_id: targetUserId,
+        name: name.trim() || currentUser.name || "Client",
+        email: userEmail,
+        role: "CLIENT",
+        status: "ACTIVE"
+      }, { onConflict: "user_id" });
+
+      // 2. Upsert client profile
+      await supabase.from("client_profiles").upsert({
+        client_id: targetUserId,
+        company_name: companyName,
+        company_description: bio,
+        project_budget_range: budgetRange
+      }, { onConflict: "client_id" });
+    } catch (e) {
+      console.warn("Could not sync client profile to Supabase:", e);
+    }
 
     router.push("/client/dashboard");
   };
@@ -267,27 +283,16 @@ export default function ClientOnboardingPage() {
                 </div>
 
                 <div className="pt-2">
-                  {currentUser.walletAddress ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
-                        <span className="text-xs font-semibold text-foreground">Connected:</span>
-                        <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF]">{currentUser.walletAddress}</span>
-                      </div>
-                      <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-medium font-sans">Sui Testnet Active</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF] shrink-0" />
+                      <span className="text-xs font-semibold text-foreground shrink-0">Connected Escrow Wallet:</span>
+                      <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF] truncate">{fundingWallet}</span>
                     </div>
-                  ) : (
-                    <div className="text-center py-4 space-y-3">
-                      <GradientButton
-                        loading={isConnecting}
-                        onClick={handleWalletConnect}
-                        icon={<Wallet className="w-4 h-4" />}
-                      >
-                        Connect Sui Wallet (Simulated)
-                      </GradientButton>
-                      <p className="text-[11px] text-foreground/50">Simulates 1-click Sui wallet connection</p>
-                    </div>
-                  )}
+                    <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-semibold font-sans px-2.5 py-0.5 rounded bg-[#2DD4BF]/20 shrink-0">
+                      Connected via Login ✓
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -303,7 +308,6 @@ export default function ClientOnboardingPage() {
                 </GhostButton>
                 <GradientButton
                   onClick={handleFinish}
-                  disabled={!currentUser.walletAddress}
                   icon={<ArrowRight className="w-4 h-4 ml-1" />}
                 >
                   Complete Setup & Open Dashboard

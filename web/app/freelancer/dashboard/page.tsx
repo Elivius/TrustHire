@@ -32,16 +32,28 @@ export default function FreelancerDashboardPage() {
     transactions
   } = useApp();
 
-  const profile = freelancerProfiles[currentUser.id] || {
-    trustScore: 96,
-    trustScoreConfidence: "High",
-    headline: "Senior Move & Full-Stack Developer",
-    skills: ["React", "TypeScript", "Sui Move", "Smart Contracts"],
-    completedProjectsCount: 14
-  };
+  const profile =
+    freelancerProfiles[currentUser.id] ||
+    (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
+    Object.entries(freelancerProfiles).find(
+      ([k]) =>
+        k.toLowerCase() === currentUser.id.toLowerCase() ||
+        (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
+    )?.[1] || {
+      trustScore: 90,
+      trustScoreConfidence: "High" as const,
+      headline: "Senior Move & Full-Stack Developer",
+      skills: ["React", "TypeScript", "Sui Move", "Smart Contracts"],
+      completedProjectsCount: 14
+    };
 
   const myMatchedProjects = projects.filter(
-    (p) => p.matchedFreelancerId === currentUser.id
+    (p) =>
+      Boolean(p.matchedFreelancerId) &&
+      (p.matchedFreelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+        p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
   );
   const activeContracts = myMatchedProjects.filter(
     (p) => p.status === "in_progress" || p.status === "matched"
@@ -64,7 +76,7 @@ export default function FreelancerDashboardPage() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-                Welcome back, {currentUser.name.split(" ")[0]}
+                Welcome back, {(currentUser.name || "Freelancer").split(" ")[0]}
               </h1>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/30 font-semibold font-mono">
                 Trust Score: {profile.trustScore}/100

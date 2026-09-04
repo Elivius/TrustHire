@@ -3,32 +3,119 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowRight, ShieldCheck, Wallet, ArrowLeft } from "lucide-react";
+import { Sparkles, ArrowRight, ShieldCheck, Wallet, ArrowLeft, Loader2 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { useWallets, useDAppKit, useCurrentAccount } from "@mysten/dapp-kit-react";
 import { WalletConnectButton } from "@/components/ui/wallet-connect-button";
 import { GoogleLoginButton } from "@/components/ui/google-login-button";
+import { createClient } from "@/lib/supabase/client";
 
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function AuthPage() {
   const router = useRouter();
-  const { currentUser, activeRole, users } = useApp();
-  
+  const { switchRole, syncUserWithDatabase } = useApp();
   const currentAccount = useCurrentAccount();
-  
+  const [isVerifying, setIsVerifying] = useState(false);
+  const checkedAddressRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
-    if (currentAccount) {
-      if (activeRole) {
-        router.push(`/${activeRole}/dashboard`);
-      } else {
-        // Fallback if no role is selected, default to client
-        router.push("/client/dashboard");
+    let isMounted = true; // Prevent memory leaks
+    const address = currentAccount?.address;
+    if (!address) return;
+
+    if (checkedAddressRef.current === address) return;
+    checkedAddressRef.current = address;
+
+    const userAddress: string = address;
+
+    async function verifyUserAndRoute() {
+      setIsVerifying(true);
+
+      try {
+        const supabase = createClient();
+
+        // 1. Synchronize user and profiles from Supabase into AppContext state
+        const syncedUser = await syncUserWithDatabase(userAddress);
+
+        if (!isMounted) return;
+
+        let role = syncedUser?.roles?.[0];
+        let companyName = syncedUser?.companyName;
+
+        // Fallback query if syncUserWithDatabase returned null or timed out
+        if (!role) {
+          const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: { message: "timeout" } }), 3000)
+          );
+
+          const checkPromise = supabase
+            .from("users")
+            .select("user_id, name, email, role")
+            .ilike("user_id", userAddress)
+            .maybeSingle();
+
+          const { data: userRow } = await Promise.race([checkPromise, timeoutPromise]);
+
+          if (!isMounted) return;
+          if (userRow?.role) {
+            role = userRow.role.toLowerCase() as any;
+          }
+        }
+
+        if (role === "client") {
+          switchRole("client");
+          if (!companyName) {
+            const { data: clientProf } = await supabase
+              .from("client_profiles")
+              .select("client_id, company_name")
+              .ilike("client_id", userAddress)
+              .maybeSingle();
+            companyName = clientProf?.company_name;
+          }
+
+          if (!isMounted) return;
+          if (companyName) {
+            router.push("/client/dashboard");
+          } else {
+            router.push("/client/onboarding");
+          }
+          return;
+        } else if (role === "freelancer") {
+          switchRole("freelancer");
+          const { data: freelancerProf } = await supabase
+            .from("freelancer_profiles")
+            .select("freelancer_id, prof_headline")
+            .ilike("freelancer_id", userAddress)
+            .maybeSingle();
+
+          if (!isMounted) return;
+          if (freelancerProf?.prof_headline) {
+            router.push("/freelancer/dashboard");
+          } else {
+            router.push("/freelancer/onboarding");
+          }
+          return;
+        }
+
+        // New user or no role found -> route to role selection
+        router.push("/role-selection");
+      } catch (err) {
+        console.error("Auth routing verification failed:", err);
+        if (isMounted) router.push("/role-selection");
+      } finally {
+        if (isMounted) setIsVerifying(false);
       }
     }
-  }, [currentAccount, activeRole, router]);
+
+    verifyUserAndRoute();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentAccount?.address]);
 
   return (
     <div className="min-h-screen bg-bg-base text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-200">
@@ -76,25 +163,37 @@ export default function AuthPage() {
           </p>
         </div>
 
-        {/* Continue with Google (zkLogin) */}
-        <GoogleLoginButton />
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-black/10 dark:border-white/10" />
+        {isVerifying ? (
+          <div className="py-8 flex flex-col items-center justify-center space-y-3">
+            <Loader2 className="w-8 h-8 text-[#4DA2FF] animate-spin" />
+            <div className="text-center space-y-1">
+              <p className="text-sm font-semibold text-foreground">Checking account in database...</p>
+              <p className="text-xs text-foreground/50">Looking up role and profile status</p>
+            </div>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-white dark:bg-[#151622] px-3 text-[11px] font-mono text-foreground/40 uppercase">
-              or connect wallet
-            </span>
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* Continue with Google (zkLogin) */}
+            <GoogleLoginButton />
 
-        {/* Connect Wallet */}
-        <div className="space-y-3 relative z-50">
-          <WalletConnectButton />
-        </div>
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-black/10 dark:border-white/10" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="bg-white dark:bg-[#151622] px-3 text-[11px] font-mono text-foreground/40 uppercase">
+                  or connect wallet
+                </span>
+              </div>
+            </div>
+
+            {/* Connect Wallet */}
+            <div className="space-y-3 relative z-50">
+              <WalletConnectButton />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

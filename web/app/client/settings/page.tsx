@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -19,6 +19,7 @@ import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { WalletChip } from "@/components/ui/wallet-chip";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ClientSettingsPage() {
   const router = useRouter();
@@ -29,7 +30,6 @@ export default function ClientSettingsPage() {
     disconnectWallet,
     connectWallet,
     switchRole,
-    resetDemoData,
     projects,
     milestones
   } = useApp();
@@ -39,6 +39,12 @@ export default function ClientSettingsPage() {
   const [email, setEmail] = useState(currentUser.email);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  useEffect(() => {
+    setName(currentUser.name);
+    setCompanyName(currentUser.companyName || "");
+    setEmail(currentUser.email);
+  }, [currentUser.name, currentUser.companyName, currentUser.email]);
+
   // Notification settings (mock toggles)
   const [notifToggles, setNotifToggles] = useState({
     applications: true,
@@ -47,7 +53,7 @@ export default function ClientSettingsPage() {
     escrow: true
   });
 
-  const clientProjects = projects.filter((p) => p.clientId === currentUser.id);
+  const clientProjects = projects.filter((p) => p.clientId === currentUser.id || p.clientId === currentUser.walletAddress);
   const activeEscrowSum = milestones
     .filter((m) => {
       const proj = clientProjects.find((p) => p.id === m.projectId);
@@ -55,9 +61,30 @@ export default function ClientSettingsPage() {
     })
     .reduce((sum, m) => sum + m.amount, 0);
 
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     updateClientProfile({ name, companyName });
+
+    try {
+      const supabase = createClient();
+      const targetId = currentUser.walletAddress || currentUser.id;
+
+      await supabase.from("users").upsert({
+        user_id: targetId,
+        name: name.trim(),
+        email: email.trim(),
+        role: "CLIENT",
+        status: "ACTIVE"
+      }, { onConflict: "user_id" });
+
+      await supabase.from("client_profiles").upsert({
+        client_id: targetId,
+        company_name: companyName.trim()
+      }, { onConflict: "client_id" });
+    } catch (err) {
+      console.warn("Could not sync updated client settings to Supabase:", err);
+    }
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2000);
   };
@@ -273,18 +300,6 @@ export default function ClientSettingsPage() {
               icon={<LogOut className="w-3.5 h-3.5 mr-1" />}
             >
               Sign Out
-            </GhostButton>
-
-            <GhostButton
-              size="sm"
-              onClick={() => {
-                if (confirm("Reset all prototype state to seed defaults?")) {
-                  resetDemoData();
-                  router.push("/client/dashboard");
-                }
-              }}
-            >
-              Reset Demo Seed Data
             </GhostButton>
           </div>
         </div>

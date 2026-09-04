@@ -26,18 +26,27 @@ import { GhostButton } from "@/components/ui/ghost-button";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { simulateTrustScoreCalculation, simulateGithubRepoDiscovery } from "@/lib/simulation";
 import { clsx } from "clsx";
-
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 export default function FreelancerOnboardingPage() {
   const router = useRouter();
-  const { currentUser, updateFreelancerProfile, connectWallet, addRoleToUser } = useApp();
+  const { currentUser, updateFreelancerProfile, addRoleToUser } = useApp();
+  const currentAccount = useCurrentAccount();
+  const payoutWallet = currentAccount?.address || currentUser.walletAddress || currentUser.id;
 
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(currentUser.name || "Alex Rivera");
-  const [headline, setHeadline] = useState("Senior Full-Stack & Move Developer");
-  const [bio, setBio] = useState("Specialized in Sui Move smart contract design, TypeScript SDK integration, and high-performance React frontends.");
-  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80");
+  const [name, setName] = useState(
+    currentUser.name && currentUser.name !== "Alex Rivera" && currentUser.name !== "Elena Vance"
+      ? currentUser.name
+      : ""
+  );
+  const [headline, setHeadline] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(
+    currentUser.avatarUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+  );
 
   const [skills, setSkills] = useState<string[]>(["React", "TypeScript", "Sui Move", "Smart Contracts", "Tailwind CSS"]);
   const [newSkillInput, setNewSkillInput] = useState("");
@@ -60,7 +69,6 @@ export default function FreelancerOnboardingPage() {
     { title: "Gonka AI Interface", url: "https://gonka-interface.vercel.app" }
   ]);
 
-  const [isConnecting, setIsConnecting] = useState(false);
   const [isCalculatingScore, setIsCalculatingScore] = useState(false);
   const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
 
@@ -101,15 +109,6 @@ export default function FreelancerOnboardingPage() {
 
   const handleRemoveCustomLink = (index: number) => {
     setCustomLinks(customLinks.filter((_, i) => i !== index));
-  };
-
-  const handleWalletConnect = async () => {
-    setIsConnecting(true);
-    try {
-      await connectWallet();
-    } finally {
-      setIsConnecting(false);
-    }
   };
 
   const handleFinishOnboarding = async () => {
@@ -163,6 +162,32 @@ export default function FreelancerOnboardingPage() {
         onTimeDeliveryPct: 98,
         averageRating: 4.95
       });
+
+      try {
+        const supabase = createClient();
+        const targetUserId = payoutWallet;
+
+        // 1. Upsert public.users with role FREELANCER
+        const userEmail = `${targetUserId.slice(0, 10).toLowerCase()}@trusthire.io`;
+        await supabase.from("users").upsert({
+          user_id: targetUserId,
+          name: name.trim() || currentUser.name || "Freelancer",
+          email: userEmail,
+          role: "FREELANCER",
+          status: "ACTIVE"
+        }, { onConflict: "user_id" });
+
+        // 2. Upsert freelancer profile
+        await supabase.from("freelancer_profiles").upsert({
+          freelancer_id: targetUserId,
+          prof_headline: headline,
+          bio: bio,
+          trust_score: scoreResult.trustScore,
+          experience_level: experienceLevel
+        }, { onConflict: "freelancer_id" });
+      } catch (e) {
+        console.warn("Could not sync freelancer profile to Supabase:", e);
+      }
 
       await new Promise((r) => setTimeout(r, 1200));
       router.push("/freelancer/dashboard");
@@ -557,26 +582,16 @@ export default function FreelancerOnboardingPage() {
                 </div>
 
                 <div className="pt-2">
-                  {currentUser.walletAddress ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
-                        <span className="text-xs font-semibold text-foreground">Payout Address:</span>
-                        <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF]">{currentUser.walletAddress}</span>
-                      </div>
-                      <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-medium font-sans">Sui Testnet</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF] shrink-0" />
+                      <span className="text-xs font-semibold text-foreground shrink-0">Payout Address:</span>
+                      <span className="font-mono text-xs text-[#0D9488] dark:text-[#2DD4BF] truncate">{payoutWallet}</span>
                     </div>
-                  ) : (
-                    <div className="text-center py-4 space-y-3">
-                      <GradientButton
-                        loading={isConnecting}
-                        onClick={handleWalletConnect}
-                        icon={<Lock className="w-4 h-4" />}
-                      >
-                        Connect Sui Payout Wallet (Simulated)
-                      </GradientButton>
-                    </div>
-                  )}
+                    <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF] font-semibold font-sans px-2.5 py-0.5 rounded bg-[#2DD4BF]/20 shrink-0">
+                      Connected via Login ✓
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -586,7 +601,6 @@ export default function FreelancerOnboardingPage() {
                 </GhostButton>
                 <GradientButton
                   onClick={handleFinishOnboarding}
-                  disabled={!currentUser.walletAddress}
                   icon={<Sparkles className="w-4 h-4 ml-1" />}
                 >
                   Calculate Trust Score & Finish
