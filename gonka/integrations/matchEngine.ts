@@ -54,10 +54,17 @@ export interface MatchFreelancer {
   trustScore?: number | null;
 }
 
+export interface SkillEvaluation {
+  skill: string;
+  matched: boolean;
+  evidence: string;
+}
+
 export interface MatchScoreResult {
   candidateId: string;
   matchScore: number;
   reasoning: string;
+  skillEvaluation: SkillEvaluation[];
   gonkaRequestId: string;
 }
 
@@ -70,6 +77,11 @@ interface GonkaMatchResponse {
     candidateId: string;
     matchScore: number;
     reasoning: string;
+    skillEvaluation: Array<{
+      skill: string;
+      matched: boolean;
+      evidence: string;
+    }>;
   }>;
 }
 
@@ -232,19 +244,50 @@ MATCHING PRINCIPLES:
      experience, bio, portfolio evidence, and past project
      information when available.
 
-4. REQUIRED SKILLS:
+4. REQUIRED SKILLS — EVALUATE EVERY SKILL:
 
-   Treat the skills listed in "requiredSkills" as the project's
-   required technical skills.
+The project's requiredSkills list is authoritative.
 
-   Compare these skills directly against the freelancer's
-   declared skills and available evidence.
+You MUST evaluate EVERY skill in requiredSkills individually.
 
-   A freelancer who satisfies more of the required skills
-   should generally receive stronger consideration.
+For EACH required skill:
 
-   Missing required skills should reduce the Match Score
-   appropriately.
+1. Identify the exact skill name.
+2. Check whether the freelancer has that skill.
+3. Determine whether the supplied evidence supports the match.
+4. Mark it as matched=true or matched=false.
+5. Provide a short evidence-based explanation.
+
+IMPORTANT:
+
+If requiredSkills contains:
+
+["React", "TypeScript"]
+
+you MUST return exactly two skillEvaluation entries:
+
+[
+  {
+    "skill": "React",
+    "matched": true or false,
+    "evidence": "..."
+  },
+  {
+    "skill": "TypeScript",
+    "matched": true or false,
+    "evidence": "..."
+  }
+]
+
+Do NOT evaluate only the first skill.
+
+Do NOT omit a required skill.
+
+Do NOT combine multiple skills into one skillEvaluation entry.
+
+Do NOT assume that matching one required skill means all required skills are satisfied.
+
+The final Match Score must consider the complete requiredSkills list.
 
 6. Do NOT reject a candidate solely because they do not match
    every general or inferred skill.
@@ -292,6 +335,25 @@ requirements are missing.
 0-39:
 Poor match. Very limited evidence of suitability.
 
+IMPORTANT CANDIDATE ID RULE:
+
+Each candidate object has an "id" field.
+
+You MUST copy that exact "id" value into "candidateId".
+
+Do NOT:
+- create a new ID
+- rename the ID
+- shorten the ID
+- use the candidate's name
+- use the candidate's array index
+- use "candidate-1", "candidate-2", etc.
+
+Every returned candidateId MUST exactly match one of the
+candidate "id" values provided above.
+
+Return ONLY valid JSON in exactly this structure:
+
 Return ONLY valid JSON in exactly this structure:
 
 {
@@ -299,6 +361,18 @@ Return ONLY valid JSON in exactly this structure:
     {
       "candidateId": "candidate-id",
       "matchScore": 0,
+      "skillEvaluation": [
+        {
+          "skill": "Required Skill 1",
+          "matched": true,
+          "evidence": "Evidence from candidate data."
+        },
+        {
+          "skill": "Required Skill 2",
+          "matched": false,
+          "evidence": "No supporting evidence found."
+        }
+      ],
       "reasoning": "Brief explanation based only on the supplied data."
     }
   ]
@@ -313,6 +387,7 @@ Return ONLY valid JSON in exactly this structure:
 function validateMatchResponse(
   value: unknown,
   expectedCandidateIds: Set<string>,
+  requiredSkills: string[],
 ): GonkaMatchResponse {
   if (!value || typeof value !== "object") {
     throw new Error(
@@ -328,6 +403,13 @@ function validateMatchResponse(
     );
   }
 
+  if (data.matches.length !== expectedCandidateIds.size) {
+    throw new Error(
+      `Gonka returned ${data.matches.length} matches, ` +
+      `expected ${expectedCandidateIds.size}`,
+    );
+  }
+
   const matches = data.matches.map((item, index) => {
     if (!item || typeof item !== "object") {
       throw new Error(
@@ -337,15 +419,29 @@ function validateMatchResponse(
 
     const match = item as Record<string, unknown>;
 
+    /*
+     * Candidate ID
+     */
     if (
       typeof match.candidateId !== "string" ||
-      !expectedCandidateIds.has(match.candidateId)
+      !match.candidateId.trim()
     ) {
       throw new Error(
-        `Invalid candidateId at index ${index}`,
+        `Missing candidateId at index ${index}`,
       );
     }
 
+    const candidateId = match.candidateId.trim();
+
+    if (!expectedCandidateIds.has(candidateId)) {
+      throw new Error(
+        `Invalid candidateId at index ${index}: ${candidateId}`,
+      );
+    }
+
+    /*
+     * Match score
+     */
     const score = Number(match.matchScore);
 
     if (
@@ -354,26 +450,176 @@ function validateMatchResponse(
       score > 100
     ) {
       throw new Error(
-        `Invalid matchScore for ${match.candidateId}`,
+        `Invalid matchScore for ${candidateId}`,
       );
     }
 
+    /*
+     * Reasoning
+     */
     if (
       typeof match.reasoning !== "string" ||
       !match.reasoning.trim()
     ) {
       throw new Error(
-        `Invalid reasoning for ${match.candidateId}`,
+        `Invalid reasoning for ${candidateId}`,
       );
     }
 
+    /*
+     * Skill evaluation
+     */
+    if (!Array.isArray(match.skillEvaluation)) {
+      throw new Error(
+        `Missing skillEvaluation for ${candidateId}`,
+      );
+    }
+
+    if (
+      match.skillEvaluation.length !==
+      requiredSkills.length
+    ) {
+      throw new Error(
+        `Invalid skillEvaluation count for ${candidateId}: ` +
+        `expected ${requiredSkills.length}, ` +
+        `got ${match.skillEvaluation.length}`,
+      );
+    }
+
+    const evaluatedSkills = new Set<string>();
+
+    const skillEvaluation =
+      match.skillEvaluation.map(
+        (item, skillIndex) => {
+          if (
+            !item ||
+            typeof item !== "object"
+          ) {
+            throw new Error(
+              `Invalid skill evaluation at index ${skillIndex} ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          const evaluation =
+            item as Record<string, unknown>;
+
+          if (
+            typeof evaluation.skill !== "string" ||
+            !evaluation.skill.trim()
+          ) {
+            throw new Error(
+              `Missing skill name at index ${skillIndex} ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          const skill =
+            evaluation.skill.trim();
+
+          /*
+           * Find the corresponding required skill.
+           */
+          const matchedRequiredSkill =
+            requiredSkills.find(
+              (requiredSkill) =>
+                normaliseSkill(requiredSkill) ===
+                normaliseSkill(skill),
+            );
+
+          if (!matchedRequiredSkill) {
+            throw new Error(
+              `Unknown skill "${skill}" in evaluation ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          const normalisedSkill =
+            normaliseSkill(
+              matchedRequiredSkill,
+            );
+
+          /*
+           * Prevent duplicate skill evaluations.
+           */
+          if (
+            evaluatedSkills.has(
+              normalisedSkill,
+            )
+          ) {
+            throw new Error(
+              `Duplicate skill "${skill}" ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          evaluatedSkills.add(
+            normalisedSkill,
+          );
+
+          /*
+           * matched must be a real boolean.
+           */
+          if (
+            typeof evaluation.matched !==
+            "boolean"
+          ) {
+            throw new Error(
+              `Invalid matched value for "${skill}" ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          /*
+           * Evidence is required.
+           */
+          if (
+            typeof evaluation.evidence !==
+              "string" ||
+            !evaluation.evidence.trim()
+          ) {
+            throw new Error(
+              `Missing evidence for "${skill}" ` +
+              `for ${candidateId}`,
+            );
+          }
+
+          return {
+            skill: matchedRequiredSkill,
+            matched: evaluation.matched,
+            evidence:
+              evaluation.evidence.trim(),
+          };
+        },
+      );
+
+    /*
+     * Ensure EVERY required skill was evaluated.
+     */
+    for (const requiredSkill of requiredSkills) {
+      if (
+        !evaluatedSkills.has(
+          normaliseSkill(requiredSkill),
+        )
+      ) {
+        throw new Error(
+          `Gonka did not evaluate required skill ` +
+          `"${requiredSkill}" for ${candidateId}`,
+        );
+      }
+    }
+
     return {
-      candidateId: match.candidateId,
+      candidateId,
       matchScore: score,
       reasoning: match.reasoning.trim(),
+      skillEvaluation,
     };
   });
 
+  /*
+   * Prevent duplicate candidate IDs.
+   */
   const seen = new Set<string>();
 
   for (const match of matches) {
@@ -386,6 +632,10 @@ function validateMatchResponse(
     seen.add(match.candidateId);
   }
 
+  /*
+   * Ensure every expected candidate received
+   * exactly one result.
+   */
   for (const candidateId of expectedCandidateIds) {
     if (!seen.has(candidateId)) {
       throw new Error(
@@ -394,7 +644,9 @@ function validateMatchResponse(
     }
   }
 
-  return { matches };
+  return {
+    matches,
+  };
 }
 
 /* ============================================================
@@ -454,10 +706,18 @@ async function scoreBatch(
       "Gonka returned an empty matching response",
     );
   }
+  console.log("[Gonka Match] Expected candidate IDs:", candidateIds);
+  console.log("[Gonka Match] Raw model response:", content);
+
+  const requiredSkills =
+    direction === "FREELANCER_FOR_PROJECT"
+      ? (source as MatchProject).requiredSkills
+      : [];
 
   const parsed = validateMatchResponse(
     parseGonkaJson(content),
     expectedIds,
+    requiredSkills,
   );
 
     return parsed.matches.map((match) => ({

@@ -1,11 +1,11 @@
 import React from "react";
-import { Sparkles, ShieldCheck, Clock } from "lucide-react";
+import { Sparkles, ShieldCheck, Clock, Star } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 interface ScoreBadgeProps {
   score: number;
-  type: "ai_match" | "trust" | "pending";
+  type: "ai_match" | "trust" |"overall" | "pending";
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
   label?: string;
@@ -21,6 +21,23 @@ export const ScoreBadge: React.FC<ScoreBadgeProps> = ({
   className
 }) => {
   const configs = {
+    overall: {
+      color:
+        "text-[#7C3AED] dark:text-[#C4B5FD] border-[#8B5CF6]/40 dark:border-[#A78BFA]/50 bg-[#8B5CF6]/15 dark:bg-[#8B5CF6]/15",
+      ringColor: "#8B5CF6",
+      icon: (
+        <Star
+          className={
+            size === "sm"
+              ? "w-3 h-3"
+              : size === "md"
+                ? "w-3.5 h-3.5"
+                : "w-4 h-4"
+          }
+        />
+      ),
+      defaultLabel: "Overall"
+    },
     ai_match: {
       color: "text-[#7C3AED] dark:text-[#A78BFA] border-purple-500/30 dark:border-[#8B5CF6]/40 bg-purple-500/10 dark:bg-[#8B5CF6]/10",
       ringColor: "#8B5CF6",

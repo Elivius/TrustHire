@@ -45,6 +45,15 @@ export default function CandidatesPage() {
   const [matchingError, setMatchingError] = useState<string | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
+  const calculateOverallScore = (
+    matchScore: number,
+    trustScore: number | null | undefined
+  ) => {
+    const match = Math.max(0, Math.min(100, matchScore));
+    const trust = Math.max(0, Math.min(100, trustScore ?? 0));
+
+    return Math.round(match * 0.7 + trust * 0.3);
+  };
 
   // Simulated Match Freelancers loading state (1.5-3s)
   useEffect(() => {
@@ -171,9 +180,7 @@ export default function CandidatesPage() {
         const displayResults = data.results
           .map((result: any) => {
             const profile =
-              freelancerProfiles[
-                result.freelancerId
-              ];
+              freelancerProfiles[result.freelancerId];
 
             const user = users.find(
               (u) => u.id === result.freelancerId
@@ -183,13 +190,23 @@ export default function CandidatesPage() {
               return null;
             }
 
+            const overallScore = calculateOverallScore(
+              result.matchScore,
+              profile.trustScore
+            );
+
             return {
               profile,
               user,
               match: result,
+              overallScore,
             };
           })
-          .filter(Boolean);
+          .filter(Boolean)
+          .sort(
+            (a: any, b: any) =>
+              b.overallScore - a.overallScore
+          );
 
         if (!cancelled) {
           setRankedFreelancers(
@@ -354,7 +371,7 @@ export default function CandidatesPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {rankedFreelancers.map(({ profile, user, match }) => {
+                {rankedFreelancers.map(({ profile, user, match, overallScore }) => {
                   if (!user) return null;
                   const existingInv = projectInvitations.find((i) => i.freelancerId === user.id);
 
@@ -374,6 +391,7 @@ export default function CandidatesPage() {
                             <h3 className="text-base font-bold text-foreground">{user.name}</h3>
                             <p className="text-xs text-foreground/60 line-clamp-1">{profile.headline}</p>
                             <div className="flex items-center gap-2 pt-1">
+                              <ScoreBadge score={overallScore} type="overall" size="sm"/>
                               <ScoreBadge score={match.matchScore} type="ai_match" size="sm" />
                               <ScoreBadge score={profile.trustScore} type="trust" size="sm" />
                             </div>
