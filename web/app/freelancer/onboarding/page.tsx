@@ -38,9 +38,15 @@ export default function FreelancerOnboardingPage() {
   const { currentUser, updateFreelancerProfile, addRoleToUser } = useApp();
   const currentAccount = useCurrentAccount();
   const payoutWallet = currentAccount?.address || currentUser.walletAddress || currentUser.id;
+  const [step, setStep] = useState(() => {
+    const stepParam = searchParams.get("step");
+    const parsedStep = Number(stepParam);
 
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState(
+    return parsedStep >= 1 && parsedStep <= 4
+      ? parsedStep
+      : 1;
+  });
+    const [name, setName] = useState(
     currentUser.name && currentUser.name !== "Alex Rivera" && currentUser.name !== "Elena Vance"
       ? currentUser.name
       : ""
@@ -81,11 +87,12 @@ export default function FreelancerOnboardingPage() {
     const username = searchParams.get("username");
     const stepParam = searchParams.get("step");
 
-    // Open the correct onboarding step
+    // Return to Step 3 after GitHub OAuth
     if (stepParam === "3") {
       setStep(3);
     }
 
+    // Restore GitHub verification state
     if (githubStatus === "connected" && sessionId) {
       sessionStorage.setItem(
         "trusthire_github_session",
@@ -97,11 +104,8 @@ export default function FreelancerOnboardingPage() {
       if (username) {
         setGithubUsername(username);
       }
-
-      // Remove OAuth parameters after processing them
-      router.replace("/freelancer/onboarding");
     }
-  }, [searchParams, router]);
+  }, [searchParams]);
 
   const handleAddSkill = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && newSkillInput.trim()) {
