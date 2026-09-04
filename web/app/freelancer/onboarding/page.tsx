@@ -85,14 +85,7 @@ export default function FreelancerOnboardingPage() {
     const githubStatus = searchParams.get("github");
     const sessionId = searchParams.get("sessionId");
     const username = searchParams.get("username");
-    const stepParam = searchParams.get("step");
 
-    // Return to Step 3 after GitHub OAuth
-    if (stepParam === "3") {
-      setStep(3);
-    }
-
-    // Restore GitHub verification state
     if (githubStatus === "connected" && sessionId) {
       sessionStorage.setItem(
         "trusthire_github_session",

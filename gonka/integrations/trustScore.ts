@@ -86,18 +86,21 @@ function calculateEvidenceAuthenticityScore(
 ): number {
   let score = 0;
 
+  // Verified GitHub ownership = 40 points.
+  // Ownership alone does not prove technical ability.
   if (evidence.ownershipVerified) {
-    score += 70;
+    score += 40;
   }
 
+  // Repository evidence = remaining 60 points.
   if (evidence.relevantRepositories >= 5) {
-    score += 30;
+    score += 60;
   } else if (evidence.relevantRepositories >= 3) {
-    score += 25;
+    score += 45;
   } else if (evidence.relevantRepositories >= 2) {
-    score += 20;
+    score += 30;
   } else if (evidence.relevantRepositories >= 1) {
-    score += 10;
+    score += 15;
   }
 
   return Math.min(score, 100);
@@ -183,10 +186,49 @@ function calculateCompletedWorkScore(
 
 function calculateReliabilityScore(
   reliability: TrustScoreInput["reliability"],
+  work: TrustScoreInput["completedWork"],
 ): number {
-  const score =
-    100 -
-    reliability.cancelledProjects * 5 -
+  const hasHistory =
+    work.completedProjects > 0 ||
+    work.completedMilestones > 0 ||
+    work.totalClientReviews > 0;
+
+  // No history = insufficient evidence, not perfect reliability.
+  let score = 50;
+
+  if (hasHistory) {
+    const onTimeRate = Math.max(
+      0,
+      Math.min(work.onTimeCompletionRate, 1),
+    );
+
+    const rating = Math.max(
+      0,
+      Math.min(work.averageClientRating, 5),
+    );
+
+    score += Math.round(
+      onTimeRate * 25,
+    );
+
+    score += Math.round(
+      (rating / 5) * 15,
+    );
+
+    if (work.totalClientReviews >= 10) {
+      score += 10;
+    } else if (work.totalClientReviews >= 5) {
+      score += 7;
+    } else if (work.totalClientReviews >= 1) {
+      score += 3;
+    }
+  }
+
+  // Negative history reduces reliability.
+  score -=
+    reliability.cancelledProjects * 5;
+
+  score -=
     reliability.disputedProjects * 15;
 
   return Math.max(
@@ -198,58 +240,41 @@ function calculateReliabilityScore(
 /* ============================================================
    CONFIDENCE
    ============================================================ */
-
+   
 function calculateLocalConfidence(
   input: TrustScoreInput,
 ): "LOW" | "MEDIUM" | "HIGH" {
-  let signals = 0;
+  const hasGithubEvidence =
+    input.evidenceAuthenticity.ownershipVerified &&
+    input.evidenceAuthenticity.relevantRepositories > 0;
+
+  const hasWorkEvidence =
+    input.completedWork.completedProjects > 0 ||
+    input.completedWork.completedMilestones > 0;
+
+  const hasReviewEvidence =
+    input.completedWork.totalClientReviews > 0;
+
+  const hasPortfolioEvidence =
+    input.profileEvidence.portfolioCount > 0;
+
+  const evidenceSources = [
+    hasGithubEvidence,
+    hasWorkEvidence,
+    hasReviewEvidence,
+    hasPortfolioEvidence,
+  ].filter(Boolean).length;
 
   if (
-    input.skillVerification.score >= 70
+    hasGithubEvidence &&
+    hasWorkEvidence &&
+    hasReviewEvidence &&
+    input.profileEvidence.profileComplete
   ) {
-    signals++;
-  }
-
-  if (
-    input.evidenceAuthenticity
-      .ownershipVerified
-  ) {
-    signals++;
-  }
-
-  if (
-    input.evidenceAuthenticity
-      .relevantRepositories > 0
-  ) {
-    signals++;
-  }
-
-  if (
-    input.profileEvidence
-      .profileComplete
-  ) {
-    signals++;
-  }
-
-  if (
-    input.completedWork
-      .completedProjects > 0
-  ) {
-    signals++;
-  }
-
-  if (
-    input.completedWork
-      .totalClientReviews > 0
-  ) {
-    signals++;
-  }
-
-  if (signals >= 5) {
     return "HIGH";
   }
 
-  if (signals >= 3) {
+  if (evidenceSources >= 2) {
     return "MEDIUM";
   }
 
@@ -298,6 +323,7 @@ export function calculateTrustScore(
   const reliability =
     calculateReliabilityScore(
       input.reliability,
+      input.completedWork,
     );
 
   const trustScore = Math.round(

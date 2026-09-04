@@ -19,6 +19,15 @@ import {
   buildSkillEvidence,
 } from "./evidence.js";
 
+import {
+  verifySkill,
+} from "../gonka/integrations/skillVerification.js";
+
+import {
+  verifyTrustScore,
+  type TrustScoreInput,
+} from "../gonka/integrations/trustScore.js";
+
 dotenv.config({ path: ".env.local" });
 
 const app = new Hono();
@@ -630,6 +639,285 @@ app.post(
 //
 // This should only be used locally.
 // ========================================
+
+app.post("/profile/trust-score", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    const {
+      sessionId,
+      skills,
+    } = body;
+
+    // ------------------------------------
+    // Validate request
+    // ------------------------------------
+
+    if (!sessionId) {
+      return c.json(
+        {
+          success: false,
+          message: "GitHub sessionId is required",
+        },
+        400,
+      );
+    }
+
+    if (
+      !Array.isArray(skills) ||
+      skills.length === 0
+    ) {
+      return c.json(
+        {
+          success: false,
+          message: "At least one skill is required",
+        },
+        400,
+      );
+    }
+
+    // ------------------------------------
+    // Get GitHub session
+    // ------------------------------------
+
+    const session = getSession(sessionId);
+
+    if (!session) {
+      return c.json(
+        {
+          success: false,
+          message: "GitHub session not found or expired",
+        },
+        401,
+      );
+    }
+
+    // ------------------------------------
+    // Get GitHub account
+    // ------------------------------------
+
+    const githubUser =
+      await getGitHubUser(
+        session.accessToken,
+      );
+
+    // ------------------------------------
+    // Get GitHub repositories
+    // ------------------------------------
+
+    const repositories =
+      await getGitHubRepositories(
+        session.accessToken,
+      );
+
+    // ------------------------------------
+    // Gonka Skill Verification
+    // ------------------------------------
+
+    const skillResults = await Promise.all(
+      skills.map(async (skill: {
+        name: string;
+        tier: "Beginner" | "Intermediate" | "Expert";
+      }) => {
+
+        const evidence =
+          buildSkillEvidence(
+            skill,
+            githubUser,
+            repositories,
+          );
+
+        const verification =
+          await verifySkill(
+            skill,
+            evidence,
+          );
+
+        return {
+          skill: skill.name,
+          tier: skill.tier,
+          evidence,
+          verification,
+        };
+      }),
+    );
+
+    // ------------------------------------
+    // Calculate overall skill score
+    // ------------------------------------
+
+    const successfulSkillResults =
+      skillResults.filter(
+        (result) =>
+          result.verification.successfulModels > 0,
+      );
+
+    const overallSkillScore =
+      successfulSkillResults.length > 0
+        ? Math.round(
+            successfulSkillResults.reduce(
+              (total, result) =>
+                total +
+                result.verification.consensus.score,
+              0,
+            ) /
+              successfulSkillResults.length,
+          )
+        : 0;
+
+    console.log(
+      "Gonka skill verification complete:",
+      {
+        skillsVerified:
+          successfulSkillResults.length,
+        overallSkillScore,
+      },
+    );
+
+    // ------------------------------------
+    // Trust Score calculation
+    // ------------------------------------
+
+    const trustScoreInput: TrustScoreInput = {
+      skillVerification: {
+        score: overallSkillScore,
+      },
+
+      evidenceAuthenticity: {
+        ownershipVerified: true,
+        relevantRepositories:
+          repositories.length,
+      },
+
+      profileEvidence: {
+        profileComplete:
+          body.profileComplete ?? true,
+
+        portfolioCount:
+          body.portfolioCount ?? 0,
+      },
+
+      completedWork: {
+        completedProjects:
+          body.completedProjects ?? 0,
+
+        completedMilestones:
+          body.completedMilestones ?? 0,
+
+        onTimeCompletionRate:
+          body.onTimeCompletionRate ?? 0,
+
+        averageClientRating:
+          body.averageClientRating ?? 0,
+
+        totalClientReviews:
+          body.totalClientReviews ?? 0,
+      },
+
+      reliability: {
+        cancelledProjects:
+          body.cancelledProjects ?? 0,
+
+        disputedProjects:
+          body.disputedProjects ?? 0,
+      },
+    };
+
+    console.log(
+      "Calculating Trust Score..."
+    );
+
+    const trustScoreResult =
+      await verifyTrustScore(
+        skills[0],
+        skillResults[0].evidence,
+        trustScoreInput,
+      );
+
+    console.log(
+      "Trust Score verification complete:",
+      trustScoreResult.gonka.consensus,
+    );
+
+    return c.json({
+      success: true,
+
+      github: {
+        username: githubUser.login,
+        ownershipVerified: true,
+        repositoryCount:
+          repositories.length,
+      },
+
+      skillVerification: {
+        overallScore:
+          overallSkillScore,
+
+        skills:
+          skillResults.map(
+            (result) => ({
+              name: result.skill,
+              tier: result.tier,
+
+              score:
+                result.verification
+                  .consensus.score,
+
+              verdict:
+                result.verification
+                  .consensus.verdict,
+
+              confidence:
+                result.verification
+                  .consensus.confidence,
+
+              reasoning:
+                result.verification
+                  .consensus.reasoning,
+            }),
+          ),
+      },
+
+      // Temporary:
+      // Trust Score will be connected next.
+      trustScore: {
+        score: trustScoreResult.trustScore,
+
+        verdict:
+          trustScoreResult.gonka.consensus.verdict,
+
+        confidence:
+          trustScoreResult.gonka.consensus.confidence,
+
+        reasoning:
+          trustScoreResult.gonka.consensus.reasoning,
+
+        breakdown:
+          trustScoreResult.breakdown,
+      },
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Trust Score verification error:",
+      error,
+    );
+
+    return c.json(
+      {
+        success: false,
+        message:
+          "Failed to calculate Trust Score",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error",
+      },
+      500,
+    );
+  }
+});
 
 app.get(
   "/test/oauth-status",
