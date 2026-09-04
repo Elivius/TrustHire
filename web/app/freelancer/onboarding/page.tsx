@@ -26,7 +26,6 @@ import { useApp } from "@/context/app-context";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { SkillChip } from "@/components/ui/skill-chip";
-import { simulateTrustScoreCalculation, simulateGithubRepoDiscovery } from "@/lib/simulation";
 import { clsx } from "clsx";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
@@ -155,15 +154,62 @@ export default function FreelancerOnboardingPage() {
     ];
 
     try {
-      const scoreResult = await simulateTrustScoreCalculation(
-        skills.length,
-        combinedPortfolio.length > 0,
-        experienceLevel,
-        isGithubConnected,
-        githubUsername
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3010";
+
+      const githubSession =
+        sessionStorage.getItem("trusthire_github_session");
+
+      if (!githubSession) {
+        throw new Error(
+          "GitHub account is not connected. Please connect GitHub before calculating your Trust Score."
+        );
+      }
+
+      const response = await fetch(
+        `${apiUrl}/profile/trust-score`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: githubSession,
+
+            skills: skills.map((skill) => ({
+              name: skill,
+              tier: experienceLevel,
+            })),
+
+            profileComplete:
+              Boolean(name.trim()) &&
+              Boolean(headline.trim()) &&
+              Boolean(bio.trim()),
+
+            portfolioCount:
+              combinedPortfolio.length,
+
+            completedProjects: 0,
+            completedMilestones: 0,
+            onTimeCompletionRate: 0,
+            averageClientRating: 0,
+            totalClientReviews: 0,
+
+            cancelledProjects: 0,
+            disputedProjects: 0,
+          }),
+        }
       );
 
-      setCalculatedScore(scoreResult.trustScore);
+      if (!response.ok) {
+        throw new Error(
+          `Trust Score request failed: ${response.status}`
+        );
+      }
+
+      const scoreResult = await response.json();
+
+      setCalculatedScore(scoreResult.trustScore.score);
 
       addRoleToUser("freelancer");
       updateFreelancerProfile({
@@ -176,9 +222,9 @@ export default function FreelancerOnboardingPage() {
         portfolioLinks: combinedPortfolio,
         githubUsername: isGithubConnected ? githubUsername : undefined,
         isGithubVerified: isGithubConnected,
-        trustScore: scoreResult.trustScore,
-        trustScoreConfidence: scoreResult.confidence,
-        trustScoreReasoning: scoreResult.reasoning,
+        trustScore: scoreResult.trustScore.score,
+        trustScoreConfidence: scoreResult.trustScore.confidence,
+        trustScoreReasoning: scoreResult.trustScore.reasoning,
         trustScoreRequestId: scoreResult.requestId,
         trustScoreUpdatedAt: new Date().toISOString(),
         isDiscoverable: true,
