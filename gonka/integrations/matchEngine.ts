@@ -437,7 +437,7 @@ async function scoreBatch(
     `Sending ${direction} matching request to Gonka model: ${model}`,
   );
 
-  const response =
+  const result =
     await gonka.chat.completions.create({
       model,
       max_tokens: 4096,
@@ -457,7 +457,12 @@ async function scoreBatch(
         },
       ],
       temperature: 0,
-    });
+    }).withResponse();
+
+    const response = result.data;
+    const gonkaRequestId = result.request_id;
+
+    const requestId = response.id ?? "unknown";
 
   const content =
     response.choices[0]?.message?.content;
@@ -473,12 +478,10 @@ async function scoreBatch(
     expectedIds,
   );
 
-  const requestId = response.id ?? "unknown";
-
-  return parsed.matches.map((match) => ({
-    ...match,
-    gonkaRequestId: requestId,
-  }));
+    return parsed.matches.map((match) => ({
+      ...match,
+      gonkaRequestId: requestId,
+    }));
 }
 
 export async function scoreCandidates(

@@ -469,24 +469,29 @@ export async function assessTrustScoreWithGonka(
 
   const startTime = Date.now();
 
-  const response =
-    await gonka.chat.completions.create({
-      model: selectedModel,
+  const result =
+    await gonka.chat.completions
+      .create({
+        model: selectedModel,
 
-      messages: [
-        {
-          role: "system",
-          content:
-            "You evaluate TrustHire freelancer Trust Scores using provided evidence. Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+        messages: [
+          {
+            role: "system",
+            content:
+              "You evaluate TrustHire freelancer Trust Scores using provided evidence. Return only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
 
-      temperature: 0,
-    });
+        temperature: 0,
+      })
+      .withResponse();
+
+  const response = result.data;
+  const requestId = result.request_id;
 
   const elapsed =
     (
@@ -567,7 +572,7 @@ export async function assessTrustScoreWithGonka(
     reasoning: parsed.reasoning,
 
     requestId:
-      response.id ?? "unknown",
+      requestId ?? "unknown",
   };
 }
 

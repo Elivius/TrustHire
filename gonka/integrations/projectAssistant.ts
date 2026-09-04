@@ -1,3 +1,4 @@
+import { requestId } from "hono/request-id";
 import { gonka } from "../client";
 
 export type ProjectChatRole = "user" | "assistant";
@@ -44,10 +45,10 @@ export interface ProjectAssistantResponse {
 }
 
 const PRIMARY_MODEL =
-  "deepseek-ai/DeepSeek-V4-Flash-0731";
+  "MiniMaxAI/MiniMax-M2.7";
 
 const FALLBACK_MODEL =
-  "MiniMaxAI/MiniMax-M2.7";
+  "deepseek-ai/DeepSeek-V4-Flash-0731";
 
 /**
  * Project Assistant is responsible ONLY for
@@ -521,7 +522,7 @@ async function requestProjectAssistant(
 
   const startTime = Date.now();
 
-  const response =
+  const result =
     await gonka.chat.completions.create({
       model,
 
@@ -534,7 +535,10 @@ async function requestProjectAssistant(
       ],
 
       temperature: 0.4,
-    });
+    }).withResponse();
+
+    const response = result.data;
+    const requestId = result.request_id;
 
   const elapsed =
     ((Date.now() - startTime) / 1000).toFixed(1);
@@ -552,8 +556,11 @@ async function requestProjectAssistant(
     );
   }
 
-  const parsed =
-    parseAssistantResponse(rawContent);
+const parsed =
+  parseAssistantResponse(
+    rawContent,
+    messages,
+  );
 
   return {
     message: parsed.message,
@@ -561,7 +568,7 @@ async function requestProjectAssistant(
     requirements: parsed.requirements,
     proposal: parsed.proposal,
     requestId:
-      response.id ?? "unknown",
+      requestId ?? "unknown",
   };
 }
 
@@ -618,6 +625,7 @@ function extractResponseContent(
  */
 function parseAssistantResponse(
   rawContent: string,
+  messages: ProjectChatMessage[],
 ): {
   message: string;
   status: ProjectAssistantStatus;
@@ -633,6 +641,11 @@ function parseAssistantResponse(
     );
   }
 
+  /*
+   * ------------------------------------------------------
+   * 1. Direct JSON
+   * ------------------------------------------------------
+   */
   const directJson =
     tryParseJson(cleaned);
 
@@ -642,6 +655,11 @@ function parseAssistantResponse(
     );
   }
 
+  /*
+   * ------------------------------------------------------
+   * 2. JSON embedded inside surrounding text
+   * ------------------------------------------------------
+   */
   const extractedJson =
     extractJsonObject(cleaned);
 
@@ -656,15 +674,137 @@ function parseAssistantResponse(
     }
   }
 
+  /*
+   * ------------------------------------------------------
+   * 3. Plain natural-language response
+   * ------------------------------------------------------
+   *
+   * MiniMax/other models may sometimes ignore the JSON
+   * instruction and return the proposal as normal text.
+   *
+   * We still want to show that real response to the client.
+   */
+  const message =
+    cleanClientMessage(cleaned);
+
+  /*
+   * First try to recover a complete proposal directly
+   * from the current assistant response.
+   */
+  let proposal =
+    parseProposalFromPlainText(message);
+
+  /*
+   * If the client just approved the previous proposal and
+   * the model returned only a natural-language confirmation,
+   * recover the proposal from the previous assistant message.
+   */
+  if (
+    !proposal &&
+    isClearApproval(getLastUserMessage(messages))
+  ) {
+    const previousAssistantMessages =
+      messages
+        .filter(
+          (item) =>
+            item.role === "assistant",
+        )
+        .map(
+          (item) => item.content,
+        );
+
+    for (
+      let index = previousAssistantMessages.length - 1;
+      index >= 0;
+      index--
+    ) {
+      proposal =
+        parseProposalFromPlainText(
+          previousAssistantMessages[index],
+        );
+
+      if (proposal) {
+        break;
+      }
+    }
+  }
+
+  /*
+   * ------------------------------------------------------
+   * 4. Completed proposal detection
+   * ------------------------------------------------------
+   *
+   * This handles the exact response we observed:
+   *
+   * "Thank you for confirming! Here is your final
+   * approved project proposal..."
+   *
+   * while the model incorrectly reports DISCOVERY.
+   */
+  if (
+    proposal &&
+    looksLikeCompletedProposal(message)
+  ) {
+    console.warn(
+      "Project Assistant returned a completed proposal as plain text. Normalizing to COMPLETED.",
+    );
+
+    return {
+      message,
+      status: "COMPLETED",
+      requirements:
+        parseRequirementsFromPlainText(
+          message,
+        ),
+      proposal,
+    };
+  }
+
+  /*
+   * ------------------------------------------------------
+   * 5. Clear client approval recovery
+   * ------------------------------------------------------
+   *
+   * If the client explicitly approved the proposal,
+   * treat the recovered proposal as completed.
+   */
+  if (
+    proposal &&
+    isClearApproval(
+      getLastUserMessage(messages),
+    )
+  ) {
+    console.warn(
+      "Client approval detected. Normalizing Project Assistant response to COMPLETED.",
+    );
+
+    return {
+      message,
+      status: "COMPLETED",
+      requirements:
+        parseRequirementsFromPlainText(
+          message,
+        ),
+      proposal,
+    };
+  }
+
+  /*
+   * ------------------------------------------------------
+   * 6. Normal conversational response
+   * ------------------------------------------------------
+   */
   console.warn(
-    "Project Assistant returned plain conversational text. Normalizing response.",
+    "Project Assistant returned plain conversational text. Normalizing as DISCOVERY.",
   );
 
   return {
-    message:
-      cleanClientMessage(cleaned),
+    message,
     status: "DISCOVERY",
-    requirements: [],
+    requirements:
+      parseRequirementsFromPlainText(
+        message,
+      ),
     proposal: null,
   };
 }
@@ -1014,6 +1154,388 @@ function parseProjectProposal(
     budgetSource,
     timelineSource,
   };
+}
+
+/**
+ * Get the latest client message from the conversation.
+ */
+function getLastUserMessage(
+  messages: ProjectChatMessage[],
+): string {
+  for (
+    let index = messages.length - 1;
+    index >= 0;
+    index--
+  ) {
+    if (
+      messages[index].role === "user"
+    ) {
+      return messages[index].content;
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Detect clear client approval.
+ *
+ * This is intentionally conservative so that a casual
+ * "okay" does not accidentally complete a project.
+ */
+function isClearApproval(
+  value: string,
+): boolean {
+  const normalized =
+    value
+      .trim()
+      .toLowerCase()
+      .replace(
+        /[.!?,]+$/g,
+        "",
+      )
+      .replace(
+        /\s+/g,
+        " ",
+      );
+
+  return /^(yes|yeah|yep|approve|approved|confirmed|confirm|looks good|that's fine|that is fine|let's go with it|lets go with it|yes proceed|yes,? proceed|yes,? let's go|yes,? lets go|yes,? let's go for posting|yes,? lets go for posting|yes,? this is good|yes,? this is good let's go for posting|yes,? this is good lets go for posting)$/.test(
+    normalized,
+  );
+}
+
+/**
+ * Detect a final proposal in natural-language output.
+ *
+ * We require both:
+ * - final/approval language
+ * - proposal fields
+ *
+ * This prevents normal conversational messages from being
+ * incorrectly marked COMPLETED.
+ */
+function looksLikeCompletedProposal(
+  message: string,
+): boolean {
+  const normalized =
+    message.toLowerCase();
+
+  const hasFinalLanguage =
+    /project\s+(?:is\s+now\s+)?confirmed|final\s+approved\s+project\s+proposal|approved\s+project\s+proposal|project\s+is\s+approved|ready\s+to\s+be\s+posted|ready\s+for\s+posting/.test(
+      normalized,
+    );
+
+  const hasProposalFields =
+    /project\s+title\s*:/.test(
+      normalized,
+    ) &&
+    /(?:estimated\s+budget|budget)\s*:/.test(
+      normalized,
+    ) &&
+    /(?:estimated\s+timeline|timeline)\s*:/.test(
+      normalized,
+    );
+
+  return (
+    hasFinalLanguage &&
+    hasProposalFields
+  );
+}
+
+/**
+ * Recover a proposal when the model returns Markdown/plain
+ * text instead of structured JSON.
+ */
+function parseProposalFromPlainText(
+  text: string,
+): ProjectProposal | null {
+  const cleaned =
+    cleanClientMessage(text);
+
+  const title =
+    extractPlainTextField(
+      cleaned,
+      /(?:\*\*)?Project Title(?:\*\*)?\s*:\s*(.+?)(?:\r?\n|$)/i,
+    );
+
+  const description =
+    extractPlainTextSection(
+      cleaned,
+      /(?:\*\*)?Description(?:\*\*)?\s*:\s*/i,
+      [
+        /(?:\*\*)?Core Features(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Required Skills(?:\s*&\s*Technologies)?(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Estimated Budget(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Estimated Timeline(?:\*\*)?\s*:/i,
+      ],
+    );
+
+  const coreFeatures =
+    extractPlainTextBullets(
+      cleaned,
+      /(?:\*\*)?Core Features(?:\*\*)?\s*:/i,
+      [
+        /(?:\*\*)?Required Skills(?:\s*&\s*Technologies)?(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Estimated Budget(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Estimated Timeline(?:\*\*)?\s*:/i,
+      ],
+    );
+
+  const requiredSkills =
+    extractPlainTextBullets(
+      cleaned,
+      /(?:\*\*)?Required Skills(?:\s*&\s*Technologies)?(?:\*\*)?\s*:/i,
+      [
+        /(?:\*\*)?Estimated Budget(?:\*\*)?\s*:/i,
+        /(?:\*\*)?Estimated Timeline(?:\*\*)?\s*:/i,
+      ],
+    );
+
+  const budgetText =
+    extractPlainTextField(
+      cleaned,
+      /(?:\*\*)?Estimated Budget(?:\*\*)?\s*:\s*([^\r\n]+)/i,
+    );
+
+  const timelineText =
+    extractPlainTextField(
+      cleaned,
+      /(?:\*\*)?Estimated Timeline(?:\*\*)?\s*:\s*([^\r\n]+)/i,
+    );
+
+  const budgetUsdc =
+    parseNumericValue(
+      budgetText,
+    );
+
+  const timelineDays =
+    parseNumericValue(
+      timelineText,
+    );
+
+  if (
+    !title ||
+    !description ||
+    coreFeatures.length === 0 ||
+    requiredSkills.length === 0 ||
+    !Number.isFinite(budgetUsdc) ||
+    budgetUsdc <= 0 ||
+    !Number.isFinite(timelineDays) ||
+    timelineDays <= 0
+  ) {
+    return null;
+  }
+
+  return {
+    title,
+    description,
+    coreFeatures,
+    requiredSkills,
+    budgetUsdc,
+    timelineDays:
+      Math.round(timelineDays),
+    budgetSource:
+      inferProposalSource(
+        budgetText,
+      ),
+    timelineSource:
+      inferProposalSource(
+        timelineText,
+      ),
+  };
+}
+
+function extractPlainTextField(
+  text: string,
+  pattern: RegExp,
+): string {
+  const match =
+    text.match(pattern);
+
+  return (
+    match?.[1]?.trim() ?? ""
+  );
+}
+
+function extractPlainTextSection(
+  text: string,
+  startPattern: RegExp,
+  endPatterns: RegExp[],
+): string {
+  const startMatch =
+    startPattern.exec(text);
+
+  if (
+    !startMatch ||
+    startMatch.index < 0
+  ) {
+    return "";
+  }
+
+  const start =
+    startMatch.index +
+    startMatch[0].length;
+
+  let end =
+    text.length;
+
+  const remaining =
+    text.slice(start);
+
+  for (
+    const pattern of endPatterns
+  ) {
+    const match =
+      pattern.exec(remaining);
+
+    if (
+      match &&
+      match.index >= 0
+    ) {
+      end =
+        Math.min(
+          end,
+          start + match.index,
+        );
+    }
+  }
+
+  return text
+    .slice(start, end)
+    .replace(/\r/g, "")
+    .trim();
+}
+
+function extractPlainTextBullets(
+  text: string,
+  startPattern: RegExp,
+  endPatterns: RegExp[],
+): string[] {
+  const section =
+    extractPlainTextSection(
+      text,
+      startPattern,
+      endPatterns,
+    );
+
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(
+          /^\s*[-*•]\s+/,
+          "",
+        )
+        .replace(
+          /^\s*\d+[.)]\s+/,
+          "",
+        )
+        .trim(),
+    )
+    .filter(Boolean);
+}
+
+function parseNumericValue(
+  value: string,
+): number {
+  if (!value) {
+    return NaN;
+  }
+
+  const match =
+    value
+      .replace(/,/g, "")
+      .match(
+        /-?\d+(?:\.\d+)?/,
+      );
+
+  return match
+    ? Number(match[0])
+    : NaN;
+}
+
+function inferProposalSource(
+  value: string,
+): ProposalValueSource {
+  if (
+    /client[- ]provided|provided by client|client's/i.test(
+      value,
+    )
+  ) {
+    return "CLIENT_PROVIDED";
+  }
+
+  if (
+    /adjusted|revised/i.test(
+      value,
+    )
+  ) {
+    return "AI_ADJUSTED";
+  }
+
+  return "AI_ESTIMATED";
+}
+
+/**
+ * Conservative plain-text requirement recovery.
+ *
+ * We deliberately do NOT convert AI-recommended skills into
+ * confirmed client requirements.
+ */
+function parseRequirementsFromPlainText(
+  text: string,
+): ProjectRequirement[] {
+  const requirements: ProjectRequirement[] =
+    [];
+
+  const seen =
+    new Set<string>();
+
+  const addRequirement = (
+    category: string,
+    requirement: string,
+  ) => {
+    const value =
+      requirement.trim();
+
+    if (!value) {
+      return;
+    }
+
+    const key =
+      `${category}:${value}`.toLowerCase();
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+
+    requirements.push({
+      category,
+      requirement: value,
+    });
+  };
+
+  const pattern =
+    /(?:client\s+(?:wants|needs)|user\s+(?:wants|needs)|the\s+client\s+(?:wants|needs))\s+(.+?)(?:[.\n]|$)/gi;
+
+  for (
+    const match of text.matchAll(
+      pattern,
+    )
+  ) {
+    addRequirement(
+      "Project Requirement",
+      match[1],
+    );
+  }
+
+  return requirements;
 }
 
 /**

@@ -91,22 +91,27 @@ The response MUST have exactly this structure:
 
   const startTime = Date.now();
 
-  const response =
-    await gonka.chat.completions.create({
-      model: selectedModel,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You verify freelancer skill claims using provided evidence. Return only valid JSON.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0,
-    });
+  const result =
+    await gonka.chat.completions
+      .create({
+        model: selectedModel,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You verify freelancer skill claims using provided evidence. Return only valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0,
+      })
+      .withResponse();
+
+  const response = result.data;
+  const requestId = result.request_id;
 
   const elapsed =
     ((Date.now() - startTime) / 1000).toFixed(1);
@@ -172,7 +177,7 @@ The response MUST have exactly this structure:
     score: parsed.score,
     confidence: parsed.confidence,
     reasoning: parsed.reasoning,
-    requestId: response.id,
+    requestId: requestId ?? "unknown",
   };
 }
 

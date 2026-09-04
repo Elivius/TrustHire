@@ -181,8 +181,9 @@ async function runModel(
 ): Promise<ModelVerificationResult> {
   console.log(`Running ${model}...`);
 
-  const response =
-    await gonka.chat.completions.create({
+const result =
+  await gonka.chat.completions
+    .create({
       model,
       max_tokens: 2048,
       messages: [
@@ -199,7 +200,11 @@ async function runModel(
           ),
         },
       ],
-    });
+    })
+    .withResponse();
+
+const response = result.data;
+const requestId = result.request_id;
 
   const content =
     response.choices[0]?.message?.content;
@@ -214,16 +219,16 @@ async function runModel(
 
   const parsed = parseModelResponse(content);
 
-  return {
-    model,
-    requestId: response.id,
+return {
+  model,
+  requestId: requestId ?? "unknown",
 
-    verdict: parsed.verdict,
-    score: parsed.score,
-    confidence: parsed.confidence,
+  verdict: parsed.verdict,
+  score: parsed.score,
+  confidence: parsed.confidence,
 
-    reasoning: parsed.reasoning,
-  };
+  reasoning: parsed.reasoning,
+};
 }
 
 export async function verifyWithAllModels(

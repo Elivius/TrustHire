@@ -8,3 +8,16 @@ export const gonka = new OpenAI({
   baseURL: "https://api.gonkarouter.io/v1",
   timeout: 60_000,
 });
+
+export async function createGonkaChatCompletion(
+  request: Parameters<
+    typeof gonka.chat.completions.create
+  >[0],
+) {
+  const result =
+    await gonka.chat.completions.create(
+      request,
+    );
+
+  return result;
+}
