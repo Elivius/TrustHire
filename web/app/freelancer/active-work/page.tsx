@@ -19,6 +19,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
+import { formatSuiAddress } from "@/lib/sui/escrow";
 
 export default function FreelancerActiveWorkPage() {
   const { currentUser, projects, milestones, users } = useApp();
@@ -131,7 +132,7 @@ export default function FreelancerActiveWorkPage() {
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
-                          <span>Escrow Object: {proj.escrowObjectId || "0x9182...fa01"}</span>
+                          <span>Escrow Object: {proj.escrowObjectId ? formatSuiAddress(proj.escrowObjectId) : "Pending Escrow"}</span>
                         </div>
                       </div>
 

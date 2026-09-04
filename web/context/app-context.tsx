@@ -23,6 +23,7 @@ import {
   buildCreateEscrowTx,
   buildSubmitMilestoneTx,
   buildApproveMilestoneTx,
+  resolveFreelancerReputationRecordId,
   TESTNET_PACKAGE_ID,
 } from "@/lib/sui/escrow";
 import { createClient } from "@/lib/supabase/client";
@@ -1108,7 +1109,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }
@@ -1125,6 +1130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submissionContent: content,
       submissionLinks: links,
       submittedAt: now,
+      ...(txHash && !txHash.startsWith("0x") ? { onChainTxHash: txHash } : {})
     });
 
     if (proj) {
@@ -1171,9 +1177,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .filter((m) => m.projectId === targetMs.projectId)
           .findIndex((m) => m.id === milestoneId);
 
+        const freelancerAddr =
+          (proj?.matchedFreelancerId?.startsWith("0x") ? proj.matchedFreelancerId : null) ||
+          users.find((u) => u.id === proj?.matchedFreelancerId)?.walletAddress ||
+          "0x843543df2cbe873b0e963835129022ec3d9680ce1ad4777dda1aeb44abbcd265";
+
+        const repRecordId = await resolveFreelancerReputationRecordId(client, freelancerAddr);
+
         const tx = buildApproveMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
           escrowObjectId: proj.escrowObjectId,
+          reputationRecordId: repRecordId,
           milestoneId: Math.max(0, msIndex),
         });
 
@@ -1183,7 +1197,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }
