@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
@@ -32,6 +34,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 export default function FreelancerOnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currentUser, updateFreelancerProfile, addRoleToUser } = useApp();
   const currentAccount = useCurrentAccount();
   const payoutWallet = currentAccount?.address || currentUser.walletAddress || currentUser.id;
@@ -72,6 +75,34 @@ export default function FreelancerOnboardingPage() {
   const [isCalculatingScore, setIsCalculatingScore] = useState(false);
   const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
 
+  useEffect(() => {
+    const githubStatus = searchParams.get("github");
+    const sessionId = searchParams.get("sessionId");
+    const username = searchParams.get("username");
+    const stepParam = searchParams.get("step");
+
+    // Open the correct onboarding step
+    if (stepParam === "3") {
+      setStep(3);
+    }
+
+    if (githubStatus === "connected" && sessionId) {
+      sessionStorage.setItem(
+        "trusthire_github_session",
+        sessionId
+      );
+
+      setIsGithubConnected(true);
+
+      if (username) {
+        setGithubUsername(username);
+      }
+
+      // Remove OAuth parameters after processing them
+      router.replace("/freelancer/onboarding");
+    }
+  }, [searchParams, router]);
+
   const handleAddSkill = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && newSkillInput.trim()) {
       e.preventDefault();
@@ -86,15 +117,11 @@ export default function FreelancerOnboardingPage() {
     setSkills(skills.filter((s) => s !== skill));
   };
 
-  const handleConnectGithub = async () => {
-    setIsScanningGithub(true);
-    try {
-      const repos = await simulateGithubRepoDiscovery(githubUsername);
-      setVerifiedRepos(repos);
-      setIsGithubConnected(true);
-    } finally {
-      setIsScanningGithub(false);
-    }
+  const handleConnectGithub = () => {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3010";
+
+    window.location.href = `${apiUrl}/auth/github`;
   };
 
   const handleAddCustomLink = () => {
@@ -427,7 +454,7 @@ export default function FreelancerOnboardingPage() {
 
                   {isGithubConnected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/30 font-mono">
-                      <Check className="w-3 h-3" /> GitHub Verified
+                        Verified
                     </span>
                   )}
                 </div>
@@ -469,9 +496,9 @@ export default function FreelancerOnboardingPage() {
 
                     {/* Auto-discovered Verified Repos */}
                     <div className="space-y-2">
-                      <span className="text-[11px] font-mono text-[#0D9488] dark:text-[#2DD4BF] block font-semibold">
-                        Gonka AI Auto-Discovered & Verified Repositories ({verifiedRepos.length}):
-                      </span>
+                        <span className="text-[11px] font-mono text-[#0D9488] dark:text-[#2DD4BF] block font-semibold">
+                          GitHub Account Verified • Public Repositories ({verifiedRepos.length})
+                        </span>
                       {verifiedRepos.map((repo, idx) => (
                         <div key={idx} className="p-3 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 flex items-center justify-between gap-2 text-xs">
                           <div className="space-y-0.5">

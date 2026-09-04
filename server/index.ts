@@ -36,6 +36,8 @@ const app = new Hono();
 let latestTestSessionId: string | null = null;
 
 const PORT = 3010;
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ?? "http://localhost:3000";
 
 // ========================================
 // Health Check
@@ -354,16 +356,20 @@ app.get(
       // Return result
       // ==================================
 
-      return c.json({
-        success: true,
+      const frontendUrl =
+        process.env.FRONTEND_URL ?? "http://localhost:3000";
 
-        message:
-          "GitHub account successfully connected",
+      const redirectUrl = new URL(
+        "/freelancer/onboarding",
+        frontendUrl
+      );
 
-        sessionId,
+      redirectUrl.searchParams.set("step", "3");
+      redirectUrl.searchParams.set("github", "connected");
+      redirectUrl.searchParams.set("sessionId", sessionId);
+      redirectUrl.searchParams.set("username", githubUser.login);
 
-        evidence,
-      });
+      return c.redirect(redirectUrl.toString());
     } catch (error) {
       console.error(
         "GitHub OAuth error:",
