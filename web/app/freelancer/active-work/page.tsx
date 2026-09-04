@@ -23,7 +23,14 @@ import { MilestoneStepper } from "@/components/ui/milestone-stepper";
 export default function FreelancerActiveWorkPage() {
   const { currentUser, projects, milestones, users } = useApp();
 
-  const myProjects = projects.filter((p) => p.matchedFreelancerId === currentUser.id);
+  const myProjects = projects.filter(
+    (p) =>
+      Boolean(p.matchedFreelancerId) &&
+      (p.matchedFreelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+        p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
+  );
   const matchedAwaitingEscrow = myProjects.filter((p) => p.status === "matched");
   const inProgressContracts = myProjects.filter((p) => p.status === "in_progress");
   const completedContracts = myProjects.filter((p) => p.status === "completed");

@@ -31,6 +31,7 @@ import { DisputeModal } from "./dispute-modal";
 import { CompletionRatingModal } from "./completion-rating-modal";
 import { Milestone } from "@/types";
 import { clsx } from "clsx";
+import { getSuiscanObjectUrl, formatSuiAddress } from "@/lib/sui/escrow";
 
 export default function ActiveWorkspacePage() {
   const params = useParams();
@@ -165,9 +166,22 @@ export default function ActiveWorkspacePage() {
                       {releasedAmount === totalAmount ? "100% Released" : `$${releasedAmount.toLocaleString()} of $${totalAmount.toLocaleString()} Released`}
                     </span>
                   </div>
-                  <span className="text-xs text-foreground/65">
-                    Smart contract object: {project.escrowObjectId || "0x9182...fa01"}
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-foreground/65">
+                    <span>Smart contract object:</span>
+                    {project.escrowObjectId ? (
+                      <a
+                        href={getSuiscanObjectUrl(project.escrowObjectId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[#2563EB] dark:text-[#4DA2FF] hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>{formatSuiAddress(project.escrowObjectId)}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    ) : (
+                      <span className="font-mono">Pending Escrow</span>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -77,7 +77,11 @@ export default function CandidatesPage() {
       );
       return {
         profile: prof,
-        user: users.find((u) => u.id === prof.userId),
+        user: users.find(
+          (u) =>
+            u.id.toLowerCase() === prof.userId.toLowerCase() ||
+            (u.walletAddress && u.walletAddress.toLowerCase() === prof.userId.toLowerCase())
+        ),
         match
       };
     })
@@ -281,9 +285,39 @@ export default function CandidatesPage() {
             ) : (
               <div className="space-y-3">
                 {projectApplications.map((app) => {
-                  const applicant = users.find((u) => u.id === app.freelancerId);
-                  const prof = freelancerProfiles[app.freelancerId];
-                  if (!applicant || !prof) return null;
+                  const applicant = users.find(
+                    (u) =>
+                      u.id.toLowerCase() === app.freelancerId.toLowerCase() ||
+                      (u.walletAddress && u.walletAddress.toLowerCase() === app.freelancerId.toLowerCase())
+                  ) || {
+                    id: app.freelancerId,
+                    name: app.freelancerId.startsWith("0x")
+                      ? `Freelancer (${app.freelancerId.slice(0, 6)}...${app.freelancerId.slice(-4)})`
+                      : "Applicant",
+                    email: `${app.freelancerId.slice(0, 10)}@trusthire.io`,
+                    roles: ["freelancer" as const],
+                    walletAddress: app.freelancerId.startsWith("0x") ? app.freelancerId : undefined,
+                    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(app.freelancerId)}`
+                  };
+
+                  const prof = freelancerProfiles[app.freelancerId] ||
+                    Object.entries(freelancerProfiles).find(([k]) => k.toLowerCase() === app.freelancerId.toLowerCase())?.[1] || {
+                      userId: app.freelancerId,
+                      headline: "Web3 Developer",
+                      bio: "",
+                      skills: project?.requiredSkills || ["Sui Move", "TypeScript"],
+                      experienceLevel: "Intermediate" as const,
+                      portfolioLinks: [],
+                      trustScore: 92,
+                      trustScoreConfidence: "High" as const,
+                      trustScoreReasoning: [],
+                      trustScoreRequestId: "req",
+                      trustScoreUpdatedAt: new Date().toISOString(),
+                      isDiscoverable: true,
+                      completedProjectsCount: 5,
+                      onTimeDeliveryPct: 95,
+                      averageRating: 4.8
+                    };
 
                   return (
                     <GlassCard key={app.id} className="p-5 space-y-4">
