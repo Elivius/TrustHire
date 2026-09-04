@@ -21,10 +21,18 @@ function EnokiInit() {
   useEffect(() => {
     if (!isEnokiNetwork(network)) return;
 
+    // Use a canonical redirectUrl to prevent redirect_uri_mismatch across client-side page transitions
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth`
+      : undefined;
+
     const { unregister } = registerEnokiWallets({
       apiKey: process.env.NEXT_PUBLIC_ENOKI_API_KEY || '',
       providers: {
-        google: { clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '' },
+        google: {
+          clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+          redirectUrl,
+        },
       },
       client: client as any,
       network,
