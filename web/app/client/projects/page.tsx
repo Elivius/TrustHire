@@ -29,7 +29,14 @@ export default function ClientProjectsPage() {
   const [selectedFilter, setSelectedFilter] = useState<"all" | ProjectStatus>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const clientProjects = projects.filter((p) => p.clientId === currentUser.id);
+  const clientProjects = projects.filter(
+    (p) =>
+      Boolean(p.clientId) &&
+      (p.clientId === currentUser.id ||
+        p.clientId.toLowerCase() === currentUser.id.toLowerCase() ||
+        (currentUser.walletAddress &&
+          p.clientId.toLowerCase() === currentUser.walletAddress.toLowerCase()))
+  );
 
   const filteredProjects = clientProjects.filter((p) => {
     if (selectedFilter !== "all" && p.status !== selectedFilter) return false;
@@ -158,7 +165,15 @@ export default function ClientProjectsPage() {
         ) : (
           <div className="space-y-3">
             {filteredProjects.map((project) => {
-              const freelancer = users.find((u) => u.id === project.matchedFreelancerId);
+              const matchId = project.matchedFreelancerId;
+              const freelancer = matchId
+                ? users.find(
+                    (u) =>
+                      u.id === matchId ||
+                      u.id.toLowerCase() === matchId.toLowerCase() ||
+                      (u.walletAddress && u.walletAddress.toLowerCase() === matchId.toLowerCase())
+                  )
+                : null;
               const candCount = getCandidateCount(project.id);
 
               return (

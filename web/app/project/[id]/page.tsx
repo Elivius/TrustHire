@@ -72,32 +72,51 @@ export default function ProjectDetailPage() {
     );
   }
 
-  const isClientOwner = currentUser.id === project.clientId;
+  const isClientOwner =
+    currentUser.id === project.clientId ||
+    (Boolean(currentUser.walletAddress) &&
+      Boolean(project.clientId) &&
+      project.clientId.toLowerCase() === currentUser.walletAddress?.toLowerCase());
   const isFreelancerRole = activeRole === "freelancer";
   const matchedFreelancer = project.matchedFreelancerId
-    ? users.find((u) => u.id === project.matchedFreelancerId)
+    ? users.find(
+        (u) =>
+          u.id === project.matchedFreelancerId ||
+          (u.walletAddress &&
+            u.walletAddress.toLowerCase() === project.matchedFreelancerId?.toLowerCase())
+      )
     : null;
 
   const isSaved = savedProjects.some(
-    (s) => s.freelancerId === currentUser.id && s.projectId === projectId
+    (s) =>
+      s.projectId === projectId &&
+      (s.freelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          s.freelancerId.toLowerCase() === currentUser.walletAddress.toLowerCase()))
   );
   const myApplication = applications.find(
-    (a) => a.freelancerId === currentUser.id && a.projectId === projectId
+    (a) =>
+      a.projectId === projectId &&
+      (a.freelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          a.freelancerId.toLowerCase() === currentUser.walletAddress.toLowerCase()))
   );
-  const myProfile = freelancerProfiles[currentUser.id];
+  const myProfile =
+    freelancerProfiles[currentUser.id] ||
+    (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined);
   const aiMatch = myProfile
     ? computeFreelancerMatchForProject(myProfile.skills, project.requiredSkills, myProfile.trustScore)
     : null;
 
   const candidateCount = new Set([
-    ...invitations.filter((i) => i.projectId === projectId).map((i) => i.freelancerId),
-    ...applications.filter((a) => a.projectId === projectId).map((a) => a.freelancerId)
+    ...invitations.filter((i) => i.projectId === projectId).map((i) => i.freelancerId.toLowerCase()),
+    ...applications.filter((a) => a.projectId === projectId).map((a) => a.freelancerId.toLowerCase())
   ]).size;
 
   const handleApply = async () => {
     setIsApplying(true);
-    await new Promise((r) => setTimeout(r, 600));
-    applyToProject(projectId, currentUser.id, coverNote);
+    const applicantId = currentUser.walletAddress || currentUser.id;
+    await applyToProject(projectId, applicantId, coverNote);
     setIsApplying(false);
     setAppliedSuccess(true);
     setTimeout(() => {

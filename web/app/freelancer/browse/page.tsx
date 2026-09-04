@@ -39,10 +39,17 @@ export default function BrowseProjectsPage() {
   const [selectedSkillFilter, setSelectedSkillFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"best_match" | "newest" | "budget">("best_match");
 
-  const myProfile = freelancerProfiles[currentUser.id] || {
-    trustScore: 96,
-    skills: ["React", "TypeScript", "Sui Move", "Smart Contracts", "Tailwind CSS"]
-  };
+  const myProfile =
+    freelancerProfiles[currentUser.id] ||
+    (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
+    Object.entries(freelancerProfiles).find(
+      ([k]) =>
+        k.toLowerCase() === currentUser.id.toLowerCase() ||
+        (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
+    )?.[1] || {
+      trustScore: 90,
+      skills: ["React", "TypeScript", "Sui Move", "Smart Contracts", "Tailwind CSS"]
+    };
 
   const openProjects = projects.filter((p) => p.status === "open");
 
@@ -207,9 +214,18 @@ export default function BrowseProjectsPage() {
         ) : (
           <div className="space-y-4">
             {sortedProjects.map((project) => {
-              const clientUser = users.find((u) => u.id === project.clientId);
+              const clientUser = users.find(
+                (u) =>
+                  u.id === project.clientId ||
+                  (u.walletAddress && u.walletAddress.toLowerCase() === project.clientId.toLowerCase())
+              );
               const isSaved = savedProjects.some(
-                (s) => s.freelancerId === currentUser.id && s.projectId === project.id
+                (s) =>
+                  s.projectId === project.id &&
+                  (s.freelancerId === currentUser.id ||
+                    (currentUser.walletAddress &&
+                      s.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+                    s.freelancerId?.toLowerCase() === currentUser.id.toLowerCase())
               );
               const matchResult = computeFreelancerMatchForProject(
                 myProfile.skills,
@@ -242,14 +258,14 @@ export default function BrowseProjectsPage() {
                         <span>•</span>
                         <span>{project.timelineDays} days</span>
                         <span>•</span>
-                        <span>Client: {clientUser?.name || "Verified Client"}</span>
+                        <span>Client: {clientUser?.companyName || clientUser?.name || "Verified Client"}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                       <button
                         type="button"
-                        onClick={() => toggleSaveProject(currentUser.id, project.id)}
+                        onClick={() => toggleSaveProject(currentUser.walletAddress || currentUser.id, project.id)}
                         className="p-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-foreground/75 hover:text-foreground transition-all cursor-pointer"
                         title={isSaved ? "Saved" : "Save for later"}
                       >

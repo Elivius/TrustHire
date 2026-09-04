@@ -20,7 +20,14 @@ export default function FreelancerEarningsPage() {
   const { currentUser, projects, milestones, transactions } = useApp();
   const [filterProject, setFilterProject] = useState<string>("all");
 
-  const myProjects = projects.filter((p) => p.matchedFreelancerId === currentUser.id);
+  const myProjects = projects.filter(
+    (p) =>
+      Boolean(p.matchedFreelancerId) &&
+      (p.matchedFreelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+        p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
+  );
 
   const releasedTransactions = transactions.filter(
     (t) => t.type === "milestone_released" && myProjects.some((p) => p.id === t.projectId)
