@@ -15,6 +15,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
+import { useDAppKit } from "@mysten/dapp-kit-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WalletConnectButton } from "@/components/ui/wallet-connect-button";
 import { GradientButton } from "@/components/ui/gradient-button";
@@ -24,11 +25,13 @@ import { NotificationsSlideOver } from "@/components/layout/notifications-slideo
 export const TopNav: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const dAppKit = useDAppKit();
   const {
     currentUser,
     activeRole,
     switchRole,
     connectWallet,
+    disconnectWallet,
     resetDemoData,
     notifications
   } = useApp();
@@ -57,6 +60,17 @@ export const TopNav: React.FC = () => {
     } else {
       router.push("/freelancer/dashboard");
     }
+  };
+
+  const handleSignOut = async () => {
+    setProfileDropdownOpen(false);
+    try {
+      await dAppKit.disconnectWallet();
+    } catch (err) {
+      console.error("Wallet disconnect error:", err);
+    }
+    disconnectWallet();
+    router.replace("/");
   };
 
   return (
@@ -183,14 +197,14 @@ export const TopNav: React.FC = () => {
                     </button>
 
                     <div className="border-t border-black/5 dark:border-white/5 mt-1 pt-1">
-                      <Link
-                        href="/auth"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 text-left transition-colors"
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 text-left transition-colors cursor-pointer"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>Sign Out / Switch Demo</span>
-                      </Link>
+                        <span>Sign Out</span>
+                      </button>
                     </div>
                   </div>
                 </>

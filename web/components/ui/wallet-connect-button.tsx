@@ -10,6 +10,7 @@ import {
 } from "@mysten/dapp-kit-react";
 import { isEnokiWallet } from "@mysten/enoki";
 import { Wallet, ChevronDown, LogOut, Copy, Check } from "lucide-react";
+import { useApp } from "@/context/app-context";
 
 function truncateAddress(address: string) {
     if (!address) return "";
@@ -25,6 +26,7 @@ export function WalletConnectButton({
 }) {
     const router = useRouter();
     const dAppKit = useDAppKit();
+    const { currentUser } = useApp();
     const { status } = useWalletConnection();
     const currentAccount = useCurrentAccount();
     const isPending = status === 'connecting';
@@ -39,6 +41,7 @@ export function WalletConnectButton({
     const accountMenuRef = useRef<HTMLDivElement>(null);
 
     const isNav = variant === "nav";
+    const effectiveAddress = currentAccount?.address || (isNav ? currentUser?.walletAddress : undefined);
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -65,8 +68,9 @@ export function WalletConnectButton({
 
     const handleCopyAddress = (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        if (currentAccount?.address) {
-            navigator.clipboard.writeText(currentAccount.address);
+        const addrToCopy = effectiveAddress || currentAccount?.address;
+        if (addrToCopy) {
+            navigator.clipboard.writeText(addrToCopy);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }
@@ -92,21 +96,39 @@ export function WalletConnectButton({
         );
     }
 
+    // Navigation bar connected state (exact match to Sui Escrow Wallet chip, h-9 height, no dropdown)
+    if (isNav && effectiveAddress) {
+        return (
+            <div
+                className="h-9 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 text-xs font-mono text-foreground backdrop-blur-sm transition-all select-none shadow-sm dark:shadow-none"
+            >
+                <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+                <Wallet className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF] shrink-0" />
+                <span>{truncateAddress(effectiveAddress)}</span>
+                <button
+                    type="button"
+                    onClick={handleCopyAddress}
+                    title="Copy address"
+                    className="text-foreground/40 hover:text-foreground p-0.5 rounded transition-colors cursor-pointer"
+                >
+                    {copied ? <Check className="w-3.5 h-3.5 text-[#10B981]" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+            </div>
+        );
+    }
+
     if (currentAccount) {
         return (
-            <div className={isNav ? "relative" : "relative w-full"} ref={accountMenuRef}>
+            <div className="relative w-full" ref={accountMenuRef}>
                 <button
                     type="button"
                     onClick={() => setShowAccountMenu(!showAccountMenu)}
-                    className={isNav
-                        ? "h-9 cursor-pointer flex items-center justify-between gap-2 px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04] text-foreground rounded-xl border border-black/15 dark:border-white/10 hover:border-black/25 dark:hover:border-white/20 hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-all shadow-sm dark:shadow-none select-none"
-                        : "w-full cursor-pointer flex items-center justify-between px-4 py-2.5 bg-black/[0.02] dark:bg-white/[0.04] text-foreground font-medium rounded-xl border border-black/10 dark:border-white/10 hover:border-[#2563EB]/30 dark:hover:border-[#4DA2FF]/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200"
-                    }
+                    className="w-full cursor-pointer flex items-center justify-between px-4 py-2.5 bg-black/[0.02] dark:bg-white/[0.04] text-foreground font-medium rounded-xl border border-black/10 dark:border-white/10 hover:border-[#2563EB]/30 dark:hover:border-[#4DA2FF]/30 hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200"
                 >
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse shrink-0"></div>
                         <Wallet className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF] shrink-0" />
-                        <span className={isNav ? "text-xs font-mono" : "text-sm font-mono"}>
+                        <span className="text-sm font-mono">
                             {truncateAddress(currentAccount.address)}
                         </span>
                     </div>
