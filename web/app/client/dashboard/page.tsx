@@ -33,7 +33,11 @@ export default function ClientDashboardPage() {
     freelancerProfiles
   } = useApp();
 
-  const clientProjects = projects.filter((p) => p.clientId === currentUser.id);
+  const clientProjects = projects.filter(
+    (p) =>
+      p.clientId === currentUser.id ||
+      (currentUser.walletAddress && p.clientId.toLowerCase() === currentUser.walletAddress.toLowerCase())
+  );
   const activeProjects = clientProjects.filter((p) => p.status === "in_progress");
   const openProjects = clientProjects.filter((p) => p.status === "open");
   const matchedProjects = clientProjects.filter((p) => p.status === "matched");
