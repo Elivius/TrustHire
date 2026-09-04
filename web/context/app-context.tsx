@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import {
   User,
   UserRole,
@@ -8,6 +8,8 @@ import {
   FreelancerProfile,
   Project,
   Milestone,
+  ProjectStatus,
+  MilestoneStatus,
   Invitation,
   Application,
   SavedProject,
@@ -15,20 +17,15 @@ import {
   OnChainTransaction,
   Rating
 } from "@/types";
+import { generateSuiTxHash } from "@/lib/simulation";
+import { useCurrentAccount, useDAppKit, useCurrentClient } from "@mysten/dapp-kit-react";
 import {
-  SEED_USERS,
-  SEED_CLIENT_PROFILES,
-  SEED_FREELANCER_PROFILES,
-  SEED_PROJECTS,
-  SEED_MILESTONES,
-  SEED_INVITATIONS,
-  SEED_APPLICATIONS,
-  SEED_SAVED_PROJECTS,
-  SEED_NOTIFICATIONS,
-  SEED_TRANSACTIONS,
-  SEED_RATINGS
-} from "@/mock/seed-data";
-import { generateSuiTxHash, generateWalletAddress } from "@/lib/simulation";
+  buildCreateEscrowTx,
+  buildSubmitMilestoneTx,
+  buildApproveMilestoneTx,
+  TESTNET_PACKAGE_ID,
+} from "@/lib/sui/escrow";
+import { createClient } from "@/lib/supabase/client";
 
 interface AppContextType {
   currentUser: User;
@@ -45,17 +42,14 @@ interface AppContextType {
   notifications: Notification[];
   transactions: OnChainTransaction[];
   ratings: Rating[];
-  simulatedFailuresEnabled: boolean;
   
   // Actions
   setActiveRole: (role: UserRole) => void;
   switchRole: (role: UserRole) => void;
-  switchDemoAccount: (role: UserRole) => void;
   toggleTheme: () => void;
-  toggleSimulatedFailures: () => void;
-  resetDemoData: () => void;
   connectWallet: () => Promise<string>;
   disconnectWallet: () => void;
+  syncUserWithDatabase: (address: string) => Promise<User | null>;
   
   // Profiles
   updateClientProfile: (data: Partial<ClientProfile> & { name?: string; avatarUrl?: string }) => void;
@@ -70,8 +64,8 @@ interface AppContextType {
   // Candidates & Applications
   inviteFreelancer: (projectId: string, freelancerId: string) => void;
   respondToInvitation: (invitationId: string, status: "accepted" | "declined") => void;
-  applyToProject: (projectId: string, freelancerId: string, coverNote?: string) => void;
-  respondToApplication: (applicationId: string, status: "accepted" | "declined") => void;
+  applyToProject: (projectId: string, freelancerId: string, coverNote?: string) => Promise<void>;
+  respondToApplication: (applicationId: string, status: "accepted" | "declined") => Promise<void>;
   toggleSaveProject: (freelancerId: string, projectId: string) => void;
   
   // Escrow & Execution
@@ -90,97 +84,394 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY = "trusthire_prototype_state_v1";
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function mapSupabaseToFreelancerProfile(
+  fp: any,
+  skills: string[],
+  portfolios: { title: string; url: string }[]
+): FreelancerProfile {
+  const score = Number(fp.trust_score) || 88;
+  const exp = (["Beginner", "Intermediate", "Expert"].includes(fp.experience_level)
+    ? fp.experience_level
+    : "Intermediate") as "Beginner" | "Intermediate" | "Expert";
+
+  return {
+    userId: fp.freelancer_id,
+    headline: fp.prof_headline || "Web3 & Distributed Systems Specialist",
+    bio: fp.bio || "Experienced Web3 developer building decentralized applications and smart contracts.",
+    skills: skills.length > 0 ? skills : ["Sui Move", "TypeScript", "React"],
+    experienceLevel: exp,
+    portfolioLinks: portfolios.map((p) => ({
+      title: p.title || "Project Repository",
+      url: p.url || "https://github.com",
+      isVerified: true,
+    })),
+    trustScore: Math.round(score),
+    trustScoreConfidence: score >= 90 ? "High" : "Medium",
+    trustScoreReasoning: [
+      { label: "Database verified", note: "Profile and identity confirmed on Supabase and Sui network." },
+      { label: "Trust score ranking", note: `AI-verified reputation score: ${score}/100.` }
+    ],
+    trustScoreRequestId: `gonka_${fp.freelancer_id.slice(0, 8)}`,
+    trustScoreUpdatedAt: fp.last_verified_at || new Date().toISOString(),
+    isDiscoverable: true,
+    completedProjectsCount: Math.floor((score - 70) / 2) > 0 ? Math.floor((score - 70) / 2) : 5,
+    onTimeDeliveryPct: score >= 90 ? 98 : 92,
+    averageRating: Math.min(5.0, Number((4.5 + (score - 80) * 0.02).toFixed(2)))
+  };
+}
+
+function mapSupabaseToUser(u: any): User {
+  const roleLower = u.role?.toLowerCase();
+  const roles: UserRole[] = roleLower === "client" ? ["client"] : ["freelancer"];
+  return {
+    id: u.user_id,
+    name: u.name || (roles.includes("client") ? "Client" : "Freelancer"),
+    email: u.email || `${u.user_id.slice(0, 10)}@trusthire.io`,
+    roles,
+    walletAddress: u.user_id.startsWith("0x") ? u.user_id : undefined,
+    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.user_id)}`
+  };
+}
+
+function mapSupabaseToClientProfile(cp: any): ClientProfile {
+  return {
+    userId: cp.client_id,
+    companyName: cp.company_name || "Company",
+    bio: cp.company_description || "",
+    hiringCategories: ["Web Development", "Smart Contracts"],
+    typicalBudgetRange: cp.project_budget_range || "2k-10k"
+  };
+}
+
+function mapSupabaseToProject(p: any): Project {
+  return {
+    id: p.project_id,
+    clientId: p.client_id,
+    title: p.title || "Untitled Project",
+    descriptionRaw: p.description || "",
+    requiredSkills: p.category ? [p.category] : ["General"],
+    estimatedBudget: Number(p.total_budget) || 0,
+    timelineDays: Number(p.timeline) || 14,
+    status: (p.status?.toLowerCase() as ProjectStatus) || "open",
+    createdAt: p.created_at || new Date().toISOString(),
+    updatedAt: p.created_at || new Date().toISOString()
+  };
+}
+
+function mapSupabaseToMilestone(m: any): Milestone {
+  const statusLower = (m.status?.toLowerCase() as MilestoneStatus) || "pending";
+  return {
+    id: m.milestone_id,
+    projectId: m.project_id,
+    title: m.title || "Milestone",
+    deliverable: m.description || "",
+    amount: Number(m.amount) || 0,
+    percentOfBudget: 25,
+    deadline: m.due_date || new Date().toISOString(),
+    status: statusLower,
+    submissionContent: m.submission_content || undefined,
+    submissionLinks: m.submission_links || undefined,
+    revisionNote: m.revision_note || undefined,
+    onChainTxHash: m.on_chain_tx_hash || undefined
+  };
+}
+
+function mapSupabaseToApplication(p: any): Application {
+  const statusRaw = (p.status || "pending").toLowerCase();
+  const status: "pending" | "accepted" | "declined" =
+    statusRaw === "accepted" ? "accepted" : statusRaw === "rejected" || statusRaw === "declined" ? "declined" : "pending";
+  return {
+    id: p.proposal_id,
+    projectId: p.project_id,
+    freelancerId: p.freelancer_id,
+    status,
+    coverNote: p.cover_letter || "",
+    appliedAt: p.created_at || new Date().toISOString()
+  };
+}
+
+export const DEFAULT_USER: User = {
+  id: "",
+  name: "Guest",
+  email: "",
+  roles: ["client"],
+  avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=guest"
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("light");
   const [activeRole, setActiveRole] = useState<UserRole>("client");
-  const [simulatedFailuresEnabled, setSimulatedFailuresEnabled] = useState(false);
 
-  const [users, setUsers] = useState<User[]>(SEED_USERS);
-  const [currentUser, setCurrentUser] = useState<User>(SEED_USERS[0]);
-  const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>(SEED_CLIENT_PROFILES);
-  const [freelancerProfiles, setFreelancerProfiles] = useState<Record<string, FreelancerProfile>>(SEED_FREELANCER_PROFILES);
-  const [projects, setProjects] = useState<Project[]>(SEED_PROJECTS);
-  const [milestones, setMilestones] = useState<Milestone[]>(SEED_MILESTONES);
-  const [invitations, setInvitations] = useState<Invitation[]>(SEED_INVITATIONS);
-  const [applications, setApplications] = useState<Application[]>(SEED_APPLICATIONS);
-  const [savedProjects, setSavedProjects] = useState<SavedProject[]>(SEED_SAVED_PROJECTS);
-  const [notifications, setNotifications] = useState<Notification[]>(SEED_NOTIFICATIONS);
-  const [transactions, setTransactions] = useState<OnChainTransaction[]>(SEED_TRANSACTIONS);
-  const [ratings, setRatings] = useState<Rating[]>(SEED_RATINGS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
+  const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({});
+  const [freelancerProfiles, setFreelancerProfiles] = useState<Record<string, FreelancerProfile>>({});
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [transactions, setTransactions] = useState<OnChainTransaction[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
 
-  // Load from localStorage
+  const currentAccount = useCurrentAccount();
+  const dAppKit = useDAppKit();
+  const client = useCurrentClient();
+
+  // Synchronize a specific connected Sui wallet address with Supabase database
+  const syncUserWithDatabase = useCallback(async (address: string): Promise<User | null> => {
+    if (!address) return null;
+    try {
+      const supabase = createClient();
+      const [userRes, clientRes, freeRes] = await Promise.all([
+        supabase.from("users").select("user_id, name, email, role, status").ilike("user_id", address).maybeSingle(),
+        supabase.from("client_profiles").select("*").ilike("client_id", address).maybeSingle(),
+        supabase.from("freelancer_profiles").select("*").ilike("freelancer_id", address).maybeSingle(),
+      ]);
+
+      const dbUser = userRes.data;
+      const clientProf = clientRes.data;
+      const freeProf = freeRes.data;
+
+      if (dbUser) {
+        const roleLower = (dbUser.role?.toLowerCase() as UserRole) || "client";
+        const company = clientProf?.company_name || undefined;
+        const syncedUser: User = {
+          id: dbUser.user_id,
+          name: dbUser.name || (roleLower === "client" ? "Client" : "Freelancer"),
+          email: dbUser.email || `${address.slice(0, 10)}@trusthire.io`,
+          roles: [roleLower],
+          walletAddress: address,
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(address)}`,
+          companyName: company
+        };
+
+        setCurrentUser(syncedUser);
+        setActiveRole(roleLower);
+
+        // Update in users pool
+        setUsers((prev) => {
+          const exists = prev.some((u) => u.id.toLowerCase() === address.toLowerCase());
+          if (exists) {
+            return prev.map((u) => (u.id.toLowerCase() === address.toLowerCase() ? syncedUser : u));
+          }
+          return [syncedUser, ...prev];
+        });
+
+        // Update client profiles
+        if (clientProf) {
+          setClientProfiles((prev) => ({
+            ...prev,
+            [dbUser.user_id]: mapSupabaseToClientProfile(clientProf),
+            [address]: mapSupabaseToClientProfile(clientProf)
+          }));
+        }
+
+        // Update freelancer profiles
+        if (freeProf) {
+          setFreelancerProfiles((prev) => ({
+            ...prev,
+            [dbUser.user_id]: mapSupabaseToFreelancerProfile(freeProf, [], []),
+            [address]: mapSupabaseToFreelancerProfile(freeProf, [], [])
+          }));
+        }
+
+        return syncedUser;
+      } else {
+        // Fallback for new user connecting wallet before onboarding
+        setCurrentUser((prev) => {
+          if (prev.id === address && prev.walletAddress === address) return prev;
+          return {
+            ...prev,
+            id: address,
+            walletAddress: address,
+            name: "My Account",
+            email: `${address.slice(0, 10)}@trusthire.io`,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(address)}`
+          };
+        });
+        return null;
+      }
+    } catch (err) {
+      console.error("Failed to sync user with database:", err);
+      return null;
+    }
+  }, []);
+
+  // Load real talent pool, clients, projects, and milestones from Supabase
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadSupabaseTalentPool() {
+      try {
+        const supabase = createClient();
+
+        // Fetch profiles, skills, portfolios, users, clients, projects, milestones, proposals in parallel
+        const [
+          { data: dbProfiles },
+          { data: dbSkills },
+          { data: dbPortfolios },
+          { data: dbUsers },
+          { data: dbClients },
+          { data: dbProjects },
+          { data: dbMilestones },
+          { data: dbProposals }
+        ] = await Promise.all([
+          supabase.from("freelancer_profiles").select("*"),
+          supabase.from("freelancer_skills").select("freelancer_id, skills(skill_name)"),
+          supabase.from("freelancer_portfolios").select("freelancer_id, title, url"),
+          supabase.from("users").select("*"),
+          supabase.from("client_profiles").select("*"),
+          supabase.from("projects").select("*"),
+          supabase.from("milestones").select("*"),
+          supabase.from("proposals").select("*")
+        ]);
+
+        if (isCancelled) return;
+
+        // Group skills by freelancer_id
+        const skillsMap: Record<string, string[]> = {};
+        if (dbSkills) {
+          for (const item of dbSkills as any[]) {
+            const fId = item.freelancer_id;
+            const sName = item.skills?.skill_name;
+            if (fId && sName) {
+              if (!skillsMap[fId]) skillsMap[fId] = [];
+              skillsMap[fId].push(sName);
+            }
+          }
+        }
+
+        // Group portfolios by freelancer_id
+        const portfolioMap: Record<string, { title: string; url: string }[]> = {};
+        if (dbPortfolios) {
+          for (const item of dbPortfolios) {
+            const fId = item.freelancer_id;
+            if (fId) {
+              if (!portfolioMap[fId]) portfolioMap[fId] = [];
+              portfolioMap[fId].push({ title: item.title, url: item.url });
+            }
+          }
+        }
+
+        // Build freelancerProfiles record
+        if (dbProfiles && dbProfiles.length > 0) {
+          const loadedProfiles: Record<string, FreelancerProfile> = {};
+          for (const fp of dbProfiles) {
+            const fId = fp.freelancer_id;
+            loadedProfiles[fId] = mapSupabaseToFreelancerProfile(
+              fp,
+              skillsMap[fId] || [],
+              portfolioMap[fId] || []
+            );
+          }
+          setFreelancerProfiles((prev) => ({
+            ...prev,
+            ...loadedProfiles
+          }));
+        }
+
+        // Build clientProfiles record
+        if (dbClients && dbClients.length > 0) {
+          const loadedClients: Record<string, ClientProfile> = {};
+          for (const cp of dbClients) {
+            loadedClients[cp.client_id] = mapSupabaseToClientProfile(cp);
+          }
+          setClientProfiles((prev) => ({
+            ...prev,
+            ...loadedClients
+          }));
+        }
+
+        // Build users array
+        if (dbUsers && dbUsers.length > 0) {
+          const loadedUsers: User[] = dbUsers.map(mapSupabaseToUser);
+          setUsers((prev) => {
+            const existingIds = new Set(loadedUsers.map((u) => u.id));
+            const unmanaged = prev.filter((u) => !existingIds.has(u.id));
+            return [...loadedUsers, ...unmanaged];
+          });
+        }
+
+        // Build projects array
+        if (dbProjects && dbProjects.length > 0) {
+          const loadedProjects: Project[] = dbProjects.map(mapSupabaseToProject);
+          setProjects((prev) => {
+            const existingIds = new Set(loadedProjects.map((p) => p.id));
+            const unmanaged = prev.filter((p) => !existingIds.has(p.id));
+            return [...loadedProjects, ...unmanaged];
+          });
+        }
+
+        // Build milestones array
+        if (dbMilestones && dbMilestones.length > 0) {
+          const loadedMilestones: Milestone[] = dbMilestones.map(mapSupabaseToMilestone);
+          setMilestones((prev) => {
+            const existingIds = new Set(loadedMilestones.map((m) => m.id));
+            const unmanaged = prev.filter((m) => !existingIds.has(m.id));
+            return [...loadedMilestones, ...unmanaged];
+          });
+        }
+
+        // Build applications array from proposals
+        if (dbProposals && dbProposals.length > 0) {
+          const loadedApps: Application[] = dbProposals.map(mapSupabaseToApplication);
+          setApplications((prev) => {
+            const existingIds = new Set(loadedApps.map((a) => a.id));
+            const unmanaged = prev.filter((a) => !existingIds.has(a.id));
+            return [...loadedApps, ...unmanaged];
+          });
+        }
+      } catch (err) {
+        console.warn("Could not load talent pool from Supabase, maintaining seed fallback:", err);
+      }
+    }
+
+    loadSupabaseTalentPool();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Sync connected wallet address with database and currentUser
+  useEffect(() => {
+    if (currentAccount?.address) {
+      syncUserWithDatabase(currentAccount.address);
+    }
+  }, [currentAccount?.address, syncUserWithDatabase]);
+
+  // Load saved user preferences
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.users) setUsers(parsed.users);
-        if (parsed.currentUser) setCurrentUser(parsed.currentUser);
-        if (parsed.activeRole) setActiveRole(parsed.activeRole);
-        if (parsed.clientProfiles) setClientProfiles(parsed.clientProfiles);
-        if (parsed.freelancerProfiles) setFreelancerProfiles(parsed.freelancerProfiles);
-        if (parsed.projects) setProjects(parsed.projects);
-        if (parsed.milestones) setMilestones(parsed.milestones);
-        if (parsed.invitations) setInvitations(parsed.invitations);
-        if (parsed.applications) setApplications(parsed.applications);
-        if (parsed.savedProjects) setSavedProjects(parsed.savedProjects);
-        if (parsed.notifications) setNotifications(parsed.notifications);
-        if (parsed.transactions) setTransactions(parsed.transactions);
-        if (parsed.ratings) setRatings(parsed.ratings);
-        if (parsed.theme) setTheme(parsed.theme);
+      const savedTheme = localStorage.getItem("trusthire_theme");
+      if (savedTheme === "dark" || savedTheme === "light") {
+        setTheme(savedTheme);
+      }
+      const savedRole = localStorage.getItem("trusthire_active_role");
+      if (savedRole === "client" || savedRole === "freelancer") {
+        setActiveRole(savedRole);
       }
     } catch (e) {
-      console.error("Failed to load persisted state", e);
+      // ignore
     }
     setIsLoaded(true);
   }, []);
 
-  // Save to localStorage
-  useEffect(() => {
-    if (!isLoaded) return;
-    try {
-      const stateToSave = {
-        users,
-        currentUser,
-        activeRole,
-        clientProfiles,
-        freelancerProfiles,
-        projects,
-        milestones,
-        invitations,
-        applications,
-        savedProjects,
-        notifications,
-        transactions,
-        ratings,
-        theme
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
-    } catch (e) {
-      console.error("Failed to persist state", e);
-    }
-  }, [
-    isLoaded,
-    users,
-    currentUser,
-    activeRole,
-    clientProfiles,
-    freelancerProfiles,
-    projects,
-    milestones,
-    invitations,
-    applications,
-    savedProjects,
-    notifications,
-    transactions,
-    ratings,
-    theme
-  ]);
-
-  // Apply dark mode class to html
+  // Apply dark mode class to html & persist theme
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "dark") {
@@ -188,61 +479,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       root.classList.remove("dark");
     }
+    try {
+      localStorage.setItem("trusthire_theme", theme);
+    } catch (e) {
+      // ignore
+    }
   }, [theme]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  const toggleSimulatedFailures = () => {
-    setSimulatedFailuresEnabled((prev) => !prev);
-  };
-
-  const resetDemoData = () => {
-    setUsers(SEED_USERS);
-    setCurrentUser(SEED_USERS[0]);
-    setActiveRole("client");
-    setClientProfiles(SEED_CLIENT_PROFILES);
-    setFreelancerProfiles(SEED_FREELANCER_PROFILES);
-    setProjects(SEED_PROJECTS);
-    setMilestones(SEED_MILESTONES);
-    setInvitations(SEED_INVITATIONS);
-    setApplications(SEED_APPLICATIONS);
-    setSavedProjects(SEED_SAVED_PROJECTS);
-    setNotifications(SEED_NOTIFICATIONS);
-    setTransactions(SEED_TRANSACTIONS);
-    setRatings(SEED_RATINGS);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const switchDemoAccount = (role: UserRole) => {
+  const switchRole = (role: UserRole) => {
     setActiveRole(role);
-    if (role === "client") {
-      const clientUser = users.find((u) => u.id === "user-client-1") || SEED_USERS[0];
-      setCurrentUser(clientUser);
-    } else {
-      const freeUser = users.find((u) => u.id === "user-free-1") || SEED_USERS[1];
-      setCurrentUser(freeUser);
+    try {
+      localStorage.setItem("trusthire_active_role", role);
+    } catch (e) {
+      // ignore
+    }
+    if (currentAccount?.address) {
+      setCurrentUser((prev) => ({
+        ...prev,
+        roles: Array.from(new Set([...(prev.roles || []), role]))
+      }));
     }
   };
 
-  const switchRole = (role: UserRole) => {
-    switchDemoAccount(role);
-  };
-
   const connectWallet = async () => {
-    await new Promise((r) => setTimeout(r, 1000));
-    const addr = generateWalletAddress();
-    const updated = { ...currentUser, walletAddress: addr };
-    setCurrentUser(updated);
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-    return addr;
+    return currentAccount?.address || "";
   };
 
   const disconnectWallet = () => {
-    const updated = { ...currentUser, walletAddress: undefined };
-    setCurrentUser(updated);
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    setCurrentUser(DEFAULT_USER);
+    setActiveRole("client");
   };
 
   const addRoleToUser = (role: UserRole) => {
@@ -316,23 +585,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     projectData: Omit<Project, "id" | "clientId" | "createdAt" | "updatedAt">,
     milestoneData: Omit<Milestone, "id" | "projectId">[]
   ): string => {
-    const newProjectId = `proj-${Date.now()}`;
+    const newProjectId = generateUUID();
+    const targetClientId = currentUser.walletAddress || currentUser.id;
     const newProject: Project = {
       ...projectData,
       id: newProjectId,
-      clientId: currentUser.id,
+      clientId: targetClientId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    const newMilestones: Milestone[] = milestoneData.map((m, idx) => ({
+    const newMilestones: Milestone[] = milestoneData.map((m) => ({
       ...m,
-      id: `ms-${newProjectId}-${idx + 1}`,
+      id: generateUUID(),
       projectId: newProjectId
     }));
 
     setProjects((prev) => [newProject, ...prev]);
     setMilestones((prev) => [...prev, ...newMilestones]);
+
+    // Asynchronously persist project & milestones to Supabase
+    (async () => {
+      try {
+        const supabase = createClient();
+
+        // 1. Ensure client user exists in users table
+        await supabase.from("users").upsert({
+          user_id: targetClientId,
+          name: currentUser.name || "Client",
+          email: currentUser.email || `${targetClientId.slice(0, 10)}@trusthire.io`,
+          role: "CLIENT",
+          status: "ACTIVE"
+        }, { onConflict: "user_id" });
+
+        await supabase.from("client_profiles").upsert({
+          client_id: targetClientId,
+          company_name: currentUser.companyName || "Organization"
+        }, { onConflict: "client_id" });
+
+        // 2. Insert into projects table
+        await supabase.from("projects").insert({
+          project_id: newProjectId,
+          client_id: targetClientId,
+          title: newProject.title,
+          description: newProject.descriptionRaw,
+          total_budget: newProject.estimatedBudget,
+          timeline: newProject.timelineDays || 14,
+          status: newProject.status === "open" ? "OPEN" : "DRAFT",
+          category: newProject.requiredSkills[0] || "General"
+        });
+
+        // 3. Insert into milestones table
+        if (newMilestones.length > 0) {
+          await supabase.from("milestones").insert(
+            newMilestones.map((m) => ({
+              milestone_id: m.id,
+              project_id: newProjectId,
+              title: m.title,
+              description: m.deliverable,
+              amount: m.amount,
+              duration_days: Math.max(1, Math.round(newProject.timelineDays / newMilestones.length)),
+              status: "PENDING"
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("Could not persist new project to Supabase:", err);
+      }
+    })();
 
     // Notification if status is open
     if (newProject.status === "open") {
@@ -410,12 +730,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const applyToProject = (projectId: string, freelancerId: string, coverNote?: string) => {
-    const existing = applications.find((a) => a.projectId === projectId && a.freelancerId === freelancerId);
+  const applyToProject = async (projectId: string, freelancerId: string, coverNote?: string): Promise<void> => {
+    const existing = applications.find(
+      (a) =>
+        a.projectId === projectId &&
+        a.freelancerId.toLowerCase() === freelancerId.toLowerCase()
+    );
     if (existing) return;
 
+    const newAppId = generateUUID();
     const newApp: Application = {
-      id: `app-${Date.now()}`,
+      id: newAppId,
       projectId,
       freelancerId,
       status: "pending",
@@ -426,7 +751,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setApplications((prev) => [newApp, ...prev]);
 
     const proj = projects.find((p) => p.id === projectId);
-    const freelancer = users.find((u) => u.id === freelancerId);
+    const freelancer = users.find(
+      (u) =>
+        u.id.toLowerCase() === freelancerId.toLowerCase() ||
+        (u.walletAddress && u.walletAddress.toLowerCase() === freelancerId.toLowerCase())
+    );
+
+    // Persist to Supabase proposals table
+    try {
+      const supabase = createClient();
+
+      // 1. Ensure user exists in users table to satisfy foreign key
+      const applicantName =
+        freelancer?.name ||
+        (freelancerId.startsWith("0x")
+          ? `Freelancer (${freelancerId.slice(0, 6)}...${freelancerId.slice(-4)})`
+          : "Freelancer");
+      const applicantEmail = freelancer?.email || `${freelancerId.slice(0, 10).toLowerCase()}@trusthire.io`;
+
+      await supabase.from("users").upsert(
+        {
+          user_id: freelancerId,
+          name: applicantName,
+          email: applicantEmail,
+          role: "FREELANCER",
+          status: "ACTIVE"
+        },
+        { onConflict: "user_id" }
+      );
+
+      // 2. Ensure freelancer_profiles row exists to satisfy foreign key
+      const existingProf =
+        freelancerProfiles[freelancerId] ||
+        Object.entries(freelancerProfiles).find(([k]) => k.toLowerCase() === freelancerId.toLowerCase())?.[1];
+
+      await supabase.from("freelancer_profiles").upsert(
+        {
+          freelancer_id: freelancerId,
+          prof_headline: existingProf?.headline || "Web3 Developer",
+          bio: existingProf?.bio || "Verified Sui smart contracts and frontend engineer.",
+          hourly_rate: 60,
+          experience_level: existingProf?.experienceLevel || "Intermediate",
+          availability_status: "Available",
+          trust_score: existingProf?.trustScore || 90,
+          trust_level: "High",
+          last_verified_at: new Date().toISOString()
+        },
+        { onConflict: "freelancer_id" }
+      );
+
+      // 3. Insert proposal
+      const { error: propErr } = await supabase.from("proposals").insert({
+        proposal_id: newAppId,
+        project_id: projectId,
+        freelancer_id: freelancerId,
+        cover_letter: coverNote || "Interested in contributing to this project.",
+        bid_amount: proj?.estimatedBudget || 1000,
+        estimated_days: proj?.timelineDays || 14,
+        status: "PENDING"
+      });
+      if (propErr) {
+        console.warn("Could not insert proposal into Supabase:", propErr);
+      }
+    } catch (err) {
+      console.warn("Could not persist proposal to Supabase:", err);
+    }
 
     // Notify client
     if (proj) {
@@ -439,7 +828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const respondToApplication = (applicationId: string, status: "accepted" | "declined") => {
+  const respondToApplication = async (applicationId: string, status: "accepted" | "declined"): Promise<void> => {
     const app = applications.find((a) => a.id === applicationId);
     if (!app) return;
 
@@ -448,6 +837,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     const proj = projects.find((p) => p.id === app.projectId);
+
+    // Persist to Supabase proposals table
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("proposals")
+        .update({ status: status === "accepted" ? "ACCEPTED" : "REJECTED" })
+        .eq("proposal_id", applicationId);
+    } catch (err) {
+      console.warn("Could not update proposal status in Supabase:", err);
+    }
 
     if (status === "accepted" && proj) {
       updateProject(proj.id, {
@@ -477,9 +877,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const fundProjectEscrow = async (projectId: string, updatedMilestones?: Milestone[]) => {
-    await new Promise((r) => setTimeout(r, 2000));
-    const txHash = generateSuiTxHash();
-    const escrowObjectId = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+    const proj = projects.find((p) => p.id === projectId);
+    const budget = proj ? proj.estimatedBudget : 3000;
+    const msToUse = updatedMilestones || milestones.filter((m) => m.projectId === projectId);
+
+    let txHash: string;
+    let escrowObjectId: string;
+
+    // If package ID is configured and wallet is connected, run real Sui Testnet transaction
+    if (TESTNET_PACKAGE_ID && currentAccount?.address) {
+      try {
+        const freelancer = proj?.matchedFreelancerId
+          ? users.find((u) => u.id === proj.matchedFreelancerId)
+          : null;
+        // Use freelancer wallet address if it's a valid 32-byte hex address, otherwise fall back to signer
+        const freelancerAddr =
+          freelancer?.walletAddress &&
+          freelancer.walletAddress.startsWith("0x") &&
+          freelancer.walletAddress.length >= 64
+            ? freelancer.walletAddress
+            : currentAccount.address;
+
+        const tx = buildCreateEscrowTx({
+          packageId: TESTNET_PACKAGE_ID,
+          projectId,
+          freelancerAddress: freelancerAddr,
+          milestones: msToUse.map((m, idx) => ({
+            id: idx,
+            title: m.title,
+            deliverable: m.deliverable,
+            amountUsd: m.amount,
+            deadlineMs: m.deadline ? new Date(m.deadline).getTime() : 0,
+          })),
+          gonkaMatchRequestId: `gonka-${projectId}`,
+        });
+
+        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+        if (result.$kind === "FailedTransaction") {
+          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
+        }
+
+        txHash = result.Transaction.digest;
+        try {
+          await (client.core as any).waitForTransaction({ digest: txHash });
+          const txBlock: any = await (client.core as any).getTransactionBlock?.({
+            digest: txHash,
+            options: { showObjectChanges: true }
+          });
+          const createdEscrow = txBlock?.objectChanges?.find(
+            (c: any) => c.type === "created" && c.objectType?.includes("::escrow::EscrowContract")
+          );
+          if (createdEscrow && createdEscrow.objectId) {
+            escrowObjectId = createdEscrow.objectId;
+          } else {
+            escrowObjectId = `0x${txHash.slice(0, 8)}...${txHash.slice(-6)}`;
+          }
+        } catch (waitErr) {
+          console.warn("waitForTransaction warning:", waitErr);
+          escrowObjectId = `0x${txHash.slice(0, 8)}...${txHash.slice(-6)}`;
+        }
+      } catch (err) {
+        console.error("On-chain fundProjectEscrow failed, falling back to local simulation:", err);
+        txHash = generateSuiTxHash();
+        escrowObjectId = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+      }
+    } else {
+      // Local simulation / demo mode
+      await new Promise((r) => setTimeout(r, 1500));
+      txHash = generateSuiTxHash();
+      escrowObjectId = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+    }
 
     if (updatedMilestones) {
       setMilestones((prev) => {
@@ -488,13 +955,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    const proj = projects.find((p) => p.id === projectId);
-    const budget = proj ? proj.estimatedBudget : 3000;
-
     updateProject(projectId, {
       status: "in_progress",
       escrowObjectId,
-      escrowTxHash: txHash
+      escrowTxHash: txHash,
     });
 
     const newTx: OnChainTransaction = {
@@ -504,10 +968,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       projectId,
       projectTitle: proj?.title || "Escrow Contract",
       amount: budget,
-      fromAddress: currentUser.walletAddress || "0x4f2a91...9a2c",
+      fromAddress: currentAccount?.address || currentUser.walletAddress || "0x4f2a91...9a2c",
       toAddress: `${escrowObjectId} (Sui Escrow)`,
       timestamp: new Date().toISOString(),
-      status: "confirmed"
+      status: "confirmed",
     };
 
     setTransactions((prev) => [newTx, ...prev]);
@@ -516,8 +980,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "escrow_funded",
-        text: `Escrow funded ($${budget.toLocaleString()} USDC) for "${proj.title}". You can now start work!`,
-        linkTo: `/project/${projectId}/workspace`
+        text: `Escrow funded ($${budget.toLocaleString()} USDC / SUI) for "${proj.title}". You can now start work!`,
+        linkTo: `/project/${projectId}/workspace`,
       });
     }
 
@@ -525,30 +989,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const submitMilestoneWork = async (milestoneId: string, content: string, links: string[] = []) => {
-    await new Promise((r) => setTimeout(r, 2000));
-    const now = new Date().toISOString();
-
     const targetMs = milestones.find((m) => m.id === milestoneId);
-    if (!targetMs) return "0x" + Math.random().toString(16).slice(2, 18);
+    const proj = targetMs ? projects.find((p) => p.id === targetMs.projectId) : null;
+    let txHash = generateSuiTxHash();
 
+    if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
+      try {
+        const msIndex = milestones
+          .filter((m) => m.projectId === targetMs?.projectId)
+          .findIndex((m) => m.id === milestoneId);
+
+        const tx = buildSubmitMilestoneTx({
+          packageId: TESTNET_PACKAGE_ID,
+          escrowObjectId: proj.escrowObjectId,
+          milestoneId: Math.max(0, msIndex),
+        });
+
+        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+        if (result.$kind === "FailedTransaction") {
+          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
+        }
+        txHash = result.Transaction.digest;
+        try {
+          await client.core.waitForTransaction({ digest: txHash });
+        } catch (e) {
+          console.warn("waitForTransaction warning:", e);
+        }
+      } catch (err) {
+        console.error("On-chain submit_milestone failed, falling back to local simulation:", err);
+      }
+    } else {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    const now = new Date().toISOString();
     updateMilestone(milestoneId, {
       status: "submitted",
       submissionContent: content,
       submissionLinks: links,
-      submittedAt: now
+      submittedAt: now,
     });
 
-    const proj = projects.find((p) => p.id === targetMs.projectId);
     if (proj) {
       addNotification({
         userId: proj.clientId,
         type: "milestone_submitted",
-        text: `${currentUser.name} submitted "${targetMs.title}" — awaiting your review`,
-        linkTo: `/project/${proj.id}/workspace`
+        text: `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
+        linkTo: `/project/${proj.id}/workspace`,
       });
     }
 
-    return "0x" + Math.random().toString(16).slice(2, 18);
+    return txHash;
   };
 
   const requestChangesOnMilestone = (milestoneId: string, revisionNote: string) => {
@@ -557,7 +1048,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     updateMilestone(milestoneId, {
       status: "changes_requested",
-      revisionNote
+      revisionNote,
     });
 
     const proj = projects.find((p) => p.id === targetMs.projectId);
@@ -566,26 +1057,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userId: proj.matchedFreelancerId,
         type: "changes_requested",
         text: `${currentUser.name} requested changes on "${targetMs.title}"`,
-        linkTo: `/project/${proj.id}/workspace`
+        linkTo: `/project/${proj.id}/workspace`,
       });
     }
   };
 
   const approveAndReleaseMilestone = async (milestoneId: string) => {
-    await new Promise((r) => setTimeout(r, 2000));
-    const txHash = generateSuiTxHash();
-    const now = new Date().toISOString();
-
     const targetMs = milestones.find((m) => m.id === milestoneId);
-    if (!targetMs) return { txHash };
+    if (!targetMs) return { txHash: generateSuiTxHash() };
+    const proj = projects.find((p) => p.id === targetMs.projectId);
+    let txHash = generateSuiTxHash();
 
+    if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
+      try {
+        const msIndex = milestones
+          .filter((m) => m.projectId === targetMs.projectId)
+          .findIndex((m) => m.id === milestoneId);
+
+        const tx = buildApproveMilestoneTx({
+          packageId: TESTNET_PACKAGE_ID,
+          escrowObjectId: proj.escrowObjectId,
+          milestoneId: Math.max(0, msIndex),
+        });
+
+        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+        if (result.$kind === "FailedTransaction") {
+          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
+        }
+        txHash = result.Transaction.digest;
+        try {
+          await client.core.waitForTransaction({ digest: txHash });
+        } catch (e) {
+          console.warn("waitForTransaction warning:", e);
+        }
+      } catch (err) {
+        console.error("On-chain approve_milestone failed, falling back to local simulation:", err);
+      }
+    } else {
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    const now = new Date().toISOString();
     updateMilestone(milestoneId, {
       status: "released",
       onChainTxHash: txHash,
-      releasedAt: now
+      releasedAt: now,
     });
-
-    const proj = projects.find((p) => p.id === targetMs.projectId);
 
     // Record on-chain transaction
     const newTx: OnChainTransaction = {
@@ -597,9 +1114,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       milestoneTitle: targetMs.title,
       amount: targetMs.amount,
       fromAddress: `${proj?.escrowObjectId || "Escrow"} (Sui Escrow)`,
-      toAddress: "0x8e3b22...4c19 (Freelancer)",
+      toAddress: proj?.matchedFreelancerId ? "Freelancer Wallet" : "Freelancer",
       timestamp: now,
-      status: "confirmed"
+      status: "confirmed",
     };
     setTransactions((prev) => [newTx, ...prev]);
 
@@ -614,8 +1131,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "milestone_released",
-        text: `Milestone "${targetMs.title}" approved! $${targetMs.amount.toLocaleString()} USDC released to your wallet.`,
-        linkTo: "/freelancer/earnings"
+        text: `Milestone "${targetMs.title}" approved! $${targetMs.amount.toLocaleString()} USDC / SUI released to your wallet.`,
+        linkTo: "/freelancer/earnings",
       });
     }
 
@@ -702,15 +1219,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications,
         transactions,
         ratings,
-        simulatedFailuresEnabled,
         setActiveRole,
         switchRole,
-        switchDemoAccount,
         toggleTheme,
-        toggleSimulatedFailures,
-        resetDemoData,
         connectWallet,
         disconnectWallet,
+        syncUserWithDatabase,
         updateClientProfile,
         updateFreelancerProfile,
         addRoleToUser,

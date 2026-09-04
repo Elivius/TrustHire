@@ -26,7 +26,7 @@ export function WalletConnectButton({
 }) {
     const router = useRouter();
     const dAppKit = useDAppKit();
-    const { currentUser } = useApp();
+    const { currentUser, disconnectWallet } = useApp();
     const { status } = useWalletConnection();
     const currentAccount = useCurrentAccount();
     const isPending = status === 'connecting';
@@ -79,7 +79,12 @@ export function WalletConnectButton({
     const handleDisconnect = async () => {
         setIsDisconnecting(true);
         setShowAccountMenu(false);
-        await dAppKit.disconnectWallet();
+        try {
+            await dAppKit.disconnectWallet();
+        } catch (err) {
+            console.error("Wallet disconnect error:", err);
+        }
+        disconnectWallet();
         setIsDisconnecting(false);
         router.replace("/");
     };

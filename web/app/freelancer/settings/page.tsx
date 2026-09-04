@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   User,
@@ -20,6 +20,7 @@ import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { WalletChip } from "@/components/ui/wallet-chip";
+import { createClient } from "@/lib/supabase/client";
 
 export default function FreelancerSettingsPage() {
   const router = useRouter();
@@ -29,18 +30,30 @@ export default function FreelancerSettingsPage() {
     updateFreelancerProfile,
     disconnectWallet,
     connectWallet,
-    resetDemoData,
     projects
   } = useApp();
 
-  const profile = freelancerProfiles[currentUser.id] || {
-    isDiscoverable: true
-  };
+  const profile =
+    freelancerProfiles[currentUser.id] ||
+    (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
+    Object.entries(freelancerProfiles).find(
+      ([k]) =>
+        k.toLowerCase() === currentUser.id.toLowerCase() ||
+        (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
+    )?.[1] || {
+      isDiscoverable: true
+    };
 
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email);
   const [isDiscoverable, setIsDiscoverable] = useState(profile.isDiscoverable !== false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setName(currentUser.name);
+    setEmail(currentUser.email);
+  }, [currentUser.name, currentUser.email]);
 
   const [notifToggles, setNotifToggles] = useState({
     invitations: true,
@@ -50,12 +63,47 @@ export default function FreelancerSettingsPage() {
     disputes: true
   });
 
-  const myProjects = projects.filter((p) => p.matchedFreelancerId === currentUser.id);
+  const myProjects = projects.filter(
+    (p) =>
+      Boolean(p.matchedFreelancerId) &&
+      (p.matchedFreelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+        p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
+  );
   const activeContractsCount = myProjects.filter((p) => p.status === "in_progress" || p.status === "matched").length;
 
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     updateFreelancerProfile({ name, isDiscoverable });
+
+    try {
+      const supabase = createClient();
+      const targetId = currentUser.walletAddress || currentUser.id;
+
+      await supabase.from("users").upsert({
+        user_id: targetId,
+        name: name.trim(),
+        email: email.trim(),
+        role: "FREELANCER",
+        status: "ACTIVE"
+      }, { onConflict: "user_id" });
+
+      await supabase.from("freelancer_profiles").upsert({
+        freelancer_id: targetId,
+        prof_headline: (profile as any).headline || "Web3 Developer",
+        bio: (profile as any).bio || "",
+        experience_level: (profile as any).experienceLevel || "Intermediate",
+        trust_score: (profile as any).trustScore || 90,
+        last_verified_at: new Date().toISOString()
+      }, { onConflict: "freelancer_id" });
+    } catch (err) {
+      console.warn("Could not sync updated freelancer settings to Supabase:", err);
+    } finally {
+      setIsSaving(false);
+    }
+
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2000);
   };
@@ -119,8 +167,8 @@ export default function FreelancerSettingsPage() {
                 </span>
               ) : <div />}
 
-              <GradientButton size="sm" type="submit">
-                Save Account Changes
+              <GradientButton size="sm" type="submit" loading={isSaving}>
+                {savedSuccess ? "Saved ✓" : "Save Account Changes"}
               </GradientButton>
             </div>
           </form>
@@ -241,7 +289,7 @@ export default function FreelancerSettingsPage() {
           <p className="text-xs text-foreground/60 leading-relaxed">
             {activeContractsCount > 0
               ? `You have ${activeContractsCount} active project contracts. Locked escrow funds are tied to your connected address.`
-              : "Prototype state can be reset to restore original demo seed values at any time."}
+              : "Signing out will disconnect your active wallet session from this browser."}
           </p>
 
           <div className="flex items-center gap-3 pt-2">
@@ -256,18 +304,6 @@ export default function FreelancerSettingsPage() {
               icon={<LogOut className="w-3.5 h-3.5 mr-1" />}
             >
               Sign Out
-            </GhostButton>
-
-            <GhostButton
-              size="sm"
-              onClick={() => {
-                if (confirm("Reset all prototype state to seed defaults?")) {
-                  resetDemoData();
-                  router.push("/freelancer/dashboard");
-                }
-              }}
-            >
-              Reset Demo Seed Data
             </GhostButton>
           </div>
         </div>
