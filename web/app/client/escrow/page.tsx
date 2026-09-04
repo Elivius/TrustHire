@@ -17,7 +17,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GhostButton } from "@/components/ui/ghost-button";
-import { getSuiscanTxUrl, getSuiscanObjectUrl, formatSuiAddress, TESTNET_PACKAGE_ID } from "@/lib/sui/escrow";
+import {
+  getSuiscanTxUrl,
+  getSuiscanObjectUrl,
+  formatSuiAddress,
+  isRealSuiDigest,
+  TESTNET_PACKAGE_ID
+} from "@/lib/sui/escrow";
 
 export default function ClientEscrowPage() {
   const { currentUser, projects, milestones, transactions } = useApp();
@@ -232,15 +238,21 @@ export default function ClientEscrowPage() {
                         ${tx.amount.toLocaleString()} USDC
                       </td>
                       <td className="py-3.5 px-4">
-                        <a
-                          href={getSuiscanTxUrl(tx.txHash)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[#2563EB] dark:text-[#4DA2FF] hover:underline"
-                        >
-                          <span className="font-mono text-[11px]">{formatSuiAddress(tx.txHash) || tx.txHash}</span>
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                        </a>
+                        {isRealSuiDigest(tx.txHash) ? (
+                          <a
+                            href={getSuiscanTxUrl(tx.txHash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[#2563EB] dark:text-[#4DA2FF] hover:underline"
+                          >
+                            <span className="font-mono text-[11px]">{formatSuiAddress(tx.txHash) || tx.txHash}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                            Simulated Demo
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-foreground/50 text-[11px]">
                         {new Date(tx.timestamp).toLocaleString()}

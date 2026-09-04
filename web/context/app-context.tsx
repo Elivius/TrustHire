@@ -23,6 +23,8 @@ import {
   buildCreateEscrowTx,
   buildSubmitMilestoneTx,
   buildApproveMilestoneTx,
+  resolveFreelancerReputationRecordId,
+  getMilestoneOnChainId,
   TESTNET_PACKAGE_ID,
 } from "@/lib/sui/escrow";
 import { createClient } from "@/lib/supabase/client";
@@ -434,7 +436,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Build milestones array
         if (dbMilestones && dbMilestones.length > 0) {
-          const loadedMilestones: Milestone[] = dbMilestones.map(mapSupabaseToMilestone);
+          const loadedMilestones: Milestone[] = dbMilestones
+            .map(mapSupabaseToMilestone)
+            .sort((a, b) => {
+              if (a.projectId !== b.projectId) return a.projectId.localeCompare(b.projectId);
+              const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+              const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+              if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+              return (a.title || "").localeCompare(b.title || "");
+            });
           setMilestones((prev) => {
             const existingIds = new Set(loadedMilestones.map((m) => m.id));
             const unmanaged = prev.filter((m) => !existingIds.has(m.id));
@@ -1090,16 +1100,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const proj = targetMs ? projects.find((p) => p.id === targetMs.projectId) : null;
     let txHash = generateSuiTxHash();
 
-    if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
+    if (targetMs && TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
       try {
-        const msIndex = milestones
-          .filter((m) => m.projectId === targetMs?.projectId)
-          .findIndex((m) => m.id === milestoneId);
+        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
 
         const tx = buildSubmitMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
           escrowObjectId: proj.escrowObjectId,
-          milestoneId: Math.max(0, msIndex),
+          milestoneId: onChainMilestoneId,
         });
 
         const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
@@ -1108,7 +1116,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }
@@ -1125,6 +1137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submissionContent: content,
       submissionLinks: links,
       submittedAt: now,
+      ...(txHash && !txHash.startsWith("0x") ? { onChainTxHash: txHash } : {})
     });
 
     if (proj) {
@@ -1167,14 +1180,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
       try {
-        const msIndex = milestones
-          .filter((m) => m.projectId === targetMs.projectId)
-          .findIndex((m) => m.id === milestoneId);
+        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
+
+        const freelancerAddr =
+          (proj?.matchedFreelancerId?.startsWith("0x") ? proj.matchedFreelancerId : null) ||
+          users.find((u) => u.id === proj?.matchedFreelancerId)?.walletAddress ||
+          "0x843543df2cbe873b0e963835129022ec3d9680ce1ad4777dda1aeb44abbcd265";
+
+        const repRecordId = await resolveFreelancerReputationRecordId(client, freelancerAddr);
 
         const tx = buildApproveMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
           escrowObjectId: proj.escrowObjectId,
-          milestoneId: Math.max(0, msIndex),
+          reputationRecordId: repRecordId,
+          milestoneId: onChainMilestoneId,
         });
 
         const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
@@ -1183,7 +1202,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -51,7 +51,16 @@ export default function ActiveWorkspacePage() {
   } = useApp();
 
   const project = projects.find((p) => p.id === projectId);
-  const projMilestones = milestones.filter((m) => m.projectId === projectId);
+  const projMilestones = useMemo(() => {
+    return milestones
+      .filter((m) => m.projectId === projectId)
+      .sort((a, b) => {
+        const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+        return (a.title || "").localeCompare(b.title || "");
+      });
+  }, [milestones, projectId]);
   const isClient = activeRole === "client" || currentUser.id === project?.clientId;
 
   const freelancer = project?.matchedFreelancerId
@@ -199,10 +208,10 @@ export default function ActiveWorkspacePage() {
               <div className="pt-2">
                 <TransactionCard
                   tx={{
-                    txHash: project.escrowTxHash || "0x8f2a1100bb43",
+                    txHash: project.escrowTxHash || "",
                     amount: totalAmount,
-                    fromAddress: client?.walletAddress || "0x4f2a91...9a2c",
-                    toAddress: `${project.escrowObjectId || "0x9182...fa01"} (Sui Escrow)`
+                    fromAddress: client?.walletAddress || client?.id || "",
+                    toAddress: project.escrowObjectId ? `${formatSuiAddress(project.escrowObjectId)} (Sui Escrow)` : "Sui Escrow"
                   }}
                 />
               </div>
@@ -337,8 +346,8 @@ export default function ActiveWorkspacePage() {
                           tx={{
                             txHash: m.onChainTxHash,
                             amount: m.amount,
-                            fromAddress: `${project.escrowObjectId || "Escrow"} (Sui Escrow)`,
-                            toAddress: freelancer?.walletAddress || "0x8e3b22...4c19"
+                            fromAddress: project.escrowObjectId ? `${formatSuiAddress(project.escrowObjectId)} (Sui Escrow)` : "Sui Escrow",
+                            toAddress: freelancer?.walletAddress || freelancer?.id || "Freelancer Wallet"
                           }}
                         />
                       )}

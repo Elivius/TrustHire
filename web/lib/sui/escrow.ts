@@ -34,6 +34,18 @@ export function getSuiscanObjectUrl(objectId: string, network = "testnet"): stri
   return `https://suiscan.xyz/${network}/object/${objectId}`;
 }
 
+export function isRealSuiDigest(digest?: string): boolean {
+  if (!digest) return false;
+  if (digest.includes("...")) return false;
+  return digest.length >= 40 && !digest.startsWith("0x");
+}
+
+export function isRealSuiObjectId(id?: string): boolean {
+  if (!id) return false;
+  if (id.includes("...")) return false;
+  return id.startsWith("0x") && id.length >= 64;
+}
+
 export function formatSuiAddress(address: string): string {
   if (!address) return "";
   if (address.length <= 10) return address;
@@ -115,6 +127,36 @@ export interface SubmitMilestoneParams {
 }
 
 /**
+ * Safely resolves the 0-based on-chain milestone_id for a given milestone.
+ * On Sui, escrow milestones are indexed 0, 1, 2, ... corresponding to Milestone 1, Milestone 2, etc.
+ */
+export function getMilestoneOnChainId(
+  targetMs: { id: string; title?: string; projectId: string },
+  allMilestones: { id: string; title?: string; projectId: string }[]
+): number {
+  // 1. Primary rule: Extract from title (e.g. "Milestone 1: ...", "Milestone 2 - ...")
+  if (targetMs?.title) {
+    const match = targetMs.title.match(/Milestone\s+(\d+)/i);
+    if (match && match[1]) {
+      return Math.max(0, parseInt(match[1], 10) - 1);
+    }
+  }
+
+  // 2. Secondary rule: Sort project's milestones stably and get index
+  const projectMilestones = allMilestones
+    .filter((m) => m.projectId === targetMs.projectId)
+    .sort((a, b) => {
+      const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+      const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+      if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+      return (a.title || "").localeCompare(b.title || "");
+    });
+
+  const idx = projectMilestones.findIndex((m) => m.id === targetMs.id);
+  return Math.max(0, idx);
+}
+
+/**
  * Builds a PTB to call `trusthire::escrow::submit_milestone<0x2::sui::SUI>`
  */
 export function buildSubmitMilestoneTx(params: SubmitMilestoneParams): Transaction {
@@ -138,6 +180,43 @@ export function buildSubmitMilestoneTx(params: SubmitMilestoneParams): Transacti
   return tx;
 }
 
+export const DEFAULT_TESTNET_REGISTRY_ID =
+  process.env.NEXT_PUBLIC_TESTNET_REGISTRY_ID ||
+  "0x4a658eb28d57d0360de90e05236e2b0c5e088aff9e841f076775d3c350cea50d";
+
+export const DEFAULT_FREELANCER_REPUTATION_RECORD_ID =
+  "0x98e60a5c739552b7cc1a7b8aa26c5cb18d4602823ec58e25475f4df6e42ff91c";
+
+export async function resolveFreelancerReputationRecordId(
+  client: any,
+  freelancerAddress: string
+): Promise<string> {
+  try {
+    const registryId = DEFAULT_TESTNET_REGISTRY_ID;
+    if (client && typeof client.listDynamicFields === "function") {
+      const dynFields = await client.listDynamicFields({ parentId: registryId });
+      for (const field of dynFields?.dynamicFields || []) {
+        const fieldObj = await client.getObject({
+          objectId: field.fieldId,
+          include: { json: true }
+        });
+        const content = fieldObj?.object?.json || fieldObj?.object?.content;
+        const storedAddr = content?.name?.pos0 || content?.name?.value;
+        if (
+          storedAddr &&
+          storedAddr.toLowerCase() === freelancerAddress.toLowerCase() &&
+          content?.value
+        ) {
+          return content.value;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("resolveFreelancerReputationRecordId warning:", err);
+  }
+  return DEFAULT_FREELANCER_REPUTATION_RECORD_ID;
+}
+
 export interface ApproveMilestoneParams {
   packageId?: string;
   escrowObjectId: string;
@@ -157,8 +236,8 @@ export function buildApproveMilestoneTx(params: ApproveMilestoneParams): Transac
 
   const tx = new Transaction();
 
-  // If a reputation record is not provided, fall back to a placeholder object or escrow object
-  const repRecord = params.reputationRecordId || params.escrowObjectId;
+  // Use resolved reputation record ID, or fallback to known shared reputation record
+  const repRecord = params.reputationRecordId || DEFAULT_FREELANCER_REPUTATION_RECORD_ID;
 
   tx.moveCall({
     target: `${packageId}::escrow::approve_milestone`,

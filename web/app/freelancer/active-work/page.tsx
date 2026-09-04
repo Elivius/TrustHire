@@ -19,6 +19,7 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
+import { formatSuiAddress } from "@/lib/sui/escrow";
 
 export default function FreelancerActiveWorkPage() {
   const { currentUser, projects, milestones, users } = useApp();
@@ -115,7 +116,14 @@ export default function FreelancerActiveWorkPage() {
             <div className="space-y-4">
               {inProgressContracts.map((proj) => {
                 const clientUser = users.find((u) => u.id === proj.clientId);
-                const projMs = milestones.filter((m) => m.projectId === proj.id);
+                const projMs = milestones
+                  .filter((m) => m.projectId === proj.id)
+                  .sort((a, b) => {
+                    const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+                    const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+                    if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+                    return (a.title || "").localeCompare(b.title || "");
+                  });
                 const nextPending = projMs.find((m) => m.status === "pending" || m.status === "changes_requested");
 
                 return (
@@ -131,7 +139,7 @@ export default function FreelancerActiveWorkPage() {
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
-                          <span>Escrow Object: {proj.escrowObjectId || "0x9182...fa01"}</span>
+                          <span>Escrow Object: {proj.escrowObjectId ? formatSuiAddress(proj.escrowObjectId) : "Pending Escrow"}</span>
                         </div>
                       </div>
 
