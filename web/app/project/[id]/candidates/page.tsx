@@ -23,12 +23,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ScoreBadge } from "@/components/ui/score-badge";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { computeFreelancerMatchForProject } from "@/lib/simulation";
 import { clsx } from "clsx";
 
 export default function CandidatesPage() {
   const params = useParams();
   const projectId = params.id as string;
+  const [rankedFreelancers, setRankedFreelancers] = useState<any[]>([]);
 
   const {
     currentUser,
@@ -42,21 +42,198 @@ export default function CandidatesPage() {
 
   const [activeTab, setActiveTab] = useState<"recommended" | "applications" | "invited">("recommended");
   const [isMatchingLoading, setIsMatchingLoading] = useState(true);
+  const [matchingError, setMatchingError] = useState<string | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
 
   // Simulated Match Freelancers loading state (1.5-3s)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsMatchingLoading(false);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [projectId]);
+    let cancelled = false;
+
+    async function loadGonkaMatches() {
+      const currentProject = projects.find(
+        (p) => p.id === projectId
+      );
+
+      if (!currentProject) {
+        console.warn(
+          "[Candidates] Project not found:",
+          projectId
+        );
+        setIsMatchingLoading(false);
+        return;
+      }
+
+      try {
+        setIsMatchingLoading(true);
+        setMatchingError(null);
+
+        // Build freelancer data for Gonka AI matching
+        const freelancers = Object.values(freelancerProfiles)
+          .filter((profile) => profile.isDiscoverable)
+          .map((profile) => {
+            const user = users.find(
+              (u) => u.id === profile.userId
+            );
+
+            return {
+              id: profile.userId,
+              name: user?.name,
+              skills: profile.skills,
+              bio: profile.bio,
+              portfolioLinks:
+                profile.portfolioLinks?.map(
+                  (link) => link.url
+                ) ?? [],
+              experienceLevel:
+                profile.experienceLevel,
+              trustScore:
+                profile.trustScore ?? null,
+            };
+          })
+          .filter(
+            (
+              freelancer
+            ): freelancer is typeof freelancer & {
+              name: string;
+            } => Boolean(freelancer.name)
+          );
+
+          console.log("[Candidates] Project skills:", currentProject.requiredSkills);
+          console.log("[Candidates] Freelancers being sent to Gonka:", freelancers);
+          console.log("[Candidates] Freelancer count:", freelancers.length);
+
+          const response = await fetch(
+            "/api/gonka/match-freelancers",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              project: {
+                id: currentProject.id,
+
+                projectTitle:
+                  currentProject.title,
+
+                projectDescription:
+                  currentProject.descriptionRaw,
+
+                requiredSkills:
+                  currentProject.requiredSkills,
+
+                experienceLevel:
+                  currentProject.experienceLevel,
+
+                budget:
+                  currentProject.estimatedBudget !==
+                  undefined
+                    ? {
+                        amount:
+                          currentProject.estimatedBudget,
+                        currency: "USD",
+                      }
+                    : undefined,
+
+                estimatedTimelineDays:
+                  currentProject.timelineDays,
+
+                keyDeliverables:
+                  currentProject.deliverables ?? [],
+              },
+
+              freelancers,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Matching request failed: ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        console.log(
+          "[Candidates] Gonka response:",
+          data
+        );
+
+        if (!data.success) {
+          throw new Error(
+            data.message ||
+              "Gonka matching failed."
+          );
+        }
+
+        const displayResults = data.results
+          .map((result: any) => {
+            const profile =
+              freelancerProfiles[
+                result.freelancerId
+              ];
+
+            const user = users.find(
+              (u) => u.id === result.freelancerId
+            );
+
+            if (!profile || !user) {
+              return null;
+            }
+
+            return {
+              profile,
+              user,
+              match: result,
+            };
+          })
+          .filter(Boolean);
+
+        if (!cancelled) {
+          setRankedFreelancers(
+            displayResults
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[Candidates] Gonka matching failed:",
+          error
+        );
+
+        if (!cancelled) {
+          setMatchingError(
+            error instanceof Error
+              ? error.message
+              : "Failed to find freelancer matches."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsMatchingLoading(false);
+        }
+      }
+    }
+
+    loadGonkaMatches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    projects,
+    projectId,
+    freelancerProfiles,
+    users,
+  ]);
 
   if (!project) {
     return (
       <AppShell>
-        <div className="text-center py-20">Project not found.</div>
+        <div className="text-center py-20">
+          Project not found.
+        </div>
       </AppShell>
     );
   }
@@ -67,22 +244,6 @@ export default function CandidatesPage() {
     ? users.find((u) => u.id === project.matchedFreelancerId)
     : null;
 
-  // Ranked recommended freelancers
-  const rankedFreelancers = Object.values(freelancerProfiles)
-    .map((prof) => {
-      const match = computeFreelancerMatchForProject(
-        prof.skills,
-        project.requiredSkills,
-        prof.trustScore
-      );
-      return {
-        profile: prof,
-        user: users.find((u) => u.id === prof.userId),
-        match
-      };
-    })
-    .filter((item) => item.user && item.profile.isDiscoverable)
-    .sort((a, b) => b.match.matchScore - a.match.matchScore);
 
   return (
     <AppShell>
@@ -247,7 +408,7 @@ export default function CandidatesPage() {
 
                       {/* Skills */}
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {profile.skills.map((s) => (
+                        {profile.skills.map((s: string) => (
                           <SkillChip
                             key={s}
                             label={s}

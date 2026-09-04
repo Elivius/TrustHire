@@ -996,12 +996,7 @@ export default function PostProjectPage() {
         * recommendations, NOT necessarily client requirements.
         *
         * Only explicitly requested/confirmed technologies should be
-        * passed as explicitSkills.
         */
-        explicitSkills: extractExplicitClientSkills(
-          projectAssistantResult?.requirements,
-          messages
-        ),
 
         budget: {
           amount: Number(proposal.budgetUsdc),

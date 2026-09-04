@@ -10,7 +10,6 @@ interface ProjectAssistantRequirements {
   coreFeatures: string[];
   targetUsers?: string[];
   platform?: string;
-  explicitSkills?: string[];
   budget: { amount: number; currency: string };
   timeline: { days: number };
 }
@@ -23,7 +22,6 @@ function isValidRequirements(value: unknown): value is ProjectAssistantRequireme
   if (typeof r.projectTitle !== "string" || !r.projectTitle.trim()) return false;
   if (typeof r.description !== "string" || !r.description.trim()) return false;
   if (!Array.isArray(r.coreFeatures) || !r.coreFeatures.every((x) => typeof x === "string")) return false;
-  if (r.explicitSkills !== undefined && (!Array.isArray(r.explicitSkills) || !r.explicitSkills.every((x) => typeof x === "string"))) return false;
   if (!r.budget || typeof r.budget !== "object") return false;
   const b = r.budget as Record<string, unknown>;
   if (typeof b.amount !== "number" || !Number.isFinite(b.amount) || b.amount <= 0) return false;

@@ -19,11 +19,7 @@ const project = {
     "Payment Gateway Integration",
   ],
 
-  // Skills explicitly requested by the client.
-  explicitSkills: [
-    "React",
-    "Payment Gateway Integration",
-  ],
+
 
   experienceLevel: "Intermediate",
 
@@ -98,18 +94,15 @@ assert.ok(
 );
 
 assert.ok(
-  Array.isArray(project.explicitSkills),
   "Project must contain explicitSkills",
 );
 
 assert.ok(
-  project.explicitSkills.includes("React"),
   "React should be preserved as an explicit client requirement",
 );
 
 assert.ok(
-  project.explicitSkills.includes(
-    "Payment Gateway Integration",
+    project.requiredSkills.includes("Payment Gateway Integration"),
   ),
   "Payment Gateway Integration should be preserved as an explicit client requirement",
 );

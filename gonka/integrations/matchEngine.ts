@@ -1,6 +1,6 @@
-import { gonka } from "../client.js";
-import { parseGonkaJson } from "../responseParser.js";
-import { GONKA_MODELS } from "../models.js";
+import { gonka } from "../client";
+import { parseGonkaJson } from "../responseParser";
+import { GONKA_MODELS } from "../models";
 
 /* ============================================================
    SHARED MATCHING TYPES
@@ -31,8 +31,6 @@ export interface MatchProject {
    *
    * Optional so existing projects/data remain compatible.
    */
-  explicitSkills?: string[];
-
   experienceLevel?: string;
 
   budget?: {
@@ -238,8 +236,6 @@ MATCHING PRINCIPLES:
 
    When the source is a PROJECT, the project may contain:
 
-   "explicitSkills"
-
    These are skills explicitly requested or clearly required
    by the client.
 
@@ -260,9 +256,6 @@ MATCHING PRINCIPLES:
    "requiredSkills" may contain both:
    - explicit client requirements
    - relevant skills inferred from the project
-
-   Use "explicitSkills" to identify the stronger client-specific
-   requirements when that field is available.
 
 6. Do NOT reject a candidate solely because they do not match
    every general or inferred skill.

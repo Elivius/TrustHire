@@ -3,7 +3,7 @@ import {
   type MatchFreelancer,
   type MatchProject,
   type MatchScoreResult,
-} from "./matchEngine.js";
+} from "./matchEngine";
 
 export interface ProjectMatchResult extends MatchScoreResult {
   projectId: string;
