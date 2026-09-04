@@ -135,6 +135,8 @@ export default function FreelancerOnboardingPage() {
   };
 
   const handleFinishOnboarding = async () => {
+    console.log("[Onboarding] Calculate Trust Score clicked");
+
     setIsCalculatingScore(true);
 
     const combinedPortfolio = [
@@ -146,19 +148,25 @@ export default function FreelancerOnboardingPage() {
         commitsCount: r.commitsCount,
         primaryLanguage: r.primaryLanguage
       })),
-      ...customLinks.filter((c) => c.title.trim() && c.url.trim()).map((c) => ({
-        title: c.title,
-        url: c.url,
-        isVerified: false
-      }))
+
+      ...customLinks
+        .filter((c) => c.title.trim() && c.url.trim())
+        .map((c) => ({
+          title: c.title,
+          url: c.url,
+          isVerified: false
+        }))
     ];
 
     try {
       const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3010";
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://localhost:3010";
 
       const githubSession =
-        sessionStorage.getItem("trusthire_github_session");
+        sessionStorage.getItem(
+          "trusthire_github_session"
+        );
 
       if (!githubSession) {
         throw new Error(
@@ -166,19 +174,33 @@ export default function FreelancerOnboardingPage() {
         );
       }
 
+      console.log(
+        "[Onboarding] Calling Trust Score API:",
+        {
+          apiUrl,
+          hasGithubSession: Boolean(githubSession),
+          skills,
+          experienceLevel,
+          portfolioCount:
+            combinedPortfolio.length
+        }
+      );
+
       const response = await fetch(
         `${apiUrl}/profile/trust-score`,
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
           },
+
           body: JSON.stringify({
             sessionId: githubSession,
 
             skills: skills.map((skill) => ({
               name: skill,
-              tier: experienceLevel,
+              tier: experienceLevel
             })),
 
             profileComplete:
@@ -196,9 +218,14 @@ export default function FreelancerOnboardingPage() {
             totalClientReviews: 0,
 
             cancelledProjects: 0,
-            disputedProjects: 0,
-          }),
+            disputedProjects: 0
+          })
         }
+      );
+
+      console.log(
+        "[Onboarding] Trust Score API response:",
+        response.status
       );
 
       if (!response.ok) {
@@ -207,11 +234,20 @@ export default function FreelancerOnboardingPage() {
         );
       }
 
-      const scoreResult = await response.json();
+      const scoreResult =
+        await response.json();
 
-      setCalculatedScore(scoreResult.trustScore.score);
+      console.log(
+        "[Onboarding] Trust Score result:",
+        scoreResult
+      );
+
+      setCalculatedScore(
+        scoreResult.trustScore.score
+      );
 
       addRoleToUser("freelancer");
+
       updateFreelancerProfile({
         name,
         avatarUrl,
@@ -220,14 +256,33 @@ export default function FreelancerOnboardingPage() {
         skills,
         experienceLevel,
         portfolioLinks: combinedPortfolio,
-        githubUsername: isGithubConnected ? githubUsername : undefined,
-        isGithubVerified: isGithubConnected,
-        trustScore: scoreResult.trustScore.score,
-        trustScoreConfidence: scoreResult.trustScore.confidence,
-        trustScoreReasoning: scoreResult.trustScore.reasoning,
-        trustScoreRequestId: scoreResult.requestId,
-        trustScoreUpdatedAt: new Date().toISOString(),
+
+        githubUsername:
+          isGithubConnected
+            ? githubUsername
+            : undefined,
+
+        isGithubVerified:
+          isGithubConnected,
+
+        trustScore:
+          scoreResult.trustScore.score,
+
+        trustScoreConfidence:
+          scoreResult.trustScore.confidence,
+
+        trustScoreReasoning:
+          scoreResult.trustScore.reasoning,
+
+        trustScoreRequestId:
+          scoreResult.requestId,
+
+        trustScoreUpdatedAt:
+          new Date().toISOString(),
+
         isDiscoverable: true,
+
+        // TEMPORARY DEMO VALUES
         completedProjectsCount: 14,
         onTimeDeliveryPct: 98,
         averageRating: 4.95
@@ -235,32 +290,82 @@ export default function FreelancerOnboardingPage() {
 
       try {
         const supabase = createClient();
-        const targetUserId = payoutWallet;
 
-        // 1. Upsert public.users with role FREELANCER
-        const userEmail = `${targetUserId.slice(0, 10).toLowerCase()}@trusthire.io`;
-        await supabase.from("users").upsert({
-          user_id: targetUserId,
-          name: name.trim() || currentUser.name || "Freelancer",
-          email: userEmail,
-          role: "FREELANCER",
-          status: "ACTIVE"
-        }, { onConflict: "user_id" });
+        const targetUserId =
+          payoutWallet;
 
-        // 2. Upsert freelancer profile
-        await supabase.from("freelancer_profiles").upsert({
-          freelancer_id: targetUserId,
-          prof_headline: headline,
-          bio: bio,
-          trust_score: scoreResult.trustScore,
-          experience_level: experienceLevel
-        }, { onConflict: "freelancer_id" });
+        const userEmail =
+          `${targetUserId
+            .slice(0, 10)
+            .toLowerCase()}@trusthire.io`;
+
+        await supabase
+          .from("users")
+          .upsert(
+            {
+              user_id: targetUserId,
+              name:
+                name.trim() ||
+                currentUser.name ||
+                "Freelancer",
+
+              email: userEmail,
+              role: "FREELANCER",
+              status: "ACTIVE"
+            },
+            {
+              onConflict: "user_id"
+            }
+          );
+
+        await supabase
+          .from("freelancer_profiles")
+          .upsert(
+            {
+              freelancer_id: targetUserId,
+              prof_headline: headline,
+              bio: bio,
+
+              // IMPORTANT
+              trust_score:
+                scoreResult.trustScore.score,
+
+              experience_level:
+                experienceLevel
+            },
+            {
+              onConflict:
+                "freelancer_id"
+            }
+          );
+
       } catch (e) {
-        console.warn("Could not sync freelancer profile to Supabase:", e);
+        console.warn(
+          "Could not sync freelancer profile to Supabase:",
+          e
+        );
       }
 
-      await new Promise((r) => setTimeout(r, 1200));
-      router.push("/freelancer/dashboard");
+      await new Promise(
+        (r) => setTimeout(r, 1200)
+      );
+
+      router.push(
+        "/freelancer/dashboard"
+      );
+
+    } catch (error) {
+      console.error(
+        "[Onboarding] Trust Score calculation failed:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to calculate Trust Score."
+      );
+
     } finally {
       setIsCalculatingScore(false);
     }

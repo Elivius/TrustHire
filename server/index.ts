@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { setCookie, getCookie } from "hono/cookie";
 import crypto from "node:crypto";
@@ -45,8 +46,25 @@ const app = new Hono();
 let latestTestSessionId: string | null = null;
 
 const PORT = 3010;
+
 const FRONTEND_URL =
-  process.env.FRONTEND_URL ?? "http://localhost:3000";
+  process.env.FRONTEND_URL ??
+  "http://localhost:3000";
+
+app.use(
+  "*",
+  cors({
+    origin: FRONTEND_URL,
+    allowMethods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowHeaders: ["Content-Type"],
+  }),
+);
 
 // ========================================
 // Health Check
