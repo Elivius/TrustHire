@@ -232,30 +232,19 @@ MATCHING PRINCIPLES:
      experience, bio, portfolio evidence, and past project
      information when available.
 
-4. IMPORTANT — EXPLICIT CLIENT REQUIREMENTS:
+4. REQUIRED SKILLS:
 
-   When the source is a PROJECT, the project may contain:
+   Treat the skills listed in "requiredSkills" as the project's
+   required technical skills.
 
-   These are skills explicitly requested or clearly required
-   by the client.
+   Compare these skills directly against the freelancer's
+   declared skills and available evidence.
 
-   Explicit skills are stronger signals than general or inferred
-   skills.
+   A freelancer who satisfies more of the required skills
+   should generally receive stronger consideration.
 
-   A freelancer who satisfies an explicit skill should receive
-   stronger consideration.
-
-   A freelancer who does not satisfy an explicit skill may still
-   be a valid candidate if the rest of their profile is relevant,
-   but the missing explicit skill should reduce the Match Score
+   Missing required skills should reduce the Match Score
    appropriately.
-
-5. Do NOT assume every item in "requiredSkills" is equally
-   mandatory.
-
-   "requiredSkills" may contain both:
-   - explicit client requirements
-   - relevant skills inferred from the project
 
 6. Do NOT reject a candidate solely because they do not match
    every general or inferred skill.

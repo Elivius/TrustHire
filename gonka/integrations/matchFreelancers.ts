@@ -41,10 +41,25 @@ export async function matchFreelancers(
   // This is only used to reduce the number of Gonka calls.
   // It must NOT be treated as the final matching decision.
   // ------------------------------------------------------------
-  const candidates = prefilterFreelancers(
+  const filteredCandidates = prefilterFreelancers(
     input.project,
     input.freelancers,
     input.minimumSkillOverlap ?? 0.2,
+  );
+
+  // If the local pre-filter finds nobody,
+  // let Gonka evaluate all freelancers instead.
+  // The pre-filter is only an optimization,
+  // not the final matching decision.
+  const candidates =
+    filteredCandidates.length > 0
+      ? filteredCandidates
+      : input.freelancers;
+
+  console.log(
+    `[Gonka Match] ${input.freelancers.length} freelancers received, ` +
+    `${filteredCandidates.length} passed pre-filter, ` +
+    `${candidates.length} sent to Gonka.`,
   );
 
   // ------------------------------------------------------------
