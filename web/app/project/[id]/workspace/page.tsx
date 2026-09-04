@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -51,7 +51,16 @@ export default function ActiveWorkspacePage() {
   } = useApp();
 
   const project = projects.find((p) => p.id === projectId);
-  const projMilestones = milestones.filter((m) => m.projectId === projectId);
+  const projMilestones = useMemo(() => {
+    return milestones
+      .filter((m) => m.projectId === projectId)
+      .sort((a, b) => {
+        const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+        return (a.title || "").localeCompare(b.title || "");
+      });
+  }, [milestones, projectId]);
   const isClient = activeRole === "client" || currentUser.id === project?.clientId;
 
   const freelancer = project?.matchedFreelancerId

@@ -127,6 +127,36 @@ export interface SubmitMilestoneParams {
 }
 
 /**
+ * Safely resolves the 0-based on-chain milestone_id for a given milestone.
+ * On Sui, escrow milestones are indexed 0, 1, 2, ... corresponding to Milestone 1, Milestone 2, etc.
+ */
+export function getMilestoneOnChainId(
+  targetMs: { id: string; title?: string; projectId: string },
+  allMilestones: { id: string; title?: string; projectId: string }[]
+): number {
+  // 1. Primary rule: Extract from title (e.g. "Milestone 1: ...", "Milestone 2 - ...")
+  if (targetMs?.title) {
+    const match = targetMs.title.match(/Milestone\s+(\d+)/i);
+    if (match && match[1]) {
+      return Math.max(0, parseInt(match[1], 10) - 1);
+    }
+  }
+
+  // 2. Secondary rule: Sort project's milestones stably and get index
+  const projectMilestones = allMilestones
+    .filter((m) => m.projectId === targetMs.projectId)
+    .sort((a, b) => {
+      const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+      const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+      if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+      return (a.title || "").localeCompare(b.title || "");
+    });
+
+  const idx = projectMilestones.findIndex((m) => m.id === targetMs.id);
+  return Math.max(0, idx);
+}
+
+/**
  * Builds a PTB to call `trusthire::escrow::submit_milestone<0x2::sui::SUI>`
  */
 export function buildSubmitMilestoneTx(params: SubmitMilestoneParams): Transaction {

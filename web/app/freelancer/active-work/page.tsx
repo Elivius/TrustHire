@@ -116,7 +116,14 @@ export default function FreelancerActiveWorkPage() {
             <div className="space-y-4">
               {inProgressContracts.map((proj) => {
                 const clientUser = users.find((u) => u.id === proj.clientId);
-                const projMs = milestones.filter((m) => m.projectId === proj.id);
+                const projMs = milestones
+                  .filter((m) => m.projectId === proj.id)
+                  .sort((a, b) => {
+                    const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+                    const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+                    if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+                    return (a.title || "").localeCompare(b.title || "");
+                  });
                 const nextPending = projMs.find((m) => m.status === "pending" || m.status === "changes_requested");
 
                 return (
