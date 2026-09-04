@@ -15,6 +15,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
+import { useDAppKit } from "@mysten/dapp-kit-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { WalletConnectButton } from "@/components/ui/wallet-connect-button";
 import { GradientButton } from "@/components/ui/gradient-button";
@@ -24,11 +25,13 @@ import { NotificationsSlideOver } from "@/components/layout/notifications-slideo
 export const TopNav: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const dAppKit = useDAppKit();
   const {
     currentUser,
     activeRole,
     switchRole,
     connectWallet,
+    disconnectWallet,
     resetDemoData,
     notifications
   } = useApp();
@@ -59,6 +62,17 @@ export const TopNav: React.FC = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    setProfileDropdownOpen(false);
+    try {
+      await dAppKit.disconnectWallet();
+    } catch (err) {
+      console.error("Wallet disconnect error:", err);
+    }
+    disconnectWallet();
+    router.replace("/");
+  };
+
   return (
     <>
       <header className="sticky top-0 z-30 w-full border-b border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#0B0B12]/80 backdrop-blur-xl transition-colors">
@@ -69,11 +83,8 @@ export const TopNav: React.FC = () => {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#4DA2FF] via-[#7B61FF] to-[#2DD4BF] flex items-center justify-center shadow-glass-glow group-hover:scale-105 transition-transform">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold tracking-tight text-foreground flex items-center gap-1">
+              <span className="text-lg font-bold tracking-tight text-foreground">
                 TrustHire
-                <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] font-normal tracking-wider border border-[#2DD4BF]/20">
-                  Prototype
-                </span>
               </span>
             </Link>
 
@@ -95,8 +106,8 @@ export const TopNav: React.FC = () => {
           {/* Right Controls */}
           <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Wallet Button */}
-            <div className="min-w-[160px]">
-              <WalletConnectButton />
+            <div className="shrink-0">
+              <WalletConnectButton variant="nav" />
             </div>
 
             {/* Notification Bell */}
@@ -186,14 +197,14 @@ export const TopNav: React.FC = () => {
                     </button>
 
                     <div className="border-t border-black/5 dark:border-white/5 mt-1 pt-1">
-                      <Link
-                        href="/auth"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 text-left transition-colors"
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground/60 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-500/10 text-left transition-colors cursor-pointer"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>Sign Out / Switch Demo</span>
-                      </Link>
+                        <span>Sign Out</span>
+                      </button>
                     </div>
                   </div>
                 </>

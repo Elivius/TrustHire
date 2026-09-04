@@ -17,6 +17,7 @@ export function GoogleLoginButton({ disabled }: { disabled?: boolean }) {
         await dAppKit.connectWallet({ wallet: googleWallet });
       } catch (err) {
         console.error("Connection failed", err);
+      } finally {
         setLoading(false);
       }
     } else {

@@ -123,7 +123,7 @@ export default function ClientProjectsPage() {
 
           {/* Search Input */}
           <div className="relative min-w-[200px] sm:min-w-[240px]">
-            <Search className="w-3.5 h-3.5 text-foreground/40 absolute left-3 top-3" />
+            <Search className="w-3.5 h-3.5 text-foreground/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
