@@ -1,0 +1,6 @@
+[package]
+name = "trusthire"
+edition = "2024"
+
+[addresses]
+trusthire = "0x0"
