@@ -75,7 +75,7 @@ export const TopNav: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full border-b border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#0B0B12]/80 backdrop-blur-xl transition-colors">
+      <header className="sticky top-0 z-40 w-full border-b border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#0B0B12]/80 backdrop-blur-xl transition-colors">
         <div className="flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl mx-auto">
           {/* Logo */}
           <div className="flex items-center gap-3">
