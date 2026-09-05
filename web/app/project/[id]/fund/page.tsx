@@ -426,7 +426,7 @@ export default function FinalizeAndFundPage() {
             </div>
 
             {/* Wallet & Gas Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03]">
+            {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03]">
               <div className="flex items-center gap-3">
                 <WalletChip address={currentAccount?.address || currentUser.walletAddress || "0x4f2a91...9a2c"} />
                 <span className="text-xs text-foreground/50 font-mono">Sui Testnet</span>
@@ -436,7 +436,7 @@ export default function FinalizeAndFundPage() {
                 <Zap className="w-3 h-3" />
                 <span>Gas fees sponsored by TrustHire</span>
               </div>
-            </div>
+            </div> */}
 
             {/* Error state */}
             {fundError && (

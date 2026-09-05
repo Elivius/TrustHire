@@ -169,6 +169,45 @@ export default function ProjectDetailPage() {
     gonkaRequestId: string;
   } | null>(null);
 
+  const isFreelancerRole = activeRole === "freelancer";
+
+  useEffect(() => {
+    if (!isFreelancerRole || !currentUser.id || !projectId) {
+      return;
+    }
+
+    const loadGonkaResult = async () => {
+      try {
+        const response = await fetch(
+          `/api/gonka/match-results?freelancerId=${encodeURIComponent(
+            currentUser.id
+          )}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          return;
+        }
+
+        const result = (data.results ?? []).find(
+          (item: { projectId?: string }) =>
+            item.projectId === projectId
+        );
+
+        setAiMatch(result ?? null);
+      } catch (error) {
+        console.error(
+          "[Project Detail] Failed to load Gonka match:",
+          error
+        );
+        setAiMatch(null);
+      }
+    };
+
+    void loadGonkaResult();
+  }, [currentUser.id, projectId, isFreelancerRole]);
+
   const project = projects.find((p) => p.id === projectId);
   const projMilestones = milestones.filter((m) => m.projectId === projectId);
 
@@ -190,7 +229,7 @@ export default function ProjectDetailPage() {
     (Boolean(currentUser.walletAddress) &&
       Boolean(project.clientId) &&
       project.clientId.toLowerCase() === currentUser.walletAddress?.toLowerCase());
-  const isFreelancerRole = activeRole === "freelancer";
+
   const matchedFreelancer = project.matchedFreelancerId
     ? users.find(
         (u) =>
@@ -218,42 +257,7 @@ export default function ProjectDetailPage() {
     freelancerProfiles[currentUser.id] ||
     (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined);
 
-useEffect(() => {
-  if (!isFreelancerRole || !currentUser.id || !projectId) {
-    return;
-  }
 
-  const loadGonkaResult = async () => {
-    try {
-      const response = await fetch(
-        `/api/gonka/match-results?freelancerId=${encodeURIComponent(
-          currentUser.id
-        )}`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        return;
-      }
-
-      const result = (data.results ?? []).find(
-        (item: { projectId?: string }) =>
-          item.projectId === projectId
-      );
-
-      setAiMatch(result ?? null);
-    } catch (error) {
-      console.error(
-        "[Project Detail] Failed to load Gonka match:",
-        error
-      );
-      setAiMatch(null);
-    }
-  };
-
-  void loadGonkaResult();
-}, [currentUser.id, projectId, isFreelancerRole]);
 
   const candidateCount = new Set([
     ...invitations.filter((i) => i.projectId === projectId).map((i) => i.freelancerId.toLowerCase()),
