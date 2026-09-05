@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useEffect, useRef } from "react";
 import { useInView } from "framer-motion";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
 import { useParams } from "next/navigation";
 import {
   Lock,
@@ -595,9 +596,41 @@ export default function ActiveWorkspacePage() {
                                 AI Reasoning
                               </div>
 
-                              <p className="text-sm text-foreground/75 leading-relaxed whitespace-pre-wrap">
-                                {verification.reasoning}
-                              </p>
+                              <div className="text-sm text-foreground/75 leading-relaxed">
+                                <ReactMarkdown
+                                  components={{
+                                    p: ({ children }) => (
+                                      <p className="mb-3 last:mb-0">
+                                        {children}
+                                      </p>
+                                    ),
+                                    strong: ({ children }) => (
+                                      <strong className="font-semibold text-foreground">
+                                        {children}
+                                      </strong>
+                                    ),
+                                    ul: ({ children }) => (
+                                      <ul className="list-disc pl-5 space-y-1 mb-3">
+                                        {children}
+                                      </ul>
+                                    ),
+                                    ol: ({ children }) => (
+                                      <ol className="list-decimal pl-5 space-y-1 mb-3">
+                                        {children}
+                                      </ol>
+                                    ),
+                                    li: ({ children }) => (
+                                      <li className="pl-1">
+                                        {children}
+                                      </li>
+                                    ),
+                                  }}
+                                >
+                                  {verification.reasoning
+                                    .replace(/\\\*\\\*/g, "**")
+                                    .replace(/\\\*/g, "*")}
+                                </ReactMarkdown>
+                              </div>
                             </div>
                           )}
 
@@ -621,9 +654,24 @@ export default function ActiveWorkspacePage() {
                                       >
                                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#8B5CF6] shrink-0" />
 
-                                        <p className="text-sm text-foreground/70">
-                                          {suggestion}
-                                        </p>
+                                          <div className="text-sm text-foreground/70 leading-relaxed">
+                                            <ReactMarkdown
+                                              components={{
+                                                p: ({ children }) => (
+                                                  <span>{children}</span>
+                                                ),
+                                                strong: ({ children }) => (
+                                                  <strong className="font-semibold text-foreground">
+                                                    {children}
+                                                  </strong>
+                                                ),
+                                              }}
+                                            >
+                                              {suggestion
+                                                .replace(/\\\*\\\*/g, "**")
+                                                .replace(/\\\*/g, "*")}
+                                            </ReactMarkdown>
+                                          </div>
                                       </div>
                                     )
                                   )}

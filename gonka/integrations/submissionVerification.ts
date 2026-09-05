@@ -295,24 +295,36 @@ The final decision belongs to the client.
     MODEL,
   );
 
-  const response =
-    await gonka.chat.completions.create({
-      model: MODEL,
+    const result =
+    await gonka.chat.completions
+        .create({
+        model: MODEL,
 
-      max_tokens: 2048,
+        max_tokens: 2048,
 
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a careful software milestone evaluator. Evaluate client requirements against freelancer evidence without inventing facts.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+        messages: [
+            {
+            role: "system",
+            content:
+                "You are a careful software milestone evaluator. Evaluate client requirements against freelancer evidence without inventing facts.",
+            },
+            {
+            role: "user",
+            content: prompt,
+            },
+        ],
+        })
+        .withResponse();
+
+    const response = result.data;
+
+    const gonkaRequestId = result.request_id;
+
+    if (!gonkaRequestId) {
+    throw new Error(
+        "Gonka did not return a request ID",
+    );
+    }
 
   const rawResult =
     response.choices[0]?.message?.content;
@@ -399,24 +411,16 @@ The final decision belongs to the client.
   // 9. RETURN EVALUATION
   // ============================================================
 
-  return {
+    return {
     verificationScore,
-
     reasoning,
-
     suggestions,
 
-    gonkaRequestId:
-      response.id,
+    gonkaRequestId,
 
     repository,
-
     prNumber,
-
-    prTitle:
-      pr.title,
-
-    prDescription:
-      pr.body || "",
-  };
+    prTitle: pr.title,
+    prDescription: pr.body || "",
+    };
 }
