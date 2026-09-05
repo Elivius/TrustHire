@@ -47,6 +47,11 @@ To guarantee unbiased milestone approvals, TrustHire utilizes the Gonka Router t
 - **AI & Verification:** Gonka Router (Multi-model consensus, API client)
 - **Backend Services:** Hono (Node.js server for GitHub OAuth/Evidence)
 
+## Deployed Contracts (Sui Testnet)
+
+- **Package ID:** `0x2e9e39dc1a01008a12bbdd048ec6925dd8aadd659513c270dcc9530a4bd1e9b0`
+- **Reputation Registry ID:** `0x4a658eb28d57d0360de90e05236e2b0c5e088aff9e841f076775d3c350cea50d`
+
 ## Repository layout
 
 ```text
@@ -167,3 +172,10 @@ Only three API routes exist under `web/app/api/`: `gonka/project-analysis`, `gon
 - [`web/TrustHire_Freelancer_Requirements.md`](web/TrustHire_Freelancer_Requirements.md) — freelancer-side flows
 - [`smart-contracts/Sui_CLI_Testing_Guide.md`](smart-contracts/Sui_CLI_Testing_Guide.md) — manual contract testing on Testnet
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch naming and Git workflow
+
+## Team Members
+
+- **[Elivius](https://github.com/Elivius)**
+- **[Edwin-Chua](https://github.com/Edwin-Chua)**
+- **[404notfound-j](https://github.com/404notfound-j)**
+- **[Swong-Gitzbos44](https://github.com/Swong-Gitzbos44)**
