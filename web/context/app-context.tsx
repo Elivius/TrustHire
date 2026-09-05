@@ -422,9 +422,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           const loadedProjects: Project[] = dbProjects.map((p: any) => {
             const mapped = mapSupabaseToProject(p);
+            const matchedFreelancer = acceptedProposalMap[mapped.id];
+            // If project is still 'open' but client accepted a freelancer's proposal, it is 'matched' (awaiting client escrow funding)
+            const effectiveStatus: ProjectStatus =
+              mapped.status === "open" && matchedFreelancer ? "matched" : mapped.status;
             return {
               ...mapped,
-              matchedFreelancerId: acceptedProposalMap[mapped.id] || undefined
+              status: effectiveStatus,
+              matchedFreelancerId: matchedFreelancer || undefined
             };
           });
           setProjects((prev) => {
@@ -754,7 +759,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const supabase = createClient();
           const updatePayload: Record<string, any> = {};
-          if (data.status) updatePayload.status = data.status.toUpperCase();
+          if (data.status) {
+            // Postgres check constraint only allows DRAFT, OPEN, IN_PROGRESS, COMPLETED, CANCELLED
+            updatePayload.status = data.status === "matched" ? "OPEN" : data.status.toUpperCase();
+          }
           if (data.escrowObjectId) updatePayload.escrow_object_id = data.escrowObjectId;
           if (data.escrowTxHash) updatePayload.escrow_tx_hash = data.escrowTxHash;
 
