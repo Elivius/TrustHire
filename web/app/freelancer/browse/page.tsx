@@ -54,11 +54,11 @@ export default function BrowseProjectsPage() {
     "best_match" | "newest" | "budget"
   >("best_match");
 
-const [matchResults, setMatchResults] = useState<
-  Record<string, ProjectMatchResult>
->({});
-const [isMatching, setIsMatching] = useState(false);
-const [matchError, setMatchError] = useState<string | null>(null);
+  const [matchResults, setMatchResults] = useState<
+    Record<string, ProjectMatchResult>
+  >({});
+  const [isMatching, setIsMatching] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   // Do not use mock/fallback freelancer data here.
   const myProfile = freelancerProfiles[currentUser.id];
@@ -417,23 +417,13 @@ const [matchError, setMatchError] = useState<string | null>(null);
           <div className="space-y-4">
             {sortedProjects.map((project) => {
               const clientUser = users.find(
-const clientUser = users.find(
-  (u) =>
-    u.id === project.clientId ||
-    (u.walletAddress && u.walletAddress.toLowerCase() === project.clientId.toLowerCase())
-);
-const isSaved = savedProjects.some(
-  (s) =>
-    s.projectId === project.id &&
-    (s.freelancerId === currentUser.id ||
-      (currentUser.walletAddress && s.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
-      s.freelancerId?.toLowerCase() === currentUser.id.toLowerCase())
-);
-const matchResult = matchResults[project.id] ?? computeFreelancerMatchForProject(
-  myProfile.skills,
-  project.requiredSkills,
-  myProfile.trustScore
-);
+                (u) => u.id === project.clientId
+              );
+
+              const isSaved = savedProjects.some(
+                (s) =>
+                  s.freelancerId === currentUser.id &&
+                  s.projectId === project.id
               );
 
               const matchResult = matchResults[project.id];
@@ -468,14 +458,21 @@ const matchResult = matchResults[project.id] ?? computeFreelancerMatchForProject
                         <span>•</span>
                         <span>{project.timelineDays} days</span>
                         <span>•</span>
-<span>Client: {clientUser?.companyName || clientUser?.name || "Verified Client"}</span>
+                        <span>
+                          Client: {clientUser?.name || "Verified Client"}
+                        </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                       <button
                         type="button"
-onClick={() => toggleSaveProject(currentUser.walletAddress || currentUser.id, project.id)}
+                        onClick={() =>
+                          toggleSaveProject(
+                            currentUser.id,
+                            project.id
+                          )
+                        }
                         className="p-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-foreground/75 hover:text-foreground transition-all cursor-pointer"
                         title={isSaved ? "Saved" : "Save for later"}
                       >
