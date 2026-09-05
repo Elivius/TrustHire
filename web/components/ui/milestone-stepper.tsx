@@ -130,7 +130,9 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-black/5 dark:border-white/5">
                 <div>{getStatusLabel(m.status)}</div>
                 <div className="text-foreground/40 font-mono">
-                  Due {new Date(m.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {m.deadline && !isNaN(new Date(m.deadline).getTime())
+                    ? `Due ${new Date(m.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                    : "No Due Date"}
                 </div>
               </div>
             </div>

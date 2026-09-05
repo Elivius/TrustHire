@@ -169,6 +169,45 @@ export default function ProjectDetailPage() {
     gonkaRequestId: string;
   } | null>(null);
 
+  const isFreelancerRole = activeRole === "freelancer";
+
+  useEffect(() => {
+    if (!isFreelancerRole || !currentUser.id || !projectId) {
+      return;
+    }
+
+    const loadGonkaResult = async () => {
+      try {
+        const response = await fetch(
+          `/api/gonka/match-results?freelancerId=${encodeURIComponent(
+            currentUser.id
+          )}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          return;
+        }
+
+        const result = (data.results ?? []).find(
+          (item: { projectId?: string }) =>
+            item.projectId === projectId
+        );
+
+        setAiMatch(result ?? null);
+      } catch (error) {
+        console.error(
+          "[Project Detail] Failed to load Gonka match:",
+          error
+        );
+        setAiMatch(null);
+      }
+    };
+
+    void loadGonkaResult();
+  }, [currentUser.id, projectId, isFreelancerRole]);
+
   const project = projects.find((p) => p.id === projectId);
   const projMilestones = milestones.filter((m) => m.projectId === projectId);
 
@@ -190,7 +229,7 @@ export default function ProjectDetailPage() {
     (Boolean(currentUser.walletAddress) &&
       Boolean(project.clientId) &&
       project.clientId.toLowerCase() === currentUser.walletAddress?.toLowerCase());
-  const isFreelancerRole = activeRole === "freelancer";
+
   const matchedFreelancer = project.matchedFreelancerId
     ? users.find(
         (u) =>
@@ -218,42 +257,7 @@ export default function ProjectDetailPage() {
     freelancerProfiles[currentUser.id] ||
     (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined);
 
-useEffect(() => {
-  if (!isFreelancerRole || !currentUser.id || !projectId) {
-    return;
-  }
 
-  const loadGonkaResult = async () => {
-    try {
-      const response = await fetch(
-        `/api/gonka/match-results?freelancerId=${encodeURIComponent(
-          currentUser.id
-        )}`
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        return;
-      }
-
-      const result = (data.results ?? []).find(
-        (item: { projectId?: string }) =>
-          item.projectId === projectId
-      );
-
-      setAiMatch(result ?? null);
-    } catch (error) {
-      console.error(
-        "[Project Detail] Failed to load Gonka match:",
-        error
-      );
-      setAiMatch(null);
-    }
-  };
-
-  void loadGonkaResult();
-}, [currentUser.id, projectId, isFreelancerRole]);
 
   const candidateCount = new Set([
     ...invitations.filter((i) => i.projectId === projectId).map((i) => i.freelancerId.toLowerCase()),
@@ -336,6 +340,16 @@ useEffect(() => {
                 <span>Posted {new Date(project.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
+
+            {(isClientOwner || activeRole === "client") && (
+              <div className="shrink-0 flex items-center gap-2">
+                <Link href={`/project/${project.id}/candidates`}>
+                  <GradientButton size="md" icon={<Users className="w-4 h-4 ml-1" />}>
+                    View Candidate Pool ({candidateCount})
+                  </GradientButton>
+                </Link>
+              </div>
+            )}
           </div>
 
           {isFreelancerRole && aiMatch && (
@@ -417,6 +431,19 @@ useEffect(() => {
                   </GradientButton>
                 )}
               </div>
+            </div>
+          )}
+
+          {(isClientOwner || activeRole === "client") && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-black/10 dark:border-white/10">
+              <div className="text-xs text-foreground/60">
+                <span>Looking for verified talent? Review AI matches, applications, and invite candidates.</span>
+              </div>
+              <Link href={`/project/${project.id}/candidates`}>
+                <GradientButton size="md" icon={<Users className="w-4 h-4 ml-1" />}>
+                  Manage & Match Candidates ({candidateCount})
+                </GradientButton>
+              </Link>
             </div>
           )}
         </GlassCard>
