@@ -30,11 +30,43 @@ export default function FreelancerEarningsPage() {
         p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
   );
 
-  const releasedTransactions = transactions.filter(
-    (t) => t.type === "milestone_released" && myProjects.some((p) => p.id === t.projectId)
+  // Derive released payouts from both database milestones and in-memory transactions
+  const releasedMilestones = milestones.filter(
+    (m) =>
+      m.status === "released" &&
+      myProjects.some((p) => p.id === m.projectId)
   );
 
-  const totalEarned = releasedTransactions.reduce((s, t) => s + t.amount, 0);
+  const releasedPayoutItems = [
+    ...releasedMilestones.map((m) => {
+      const proj = myProjects.find((p) => p.id === m.projectId);
+      return {
+        id: `ms-${m.id}`,
+        projectId: m.projectId,
+        projectTitle: proj?.title || "Project Milestone",
+        milestoneTitle: m.title,
+        amount: m.amount,
+        txHash: m.onChainTxHash || "",
+        status: "confirmed" as const,
+      };
+    }),
+    ...transactions.filter(
+      (t) =>
+        t.type === "milestone_released" &&
+        myProjects.some((p) => p.id === t.projectId) &&
+        !releasedMilestones.some((m) => m.onChainTxHash && m.onChainTxHash === t.txHash)
+    ).map((t) => ({
+      id: t.id,
+      projectId: t.projectId || "",
+      projectTitle: t.projectTitle || "Project Milestone",
+      milestoneTitle: t.milestoneTitle || "Milestone Payout",
+      amount: t.amount,
+      txHash: t.txHash,
+      status: t.status,
+    }))
+  ];
+
+  const totalEarned = releasedPayoutItems.reduce((s, t) => s + t.amount, 0);
 
   const pendingEscrowAmount = milestones
     .filter((m) => {
@@ -43,7 +75,7 @@ export default function FreelancerEarningsPage() {
     })
     .reduce((sum, m) => sum + m.amount, 0);
 
-  const filteredTxs = releasedTransactions.filter((t) => {
+  const filteredTxs = releasedPayoutItems.filter((t) => {
     if (filterProject !== "all" && t.projectId !== filterProject) return false;
     return true;
   });
@@ -61,8 +93,6 @@ export default function FreelancerEarningsPage() {
               Verifiable cryptographic proof of milestone payouts released to your wallet.
             </p>
           </div>
-
-          <WalletChip address={currentUser.walletAddress || "0x8e3b22...4c19"} />
         </div>
 
         {/* Stats Row */}
@@ -70,7 +100,7 @@ export default function FreelancerEarningsPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Earned (All-Time)</span>
             <div className="text-2xl sm:text-3xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-              ${(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              ${totalEarned.toLocaleString()} <span className="text-xs font-normal">USDC</span>
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">Direct non-custodial payouts</span>
           </GlassCard>
@@ -86,9 +116,11 @@ export default function FreelancerEarningsPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">This Month</span>
             <div className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-              ${(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              ${totalEarned.toLocaleString()} <span className="text-xs font-normal">USDC</span>
             </div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">August 2026</span>
+            <span className="text-[11px] text-foreground/40 mt-1 block">
+              {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+            </span>
           </GlassCard>
         </div>
 
