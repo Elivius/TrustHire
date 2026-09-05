@@ -360,7 +360,7 @@ export default function LandingPage() {
                       />
                     )}
                     <span className="relative z-10 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
+                      <img src="https://gonkarouter.io/gonkaIcon.png" alt="Gonka AI" className="w-4 h-4 bg-white rounded-full p-[1.5px] object-contain shadow-sm" />
                       AI Trust Engine
                     </span>
                   </button>
@@ -380,7 +380,7 @@ export default function LandingPage() {
                       />
                     )}
                     <span className="relative z-10 flex items-center gap-1.5">
-                      <Vault className="w-3.5 h-3.5" />
+                      <img src="https://cryptologos.cc/logos/sui-sui-logo.svg" alt="Sui" className="w-4 h-4 object-contain" />
                       Sui Smart Escrow
                     </span>
                   </button>
