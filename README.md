@@ -47,7 +47,7 @@ This project leverages several standout features of the Sui blockchain to provid
 - **Real-World Readiness:** We completely remove the Web2 "pay-to-play" model and all Web3 friction for talent. Unlike traditional platforms that charge you to apply, talent doesn't even need a crypto wallet or a single SUI token to start working, making our AI+Sui workflow instantly accessible.
 
 ### <img src="assets/gonka-logo-white.png" width="24" height="24" alt="Gonka Logo" style="vertical-align: middle; margin-right: 4px;"/> Gonka Track: AI Fact Checker for Society (WIP)
-*Note: This integration is actively under development.*
+
 To guarantee unbiased milestone approvals, TrustHire utilizes the Gonka Router to verify freelancer submissions (e.g., GitHub PRs or URL links):
 - **Decentralized Verification:** When a milestone is submitted, the proof (URL/Text) is sent to `gonkarouter.io` to analyze against the project requirements.
 - **Multi-Model Consensus:** The submission is cross-verified by at least two different AI models to ensure neutrality and prevent hallucination.
