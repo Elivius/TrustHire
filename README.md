@@ -32,7 +32,7 @@ The core Sui integration is fully complete, prioritizing robust, working mechani
 - **Secure Move Contracts:** A clean `escrow.move` contract handles milestone locking and release logic securely on-chain.
 - **Seamless App Integration:** The Next.js frontend is fully wired to the Sui testnet using `@mysten/dapp-kit`, handling wallet connections, Enoki sponsorship, and on-chain state querying.
 
-### <img src="https://gonkarouter.io/gonkaIcon.png" width="24" height="24" alt="Gonka Logo" style="vertical-align: middle; margin-right: 4px; background-color: white; border-radius: 50%; padding: 2px;"/> Gonka Track: AI Fact Checker for Society (WIP)
+### <img src="assets/gonka-logo-white.png" width="24" height="24" alt="Gonka Logo" style="vertical-align: middle; margin-right: 4px;"/> Gonka Track: AI Fact Checker for Society (WIP)
 *Note: This integration is actively under development.*
 To guarantee unbiased milestone approvals, TrustHire utilizes the Gonka Router to verify freelancer submissions (e.g., GitHub PRs or URL links):
 - **Decentralized Verification:** When a milestone is submitted, the proof (URL/Text) is sent to `gonkarouter.io` to analyze against the project requirements.
