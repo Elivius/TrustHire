@@ -71,11 +71,10 @@ export default function FreelancerDashboardPage() {
           return;
         }
       }
-      // Demo fallback if RPC query is not configured for simulated account
-      setWalletBalance(12.5);
+      setWalletBalance(0);
     } catch (err) {
       console.warn("Could not fetch on-chain Sui balance:", err);
-      setWalletBalance(12.5);
+      setWalletBalance(0);
     } finally {
       setIsLoadingBalance(false);
     }
@@ -94,10 +93,12 @@ export default function FreelancerDashboardPage() {
   };
 
   const profile =
+    (effectiveAddress ? freelancerProfiles[effectiveAddress] : undefined) ||
     freelancerProfiles[currentUser.id] ||
     (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
     Object.entries(freelancerProfiles).find(
       ([k]) =>
+        (effectiveAddress && k.toLowerCase() === effectiveAddress.toLowerCase()) ||
         k.toLowerCase() === currentUser.id.toLowerCase() ||
         (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
     )?.[1] || {
@@ -105,13 +106,15 @@ export default function FreelancerDashboardPage() {
       trustScoreConfidence: "High" as const,
       headline: "Senior Move & Full-Stack Developer",
       skills: ["React", "TypeScript", "Sui Move", "Smart Contracts"],
-      completedProjectsCount: 14
+      completedProjectsCount: 0
     };
 
   const myMatchedProjects = projects.filter(
     (p) =>
       Boolean(p.matchedFreelancerId) &&
       (p.matchedFreelancerId === currentUser.id ||
+        (effectiveAddress &&
+          p.matchedFreelancerId?.toLowerCase() === effectiveAddress.toLowerCase()) ||
         (currentUser.walletAddress &&
           p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
         p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
@@ -245,7 +248,7 @@ export default function FreelancerDashboardPage() {
                 </span>
               </div>
               <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 font-mono">
-                {profile.completedProjectsCount || 14}
+                {completedProjects.length}
               </div>
             </div>
 
@@ -358,10 +361,12 @@ export default function FreelancerDashboardPage() {
           </div>
 
           {activeContracts.length === 0 ? (
-            <GlassCard className="text-center py-10 space-y-3">
-              <p className="text-xs sm:text-sm text-foreground/60">No active contracts right now.</p>
+            <GlassCard className="text-center py-8 sm:py-10 flex flex-col items-center justify-center gap-4 sm:gap-5">
+              <p className="text-xs sm:text-sm text-foreground/60">
+                No active contracts right now.
+              </p>
               <Link href="/freelancer/browse">
-                <GradientButton size="sm">Browse Recommended Projects</GradientButton>
+                <GradientButton size="md">Browse Recommended Projects</GradientButton>
               </Link>
             </GlassCard>
           ) : (
