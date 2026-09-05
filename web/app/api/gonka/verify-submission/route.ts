@@ -5,19 +5,18 @@ import {
 } from "../../../../../gonka/integrations/submissionVerification";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL is not configured");
-}
-
-if (!supabaseSecretKey) {
-  throw new Error("SUPABASE_SECRET_KEY is not configured");
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Supabase URL or Key is not configured");
 }
 
 const supabase = createClient(
   supabaseUrl,
-  supabaseSecretKey,
+  supabaseKey,
 );
 
 export async function POST(

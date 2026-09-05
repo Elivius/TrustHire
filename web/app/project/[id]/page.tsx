@@ -340,6 +340,16 @@ export default function ProjectDetailPage() {
                 <span>Posted {new Date(project.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
+
+            {(isClientOwner || activeRole === "client") && (
+              <div className="shrink-0 flex items-center gap-2">
+                <Link href={`/project/${project.id}/candidates`}>
+                  <GradientButton size="md" icon={<Users className="w-4 h-4 ml-1" />}>
+                    View Candidate Pool ({candidateCount})
+                  </GradientButton>
+                </Link>
+              </div>
+            )}
           </div>
 
           {isFreelancerRole && aiMatch && (
@@ -421,6 +431,19 @@ export default function ProjectDetailPage() {
                   </GradientButton>
                 )}
               </div>
+            </div>
+          )}
+
+          {(isClientOwner || activeRole === "client") && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-6 border-t border-black/10 dark:border-white/10">
+              <div className="text-xs text-foreground/60">
+                <span>Looking for verified talent? Review AI matches, applications, and invite candidates.</span>
+              </div>
+              <Link href={`/project/${project.id}/candidates`}>
+                <GradientButton size="md" icon={<Users className="w-4 h-4 ml-1" />}>
+                  Manage & Match Candidates ({candidateCount})
+                </GradientButton>
+              </Link>
             </div>
           )}
         </GlassCard>

@@ -1858,13 +1858,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               }
             );
 
-          const result =
-            await response.json();
+          let result: any = null;
+          try {
+            result = await response.json();
+          } catch {
+            result = null;
+          }
 
           if (!response.ok) {
             throw new Error(
               result?.message ??
-                "Gonka milestone verification failed."
+                `Gonka milestone verification failed (HTTP ${response.status}).`
             );
           }
 
