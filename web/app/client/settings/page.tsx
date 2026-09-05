@@ -140,7 +140,7 @@ export default function ClientSettingsPage() {
               </div>
             </div>
 
-            <div>
+            {/* <div>
               <label className="block text-xs font-semibold text-foreground/80 mb-1.5">
                 Email Address
               </label>
@@ -150,7 +150,7 @@ export default function ClientSettingsPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm text-foreground focus:outline-none focus:border-[#4DA2FF]"
               />
-            </div>
+            </div> */}
 
             <div className="flex items-center justify-between pt-2">
               {savedSuccess ? (
@@ -168,7 +168,7 @@ export default function ClientSettingsPage() {
         </GlassCard>
 
         {/* Section 2: Wallet Management */}
-        <GlassCard className="p-6 sm:p-8 space-y-6">
+        {/* <GlassCard className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
             <Wallet className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
             <h2 className="text-base font-bold text-foreground">Sui Escrow Wallet</h2>
@@ -216,10 +216,10 @@ export default function ClientSettingsPage() {
               )}
             </div>
           </div>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* Section 3: Dual Roles Switch */}
-        <GlassCard className="p-6 sm:p-8 space-y-6">
+        {/* <GlassCard className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
             <ArrowLeftRight className="w-4 h-4 text-[#7C3AED] dark:text-[#7B61FF]" />
             <h2 className="text-base font-bold text-foreground">Roles & Account Modes</h2>
@@ -244,7 +244,7 @@ export default function ClientSettingsPage() {
               Also Set Up as Freelancer
             </GradientButton>
           </div>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* Section 4: Notifications */}
         <GlassCard className="p-6 sm:p-8 space-y-4">

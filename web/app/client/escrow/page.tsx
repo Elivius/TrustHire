@@ -17,6 +17,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GhostButton } from "@/components/ui/ghost-button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { OnChainTransaction } from "@/types";
+import { clsx } from "clsx";
 import {
   getSuiscanTxUrl,
   getSuiscanObjectUrl,
@@ -30,32 +33,133 @@ export default function ClientEscrowPage() {
   const { currentUser, projects, milestones, transactions } = useApp();
   const [filterProject, setFilterProject] = useState<string>("all");
 
-  const clientProjects = projects.filter((p) => p.clientId === currentUser.id);
+  const clientProjects = React.useMemo(() => {
+    return projects.filter((p) => {
+      if (!p.clientId) return false;
+      const cId = p.clientId.toLowerCase();
+      const currentId = currentUser.id?.toLowerCase();
+      const currentWallet = currentUser.walletAddress?.toLowerCase();
+      return (
+        (currentId && cId === currentId) ||
+        (currentWallet && cId === currentWallet) ||
+        p.clientId === currentUser.id
+      );
+    });
+  }, [projects, currentUser]);
 
-  const activeEscrowProjects = clientProjects.filter(
-    (p) => p.status === "in_progress" || p.status === "completed"
-  );
+  const [escrowTab, setEscrowTab] = useState<"active" | "completed" | "all">("active");
 
-  const currentlyEscrowed = milestones
-    .filter((m) => {
+  const inProgressProjects = React.useMemo(() => {
+    return clientProjects.filter((p) => p.status === "in_progress");
+  }, [clientProjects]);
+
+  const completedEscrowProjects = React.useMemo(() => {
+    return clientProjects.filter((p) => p.status === "completed");
+  }, [clientProjects]);
+
+  const displayedEscrowProjects = React.useMemo(() => {
+    if (escrowTab === "active") return inProgressProjects;
+    if (escrowTab === "completed") return completedEscrowProjects;
+    return clientProjects.filter((p) => p.status === "in_progress" || p.status === "completed");
+  }, [escrowTab, inProgressProjects, completedEscrowProjects, clientProjects]);
+
+  const currentlyEscrowed = React.useMemo(() => {
+    return milestones
+      .filter((m) => {
+        const proj = clientProjects.find((p) => p.id === m.projectId);
+        return proj && proj.status === "in_progress" && m.status !== "released";
+      })
+      .reduce((sum, m) => sum + (m.amount || 0), 0);
+  }, [milestones, clientProjects]);
+
+  const releasedMilestones = React.useMemo(() => {
+    return milestones.filter((m) => {
       const proj = clientProjects.find((p) => p.id === m.projectId);
-      return proj?.status === "in_progress" && m.status !== "released";
-    })
-    .reduce((sum, m) => sum + m.amount, 0);
+      return proj && m.status === "released";
+    });
+  }, [milestones, clientProjects]);
 
-  const totalReleased = transactions
-    .filter((t) => t.type === "milestone_released" && clientProjects.some((p) => p.id === t.projectId))
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalReleased = React.useMemo(() => {
+    const fromMilestones = releasedMilestones.reduce((sum, m) => sum + (m.amount || 0), 0);
+    const fromTx = transactions
+      .filter((t) => t.type === "milestone_released" && clientProjects.some((p) => p.id === t.projectId))
+      .filter((t) => !releasedMilestones.some((m) => m.onChainTxHash && m.onChainTxHash === t.txHash))
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+    return fromMilestones + fromTx;
+  }, [releasedMilestones, transactions, clientProjects]);
 
   const pendingMilestonesCount = milestones.filter(
     (m) => clientProjects.some((p) => p.id === m.projectId) && m.status === "submitted"
   ).length;
 
-  const filteredTransactions = transactions.filter((t) => {
-    if (!clientProjects.some((p) => p.id === t.projectId)) return false;
-    if (filterProject !== "all" && t.projectId !== filterProject) return false;
-    return true;
-  });
+  const allLedgerTransactions: OnChainTransaction[] = React.useMemo(() => {
+    const txMap = new Map<string, OnChainTransaction>();
+
+    // 1. In-memory transactions from context
+    transactions
+      .filter((t) => clientProjects.some((p) => p.id === t.projectId))
+      .forEach((tx) => {
+        const key = `${tx.type}-${tx.projectId}-${tx.milestoneTitle || ""}-${tx.txHash}`;
+        txMap.set(key, tx);
+      });
+
+    // 2. Database released milestones
+    milestones
+      .filter((m) => m.status === "released" && clientProjects.some((p) => p.id === m.projectId))
+      .forEach((m) => {
+        const proj = clientProjects.find((p) => p.id === m.projectId);
+        const txHash = m.onChainTxHash || (proj?.escrowTxHash ? proj.escrowTxHash : "");
+        const key = `milestone_released-${m.projectId}-${m.title}-${txHash}`;
+        if (!txMap.has(key)) {
+          txMap.set(key, {
+            id: `tx-ms-${m.id}`,
+            txHash: txHash || "0x" + m.id.replace(/-/g, "").slice(0, 64),
+            type: "milestone_released",
+            projectId: m.projectId,
+            projectTitle: proj?.title || "Project Milestone",
+            milestoneTitle: m.title,
+            amount: m.amount || 0,
+            fromAddress: proj?.escrowObjectId ? `${formatSuiAddress(proj.escrowObjectId)} (Sui Escrow)` : "Sui Escrow",
+            toAddress: proj?.matchedFreelancerId ? formatSuiAddress(proj.matchedFreelancerId) : "Freelancer Wallet",
+            timestamp: m.deadline || proj?.createdAt || new Date().toISOString(),
+            status: "confirmed"
+          });
+        }
+      });
+
+    // 3. Database funded escrow deposits
+    clientProjects
+      .filter((p) => p.escrowTxHash || p.escrowObjectId || p.status === "in_progress" || p.status === "completed")
+      .forEach((p) => {
+        const txHash = p.escrowTxHash || (p.escrowObjectId ? p.escrowObjectId : "");
+        const key = `escrow_created-${p.id}--${txHash}`;
+        if (!txMap.has(key)) {
+          txMap.set(key, {
+            id: `tx-escrow-${p.id}`,
+            txHash: txHash || "0x" + p.id.replace(/-/g, "").slice(0, 64),
+            type: "escrow_created",
+            projectId: p.id,
+            projectTitle: p.title,
+            amount: p.estimatedBudget || 0,
+            fromAddress: p.clientId,
+            toAddress: p.escrowObjectId ? `${formatSuiAddress(p.escrowObjectId)} (Sui Escrow)` : "Sui Escrow Object",
+            timestamp: p.createdAt || new Date().toISOString(),
+            status: "confirmed"
+          });
+        }
+      });
+
+    return Array.from(txMap.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }, [transactions, clientProjects, milestones]);
+
+  const filteredTransactions = React.useMemo(() => {
+    return allLedgerTransactions.filter((tx) => {
+      if (filterProject !== "all" && tx.projectId !== filterProject) return false;
+      return true;
+    });
+  }, [allLedgerTransactions, filterProject]);
 
   return (
     <AppShell>
@@ -111,19 +215,70 @@ export default function ClientEscrowPage() {
 
         {/* Per-Project Escrow Breakdown */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
-            <span>Active Project Escrows</span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Lock className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+              <span>
+                {escrowTab === "active"
+                  ? "Active Project Escrows"
+                  : escrowTab === "completed"
+                  ? "Completed Project Escrows"
+                  : "All Project Escrows"}
+              </span>
+            </h2>
 
-          {activeEscrowProjects.length === 0 ? (
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs font-medium self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setEscrowTab("active")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "active"
+                    ? "bg-white dark:bg-[#1C1D2A] text-[#0D9488] dark:text-[#2DD4BF] font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                Active ({inProgressProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscrowTab("completed")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "completed"
+                    ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                Completed ({completedEscrowProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscrowTab("all")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "all"
+                    ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                All ({inProgressProjects.length + completedEscrowProjects.length})
+              </button>
+            </div>
+          </div>
+
+          {displayedEscrowProjects.length === 0 ? (
             <EmptyState
-              title="You haven't funded any escrow yet"
-              description="This is where you'll track locked and released funds once you match with a freelancer and fund smart contract escrow."
+              title={escrowTab === "completed" ? "No completed escrows" : "No active escrows in progress"}
+              description={
+                escrowTab === "completed"
+                  ? "Projects where all escrow milestones have been released and paid out will appear here."
+                  : "This is where you'll track locked and released funds once you match with a freelancer and fund smart contract escrow."
+              }
             />
           ) : (
             <div className="space-y-3">
-              {activeEscrowProjects.map((proj) => {
+              {displayedEscrowProjects.map((proj) => {
                 const projMs = milestones.filter((m) => m.projectId === proj.id);
                 const total = projMs.reduce((s, m) => s + m.amount, 0);
                 const released = projMs.filter((m) => m.status === "released").reduce((s, m) => s + m.amount, 0);
@@ -137,9 +292,12 @@ export default function ClientEscrowPage() {
                   >
                     <GlassCard hoverEffect className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
-                        <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
-                          {proj.title}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
+                            {proj.title}
+                          </h3>
+                          <StatusBadge status={proj.status} />
+                        </div>
                         {proj.escrowObjectId ? (
                           <a
                             href={getSuiscanObjectUrl(proj.escrowObjectId)}
@@ -222,13 +380,20 @@ export default function ClientEscrowPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.05] dark:divide-white/5 font-mono">
-                  {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1.5 text-xs text-foreground capitalize font-sans">
-                          {tx.type === "escrow_created" ? (
-                            <>
-                              <Lock className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
+                  {filteredTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-foreground/45 font-sans">
+                        No transactions recorded for this filter. Funded escrows and released payouts will appear here automatically.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-foreground capitalize font-sans">
+                            {tx.type === "escrow_created" ? (
+                              <>
+                                <Lock className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
                               <span>Escrow Deposit</span>
                             </>
                           ) : (
@@ -268,8 +433,9 @@ export default function ClientEscrowPage() {
                       <td className="py-3.5 px-4 text-foreground/50 text-[11px]">
                         {new Date(tx.timestamp).toLocaleString()}
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

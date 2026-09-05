@@ -87,7 +87,7 @@ export const TopNav: React.FC = () => {
             </Link>
 
             {/* Quick Role Switcher pill in header */}
-            <button
+            {/* <button
               type="button"
               onClick={handleToggleRole}
               className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-black/15 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] hover:border-black/25 text-foreground transition-all ml-4 shadow-sm dark:shadow-none cursor-pointer"
@@ -98,7 +98,7 @@ export const TopNav: React.FC = () => {
               <span className="font-semibold text-[#0D9488] dark:text-[#2DD4BF]">
                 {activeRole === "client" ? "Elena Vance (Client)" : "Alex Rivera (Freelancer)"}
               </span>
-            </button>
+            </button> */}
           </div>
 
           {/* Right Controls */}
@@ -156,7 +156,7 @@ export const TopNav: React.FC = () => {
                       </span>
                     </div>
 
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => {
                         setProfileDropdownOpen(false);
@@ -168,7 +168,7 @@ export const TopNav: React.FC = () => {
                       <span>
                         Switch to {activeRole === "client" ? "Freelancer Mode" : "Client Mode"}
                       </span>
-                    </button>
+                    </button> */}
 
                     <Link
                       href={activeRole === "client" ? "/client/settings" : "/freelancer/profile"}
