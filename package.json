@@ -12,10 +12,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
+    "@react-three/fiber": "^9.7.0",
     "@supabase/supabase-js": "^2.114.0",
+    "antigravity-particle": "^1.1.1",
     "dotenv": "^17.4.2",
     "hono": "^4.13.5",
     "openai": "^7.8.0",
+    "three": "^0.185.1",
     "tsx": "^4.23.13"
   },
   "devDependencies": {
