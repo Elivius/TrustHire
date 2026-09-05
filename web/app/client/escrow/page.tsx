@@ -17,7 +17,9 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GhostButton } from "@/components/ui/ghost-button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { OnChainTransaction } from "@/types";
+import { clsx } from "clsx";
 import {
   getSuiscanTxUrl,
   getSuiscanObjectUrl,
@@ -45,9 +47,21 @@ export default function ClientEscrowPage() {
     });
   }, [projects, currentUser]);
 
-  const activeEscrowProjects = clientProjects.filter(
-    (p) => p.status === "in_progress" || p.status === "completed"
-  );
+  const [escrowTab, setEscrowTab] = useState<"active" | "completed" | "all">("active");
+
+  const inProgressProjects = React.useMemo(() => {
+    return clientProjects.filter((p) => p.status === "in_progress");
+  }, [clientProjects]);
+
+  const completedEscrowProjects = React.useMemo(() => {
+    return clientProjects.filter((p) => p.status === "completed");
+  }, [clientProjects]);
+
+  const displayedEscrowProjects = React.useMemo(() => {
+    if (escrowTab === "active") return inProgressProjects;
+    if (escrowTab === "completed") return completedEscrowProjects;
+    return clientProjects.filter((p) => p.status === "in_progress" || p.status === "completed");
+  }, [escrowTab, inProgressProjects, completedEscrowProjects, clientProjects]);
 
   const currentlyEscrowed = React.useMemo(() => {
     return milestones
@@ -201,19 +215,70 @@ export default function ClientEscrowPage() {
 
         {/* Per-Project Escrow Breakdown */}
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
-            <span>Active Project Escrows</span>
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Lock className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
+              <span>
+                {escrowTab === "active"
+                  ? "Active Project Escrows"
+                  : escrowTab === "completed"
+                  ? "Completed Project Escrows"
+                  : "All Project Escrows"}
+              </span>
+            </h2>
 
-          {activeEscrowProjects.length === 0 ? (
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs font-medium self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setEscrowTab("active")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "active"
+                    ? "bg-white dark:bg-[#1C1D2A] text-[#0D9488] dark:text-[#2DD4BF] font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                Active ({inProgressProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscrowTab("completed")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "completed"
+                    ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                Completed ({completedEscrowProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscrowTab("all")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  escrowTab === "all"
+                    ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                All ({inProgressProjects.length + completedEscrowProjects.length})
+              </button>
+            </div>
+          </div>
+
+          {displayedEscrowProjects.length === 0 ? (
             <EmptyState
-              title="You haven't funded any escrow yet"
-              description="This is where you'll track locked and released funds once you match with a freelancer and fund smart contract escrow."
+              title={escrowTab === "completed" ? "No completed escrows" : "No active escrows in progress"}
+              description={
+                escrowTab === "completed"
+                  ? "Projects where all escrow milestones have been released and paid out will appear here."
+                  : "This is where you'll track locked and released funds once you match with a freelancer and fund smart contract escrow."
+              }
             />
           ) : (
             <div className="space-y-3">
-              {activeEscrowProjects.map((proj) => {
+              {displayedEscrowProjects.map((proj) => {
                 const projMs = milestones.filter((m) => m.projectId === proj.id);
                 const total = projMs.reduce((s, m) => s + m.amount, 0);
                 const released = projMs.filter((m) => m.status === "released").reduce((s, m) => s + m.amount, 0);
@@ -227,9 +292,12 @@ export default function ClientEscrowPage() {
                   >
                     <GlassCard hoverEffect className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
-                        <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
-                          {proj.title}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
+                            {proj.title}
+                          </h3>
+                          <StatusBadge status={proj.status} />
+                        </div>
                         {proj.escrowObjectId ? (
                           <a
                             href={getSuiscanObjectUrl(proj.escrowObjectId)}
