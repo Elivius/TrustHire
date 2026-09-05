@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "antigravity-particle/medusae.css";
 
 @layer base {
   :root {
