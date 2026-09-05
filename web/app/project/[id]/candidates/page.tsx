@@ -272,27 +272,6 @@ console.log(
     ? users.find((u) => u.id === project.matchedFreelancerId)
     : null;
 
-// Ranked recommended freelancers
-const rankedFreelancers = Object.values(freelancerProfiles)
-  .map((prof) => {
-    const match = computeFreelancerMatchForProject(
-      prof.skills,
-      project.requiredSkills,
-      prof.trustScore
-    );
-    return {
-      profile: prof,
-      user: users.find(
-        (u) =>
-          u.id.toLowerCase() === prof.userId.toLowerCase() ||
-          (u.walletAddress && u.walletAddress.toLowerCase() === prof.userId.toLowerCase())
-      ),
-      match
-    };
-  })
-  .filter((item) => item.user && item.profile.isDiscoverable)
-  .sort((a, b) => b.match.matchScore - a.match.matchScore);
-
   return (
     <AppShell>
       <div className="max-w-5xl mx-auto space-y-6">
