@@ -25,10 +25,6 @@ export interface MatchProject {
   requiredSkills: string[];
 
   /**
-   * Skills that the client explicitly requested.
-   *
-   * These receive stronger consideration during AI matching.
-   *
    * Optional so existing projects/data remain compatible.
    */
   experienceLevel?: string;
@@ -92,7 +88,16 @@ interface GonkaMatchResponse {
 const DEFAULT_MATCH_MODEL =
   GONKA_MODELS[0] ?? "MiniMaxAI/MiniMax-M2.7";
 
+/**
+ * Keep the existing 20-candidate limit for the original
+ * FREELANCER_FOR_PROJECT flow.
+ *
+ * PROJECT_FOR_FREELANCER uses a smaller batch size below
+ * because every project can contain its own requiredSkills
+ * and the response can become large.
+ */
 const MAX_CANDIDATES_PER_REQUEST = 20;
+const PROJECT_MATCH_BATCH_SIZE = 8;
 
 export function getMatchModel(): string {
   const configured = process.env.GONKA_MATCH_MODEL?.trim();
@@ -171,13 +176,15 @@ export function prefilterFreelancers(
   freelancers: MatchFreelancer[],
   minimumOverlap = 0.2,
 ): MatchFreelancer[] {
-  // No requirements means there is nothing useful to filter on.
   if (project.requiredSkills.length === 0) {
     return freelancers;
   }
 
-  // For small candidate pools, don't filter aggressively.
-  // Gonka can handle the semantic matching.
+  /**
+   * IMPORTANT:
+   * Keep the existing behaviour for the original
+   * freelancer-for-project matching flow.
+   */
   if (freelancers.length <= MAX_CANDIDATES_PER_REQUEST) {
     return freelancers;
   }
@@ -190,8 +197,6 @@ export function prefilterFreelancers(
       ) >= minimumOverlap,
   );
 
-  // If the lexical filter removes everyone, do not block matching.
-  // Return the original pool and let Gonka perform the semantic evaluation.
   if (filtered.length === 0) {
     return freelancers;
   }
@@ -217,6 +222,87 @@ function buildMatchPrompt(
     direction === "FREELANCER_FOR_PROJECT"
       ? "FREELANCER CANDIDATES"
       : "PROJECT CANDIDATES";
+
+  /*
+   * IMPORTANT:
+   * The original direction uses requiredSkills from SOURCE.
+   *
+   * The reverse direction is different:
+   * source = freelancer
+   * candidate = project
+   *
+   * Therefore each project candidate owns its own requiredSkills.
+   */
+  const requiredSkillsRule =
+    direction === "FREELANCER_FOR_PROJECT"
+      ? `
+REQUIRED SKILLS RULE:
+
+The SOURCE is a PROJECT.
+
+Use SOURCE.requiredSkills as the required skills list.
+
+For EVERY freelancer candidate, evaluate every item in
+SOURCE.requiredSkills exactly once.
+`
+      : `
+REQUIRED SKILLS RULE:
+
+The SOURCE is a FREELANCER.
+
+Each CANDIDATE is a PROJECT.
+
+For EACH project candidate, use that candidate project's
+own requiredSkills array.
+
+Do NOT use requiredSkills from the freelancer source.
+Do NOT use requiredSkills from another project candidate.
+
+For every project candidate:
+
+1. Read that project's own requiredSkills.
+2. Evaluate EVERY required skill against the freelancer's:
+   - skills
+   - bio
+   - experience
+   - portfolio evidence
+3. Return exactly one skillEvaluation entry for every
+   required skill belonging to that project.
+4. Do not combine requiredSkills from multiple projects.
+5. Do not invent required skills.
+6. If a project has no requiredSkills, evaluate suitability
+   using its description, deliverables, experience level,
+   technical considerations, and other supplied information.
+`;
+
+  const outputSizeRule =
+    direction === "PROJECT_FOR_FREELANCER"
+      ? `
+OUTPUT SIZE:
+
+Keep the response compact because multiple project candidates
+are being evaluated.
+
+For each skillEvaluation:
+- evidence must be one short sentence
+- keep evidence under approximately 12 words
+
+For reasoning:
+- keep it under approximately 35 words
+- mention the strongest matches and important gaps
+- do not repeat the full project description
+- do not repeat the full freelancer profile
+`
+      : `
+OUTPUT SIZE:
+
+For each skillEvaluation:
+- "evidence" MUST be no more than ONE short sentence.
+- Keep evidence under approximately 15 words.
+
+For "reasoning":
+- Provide a clear, evidence-based explanation of approximately 50-80 words.
+`;
 
   return `
 You are TrustHire's Freelancer Matching AI.
@@ -255,13 +341,13 @@ MATCHING RULES:
    - Consider skills, experience, bio, portfolio evidence, and other supplied information.
 
 3. For project-for-freelancer matching:
-   - Compare the project requirements with the freelancer's skills,
+   - Compare each project candidate with the freelancer's skills,
      experience, bio, portfolio evidence, and other supplied information.
+   - Each project candidate must be evaluated independently.
 
 4. REQUIRED SKILLS:
 
-If the source contains a "requiredSkills" array, you MUST evaluate
-EVERY item in that array individually.
+${requiredSkillsRule}
 
 Required skills are NOT necessarily standardized skills.
 
@@ -308,7 +394,7 @@ However, do NOT assume equivalence without evidence.
 
 IMPORTANT:
 
-If requiredSkills contains:
+If a requiredSkills list contains:
 
 ["React", "TypeScript", "UI/UX Design"]
 
@@ -325,6 +411,7 @@ Never:
 - invent a required skill
 - add a skill that is not required
 - evaluate only the skills that the candidate happens to have
+- use required skills belonging to another project
 
 The final matchScore MUST consider ALL required skills.
 
@@ -334,11 +421,16 @@ other available project/source information.
 5. Do NOT reject a candidate solely because they do not match every skill.
 
 6. Consider transferable or related capabilities only when supported
-   by the supplied evidence.
+by the supplied evidence.
 
 7. MatchScore represents suitability for this specific source/candidate pair.
 
 8. Do NOT use Trust Score as Match Score.
+
+9. For PROJECT_FOR_FREELANCER, do not let the requirements of one
+project affect the skillEvaluation of another project.
+
+10. Evaluate every candidate independently.
 
 11. Provide evidence-based reasoning.
 
@@ -369,11 +461,6 @@ Do NOT calculate the score using a simple required-skill count alone.
 Two candidates with the same number of matched skills may receive
 different scores when the strength, relevance, or quality of their
 supporting evidence differs.
-
-For example, a candidate who matches Java and Sui Move through
-direct skills and relevant portfolio evidence should generally
-score higher than a candidate who only has one directly relevant
-skill with no additional supporting evidence.
 
 TRUST SCORE:
 
@@ -426,41 +513,15 @@ Do NOT:
 Every returned candidateId MUST exactly match an id from the
 candidate list.
 
-OUTPUT SIZE RULES:
+${outputSizeRule}
 
-The response must be compact.
-
-For each skillEvaluation:
-- "evidence" MUST be no more than ONE short sentence.
-- Keep evidence under approximately 15 words.
-- Do not repeat information already obvious from the candidate data.
-
-For "reasoning":
-- Provide a clear, evidence-based explanation of approximately 50-80 words.
-- Explain the candidate's strongest relevant capabilities.
-- Explain which required skills are satisfied and which are missing.
-- Explain important supporting evidence from the candidate's skills, bio,
-  experience, and portfolio when available.
-- Explain important gaps that reduce the match score.
-- Explain why the candidate is suitable or unsuitable for this specific project.
-- Do NOT repeat the candidate's entire profile.
-- Do NOT invent information.
-- Do NOT mention information that was not supplied.
-
-The reasoning should be detailed enough for a client to understand
-WHY the candidate received the score, while remaining concise.
-
-Do NOT provide long explanations.
-
-Do NOT repeat the candidate's full profile.
-
-Do NOT repeat the project description.
-
-Do NOT include markdown.
-
-Do NOT include comments.
-
-Do NOT include <think> or analysis.
+Do NOT:
+- repeat the entire candidate profile
+- repeat the entire project description
+- invent information
+- include markdown
+- include comments
+- include <think> or analysis
 
 Return ONLY valid JSON.
 
@@ -493,7 +554,9 @@ FINAL CHECK BEFORE RESPONDING:
 - Return exactly ${candidates.length} matches.
 - Every candidate appears exactly once.
 - Every candidateId exactly matches an input candidate id.
-- Every requiredSkills item is evaluated exactly once.
+- For each candidate, every requiredSkills item for THAT candidate
+  is evaluated exactly once.
+- Do not use requiredSkills from another candidate.
 - Do not omit required skills.
 - Do not add extra skills.
 - matchScore is an integer from 0 to 100.
@@ -508,7 +571,7 @@ FINAL CHECK BEFORE RESPONDING:
 function validateMatchResponse(
   value: unknown,
   expectedCandidateIds: Set<string>,
-  requiredSkills: string[],
+  getRequiredSkills: (candidateId: string) => string[],
 ): GonkaMatchResponse {
   if (!value || typeof value !== "object") {
     throw new Error(
@@ -540,9 +603,7 @@ function validateMatchResponse(
 
     const match = item as Record<string, unknown>;
 
-    /*
-     * Candidate ID
-     */
+    /* Candidate ID */
     if (
       typeof match.candidateId !== "string" ||
       !match.candidateId.trim()
@@ -560,9 +621,7 @@ function validateMatchResponse(
       );
     }
 
-    /*
-     * Match score
-     */
+    /* Match score */
     const score = Number(match.matchScore);
 
     if (
@@ -575,9 +634,7 @@ function validateMatchResponse(
       );
     }
 
-    /*
-     * Reasoning
-     */
+    /* Reasoning */
     if (
       typeof match.reasoning !== "string" ||
       !match.reasoning.trim()
@@ -587,14 +644,15 @@ function validateMatchResponse(
       );
     }
 
-    /*
-     * Skill evaluation
-     */
+    /* Skill evaluation */
     if (!Array.isArray(match.skillEvaluation)) {
       throw new Error(
         `Missing skillEvaluation for ${candidateId}`,
       );
     }
+
+    const requiredSkills =
+      getRequiredSkills(candidateId);
 
     if (
       match.skillEvaluation.length !==
@@ -638,9 +696,6 @@ function validateMatchResponse(
           const skill =
             evaluation.skill.trim();
 
-          /*
-           * Find the corresponding required skill.
-           */
           const matchedRequiredSkill =
             requiredSkills.find(
               (requiredSkill) =>
@@ -660,9 +715,6 @@ function validateMatchResponse(
               matchedRequiredSkill,
             );
 
-          /*
-           * Prevent duplicate skill evaluations.
-           */
           if (
             evaluatedSkills.has(
               normalisedSkill,
@@ -678,9 +730,6 @@ function validateMatchResponse(
             normalisedSkill,
           );
 
-          /*
-           * matched must be a real boolean.
-           */
           if (
             typeof evaluation.matched !==
             "boolean"
@@ -691,12 +740,8 @@ function validateMatchResponse(
             );
           }
 
-          /*
-           * Evidence is required.
-           */
           if (
-            typeof evaluation.evidence !==
-              "string" ||
+            typeof evaluation.evidence !== "string" ||
             !evaluation.evidence.trim()
           ) {
             throw new Error(
@@ -714,9 +759,7 @@ function validateMatchResponse(
         },
       );
 
-    /*
-     * Ensure EVERY required skill was evaluated.
-     */
+    /* Ensure EVERY required skill was evaluated. */
     for (const requiredSkill of requiredSkills) {
       if (
         !evaluatedSkills.has(
@@ -738,9 +781,7 @@ function validateMatchResponse(
     };
   });
 
-  /*
-   * Prevent duplicate candidate IDs.
-   */
+  /* Prevent duplicate candidate IDs. */
   const seen = new Set<string>();
 
   for (const match of matches) {
@@ -753,10 +794,7 @@ function validateMatchResponse(
     seen.add(match.candidateId);
   }
 
-  /*
-   * Ensure every expected candidate received
-   * exactly one result.
-   */
+  /* Ensure every expected candidate received exactly one result. */
   for (const candidateId of expectedCandidateIds) {
     if (!seen.has(candidateId)) {
       throw new Error(
@@ -777,28 +815,71 @@ function validateMatchResponse(
 async function scoreBatch(
   direction: MatchDirection,
   source: MatchProject | MatchFreelancer,
-  candidates: Array<
-    MatchProject | MatchFreelancer
-  >,
+  candidates: Array<MatchProject | MatchFreelancer>,
   model = getMatchModel(),
 ): Promise<MatchScoreResult[]> {
-  const candidateIds = candidates.map(
+  /*
+   * For PROJECT_FOR_FREELANCER, use short aliases for candidate IDs.
+   *
+   * This prevents Gonka from accidentally modifying long UUIDs.
+   *
+   * IMPORTANT:
+   * FREELANCER_FOR_PROJECT continues using the original candidate IDs.
+   */
+  const modelCandidates =
+    direction === "PROJECT_FOR_FREELANCER"
+      ? candidates.map((candidate, index) => ({
+          ...candidate,
+          id: `CANDIDATE_${index}`,
+        }))
+      : candidates;
+
+  const candidateIds = modelCandidates.map(
     (candidate) => candidate.id,
   );
 
   const expectedIds = new Set(candidateIds);
-  
 
   console.log(
     `Sending ${direction} matching request to Gonka model: ${model}`,
   );
-  
-  console.log(
-  "[Gonka DEBUG] scoreBatch requiredSkills:",
-  direction === "FREELANCER_FOR_PROJECT"
-    ? (source as MatchProject).requiredSkills
-    : []
-  );
+
+  if (direction === "FREELANCER_FOR_PROJECT") {
+    /*
+     * EXISTING CLIENT → FREELANCER LOGIC.
+     *
+     * Do not change this behaviour.
+     */
+    console.log(
+      "[Gonka DEBUG] Project requiredSkills:",
+      (source as MatchProject).requiredSkills,
+    );
+  } else {
+    /*
+     * FREELANCER → PROJECT DEBUG.
+     */
+    console.log(
+      "[Gonka DEBUG] Freelancer skills:",
+      (source as MatchFreelancer).skills,
+    );
+
+    console.log(
+      "[Gonka DEBUG] Candidate project skills:",
+      candidates.map((candidate) => ({
+        id: candidate.id,
+        requiredSkills:
+          (candidate as MatchProject).requiredSkills ?? [],
+      })),
+    );
+
+    console.log(
+      "[Gonka DEBUG] Gonka candidate aliases:",
+      modelCandidates.map((candidate, index) => ({
+        alias: candidate.id,
+        realId: candidates[index].id,
+      })),
+    );
+  }
 
   const result =
     await gonka.chat.completions.create({
@@ -815,16 +896,20 @@ async function scoreBatch(
           content: buildMatchPrompt(
             direction,
             source,
-            candidates,
+            modelCandidates,
           ),
         },
       ],
       temperature: 0,
     }).withResponse();
 
-    const response = result.data;
-    const gonkaRequestId = result.request_id;
-    console.log("[Gonka] Request ID:", gonkaRequestId);
+  const response = result.data;
+  const gonkaRequestId = result.request_id;
+
+  console.log(
+    "[Gonka] Request ID:",
+    gonkaRequestId,
+  );
 
   const content =
     response.choices[0]?.message?.content;
@@ -834,24 +919,88 @@ async function scoreBatch(
       "Gonka returned an empty matching response",
     );
   }
-  console.log("[Gonka Match] Expected candidate IDs:", candidateIds);
-  console.log("[Gonka Match] Raw model response:", content);
 
-  const requiredSkills =
-    direction === "FREELANCER_FOR_PROJECT"
-      ? (source as MatchProject).requiredSkills
-      : [];
+  console.log(
+    "[Gonka Match] Expected candidate IDs:",
+    candidateIds,
+  );
+
+  console.log(
+    "[Gonka Match] Raw model response:",
+    content,
+  );
+
+  /*
+   * Required skills are different depending on direction.
+   *
+   * FREELANCER_FOR_PROJECT:
+   *   Every freelancer candidate is evaluated against
+   *   the source project's requiredSkills.
+   *
+   * PROJECT_FOR_FREELANCER:
+   *   Every project candidate has its OWN requiredSkills.
+   */
+  const getRequiredSkills = (
+    candidateId: string,
+  ): string[] => {
+    if (direction === "FREELANCER_FOR_PROJECT") {
+      return (
+        (source as MatchProject).requiredSkills ?? []
+      );
+    }
+
+    const candidateIndex = modelCandidates.findIndex(
+      (candidate) => candidate.id === candidateId,
+    );
+
+    if (candidateIndex === -1) {
+      return [];
+    }
+
+    const realCandidate = candidates[
+      candidateIndex
+    ] as MatchProject;
+
+    return realCandidate.requiredSkills ?? [];
+  };
 
   const parsed = validateMatchResponse(
     parseGonkaJson(content),
     expectedIds,
-    requiredSkills,
+    getRequiredSkills,
   );
 
-    return parsed.matches.map((match) => ({
+  /*
+   * Convert Gonka aliases back into the real database IDs.
+   *
+   * Only PROJECT_FOR_FREELANCER uses aliases.
+   *
+   * FREELANCER_FOR_PROJECT remains unchanged.
+   */
+  return parsed.matches.map((match) => {
+    if (direction === "FREELANCER_FOR_PROJECT") {
+      return {
+        ...match,
+        gonkaRequestId,
+      };
+    }
+
+    const aliasIndex = modelCandidates.findIndex(
+      (candidate) => candidate.id === match.candidateId,
+    );
+
+    if (aliasIndex === -1) {
+      throw new Error(
+        `Unable to map Gonka candidateId: ${match.candidateId}`,
+      );
+    }
+
+    return {
       ...match,
-      gonkaRequestId: gonkaRequestId,
-    }));
+      candidateId: candidates[aliasIndex].id,
+      gonkaRequestId,
+    };
+  });
 }
 
 export async function scoreCandidates(
@@ -868,14 +1017,35 @@ export async function scoreCandidates(
 
   const results: MatchScoreResult[] = [];
 
+  /*
+   * IMPORTANT:
+   *
+   * Existing FREELANCER_FOR_PROJECT:
+   *   20 candidates per request, unchanged.
+   *
+   * PROJECT_FOR_FREELANCER:
+   *   8 projects per request to reduce the chance of
+   *   Gonka producing truncated JSON.
+   */
+  const batchSize =
+    direction === "PROJECT_FOR_FREELANCER"
+      ? PROJECT_MATCH_BATCH_SIZE
+      : MAX_CANDIDATES_PER_REQUEST;
+
   for (
     let offset = 0;
     offset < candidates.length;
-    offset += MAX_CANDIDATES_PER_REQUEST
+    offset += batchSize
   ) {
     const batch = candidates.slice(
       offset,
-      offset + MAX_CANDIDATES_PER_REQUEST,
+      offset + batchSize,
+    );
+
+    console.log(
+      `[Gonka Match] ${direction} batch ` +
+      `${Math.floor(offset / batchSize) + 1}: ` +
+      `${batch.length} candidates`,
     );
 
     const batchResults = await scoreBatch(
