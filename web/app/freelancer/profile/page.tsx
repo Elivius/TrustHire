@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Sparkles,
   ShieldCheck,
@@ -13,6 +14,13 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  CheckCircle2,
+  Lock,
+  Copy,
+  Check,
+  Coins,
+  Briefcase,
+  Award,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { GradientButton } from "@/components/ui/gradient-button";
@@ -21,8 +29,17 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ScoreBadge } from "@/components/ui/score-badge";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { simulateTrustScoreCalculation } from "@/lib/simulation";
-import { useCurrentAccount } from "@mysten/dapp-kit-react";
+import { useCurrentAccount, useCurrentClient, useDAppKit } from "@mysten/dapp-kit-react";
+import { useApp } from "@/context/app-context";
 import { createClient } from "@/lib/supabase/client";
+import {
+  fetchOnChainReputationRecord,
+  buildCreateReputationRecordTx,
+  formatSuiAddress,
+  getSuiscanObjectUrl,
+  getSuiscanTxUrl,
+  OnChainReputationData,
+} from "@/lib/sui/escrow";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,10 +80,13 @@ interface ProfileState {
   completedProjectsCount: number;
   onTimeDeliveryPct: number;
   averageRating: number;
+  totalEarnedSui: number;
   // derived
   skills: string[];
   portfolioLinks: PortfolioLink[];
   reviews: ReviewRow[];
+  // on-chain reputation
+  onChainReputation: OnChainReputationData | null;
 }
 
 const EMPTY_PROFILE: ProfileState = {
@@ -85,9 +105,11 @@ const EMPTY_PROFILE: ProfileState = {
   completedProjectsCount: 0,
   onTimeDeliveryPct: 0,
   averageRating: 0,
+  totalEarnedSui: 0,
   skills: [],
   portfolioLinks: [],
   reviews: [],
+  onChainReputation: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -96,6 +118,9 @@ const EMPTY_PROFILE: ProfileState = {
 
 export default function FreelancerProfilePage() {
   const currentAccount = useCurrentAccount();
+  const client = useCurrentClient();
+  const dAppKit = useDAppKit();
+  const { projects, milestones, transactions, ratings, users } = useApp();
   const supabase = createClient();
 
   // The connected Sui wallet address is the primary key we look up in the DB
@@ -108,6 +133,93 @@ export default function FreelancerProfilePage() {
   const [profile, setProfile] = useState<ProfileState>(EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [copiedObjId, setCopiedObjId] = useState(false);
+  const [isInitializingRep, setIsInitializingRep] = useState(false);
+  const [repInitDigest, setRepInitDigest] = useState<string | null>(null);
+
+  // Filter all projects matched to this freelancer
+  const myMatchedProjects = React.useMemo(() => {
+    return projects.filter(
+      (p) =>
+        Boolean(p.matchedFreelancerId) &&
+        (p.matchedFreelancerId === walletAddress ||
+          p.matchedFreelancerId?.toLowerCase() === walletAddress?.toLowerCase() ||
+          (profile.userId && p.matchedFreelancerId?.toLowerCase() === profile.userId.toLowerCase()))
+    );
+  }, [projects, walletAddress, profile.userId]);
+
+  const myCompletedProjects = React.useMemo(() => {
+    return myMatchedProjects.filter((p) => p.status === "completed");
+  }, [myMatchedProjects]);
+
+  // Derive released milestones (matching freelancer/earnings and freelancer/dashboard)
+  const myReleasedMilestones = React.useMemo(() => {
+    return milestones.filter(
+      (m) =>
+        m.status === "released" &&
+        myMatchedProjects.some((p) => p.id === m.projectId)
+    );
+  }, [milestones, myMatchedProjects]);
+
+  // Total earned from released milestones and confirmed on-chain release transactions
+  const totalEarnedSui = React.useMemo(() => {
+    const fromMs = myReleasedMilestones.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    const fromTx = transactions
+      .filter(
+        (t) =>
+          t.type === "milestone_released" &&
+          myMatchedProjects.some((p) => p.id === t.projectId) &&
+          !myReleasedMilestones.some(
+            (m) => m.onChainTxHash && m.onChainTxHash === t.txHash
+          )
+      )
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const totalFromDbAndTx = fromMs + fromTx;
+    return totalFromDbAndTx > 0 ? totalFromDbAndTx : 0;
+  }, [myReleasedMilestones, transactions, myMatchedProjects]);
+
+  // Combined client reviews from Supabase and AppContext session ratings
+  const allReviews = React.useMemo(() => {
+    const list = [...profile.reviews];
+    const appRatings = ratings.filter(
+      (r) =>
+        r.freelancerId === walletAddress ||
+        r.freelancerId?.toLowerCase() === walletAddress?.toLowerCase() ||
+        (profile.userId && r.freelancerId?.toLowerCase() === profile.userId.toLowerCase())
+    );
+    for (const ar of appRatings) {
+      if (!list.some((r) => r.review_id === `app-${ar.projectId}`)) {
+        list.push({
+          review_id: `app-${ar.projectId}`,
+          rating: ar.stars,
+          comment: ar.comment || null,
+          created_at: ar.ratedAt,
+        });
+      }
+    }
+    return list;
+  }, [profile.reviews, ratings, walletAddress, profile.userId]);
+
+  const clientAverageRating = React.useMemo(() => {
+    if (allReviews.length > 0) {
+      const sum = allReviews.reduce((acc, curr) => acc + Number(curr.rating || 0), 0);
+      return parseFloat((sum / allReviews.length).toFixed(1));
+    }
+    if (profile.onChainReputation && profile.onChainReputation.ratingCount > 0 && profile.onChainReputation.avgRating > 0) {
+      return profile.onChainReputation.avgRating;
+    }
+    return 0;
+  }, [allReviews, profile.onChainReputation]);
+
+  const completedProjectsCount = React.useMemo(() => {
+    if (myCompletedProjects.length > 0) return myCompletedProjects.length;
+    if (profile.onChainReputation && profile.onChainReputation.completedProjects > 0) {
+      return profile.onChainReputation.completedProjects;
+    }
+    return profile.completedProjectsCount || 0;
+  }, [myCompletedProjects, profile.onChainReputation, profile.completedProjectsCount]);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(true);
@@ -225,6 +337,14 @@ export default function FreelancerProfilePage() {
             )
           : 0;
 
+      // 7. Fetch on-chain reputation record from Sui
+      let onChainRep: OnChainReputationData | null = null;
+      try {
+        onChainRep = await fetchOnChainReputationRecord(client, walletAddress);
+      } catch (e) {
+        console.warn("Could not fetch on-chain reputation record:", e);
+      }
+
       const built: ProfileState = {
         userId,
         name: userRow?.name ?? walletAddress,
@@ -255,12 +375,14 @@ export default function FreelancerProfilePage() {
         trustScoreRequestId: `gonka_req_${userId?.slice(-8) ?? "00000000"}`,
         experienceLevel: "Expert",
         isDiscoverable: true,
-        completedProjectsCount: reviewRows.length,
-        onTimeDeliveryPct: reviewRows.length > 0 ? 95 : 0,
+        completedProjectsCount: onChainRep?.completedProjects ?? 0,
+        onTimeDeliveryPct: onChainRep?.onTimeDeliveryPct ?? 100,
         averageRating: avgRating,
+        totalEarnedSui: onChainRep?.totalEarnedSui ?? 0,
         skills: skillNames,
         portfolioLinks: portfolioRows,
         reviews: reviewRows,
+        onChainReputation: onChainRep,
       };
 
       setProfile(built);
@@ -271,11 +393,44 @@ export default function FreelancerProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [walletAddress, client]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  const handleCopyRecordId = (id: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(id);
+      setCopiedObjId(true);
+      setTimeout(() => setCopiedObjId(false), 2000);
+    }
+  };
+
+  const handleInitializeReputation = async () => {
+    if (!walletAddress || !dAppKit) return;
+    setIsInitializingRep(true);
+    setRepInitDigest(null);
+    try {
+      const tx = buildCreateReputationRecordTx({ freelancerAddress: walletAddress });
+      const res = await dAppKit.signAndExecuteTransaction({ transaction: tx });
+      if (res.$kind === "FailedTransaction") {
+        throw new Error(res.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
+      }
+      const digest = res.Transaction.digest;
+      if (digest) {
+        setRepInitDigest(digest);
+        setTimeout(() => {
+          loadProfile();
+        }, 2500);
+      }
+    } catch (err: any) {
+      console.error("Failed to initialize reputation record:", err);
+      alert(err.message || "Failed to initialize reputation record on Sui.");
+    } finally {
+      setIsInitializingRep(false);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Edit helpers
@@ -771,51 +926,221 @@ export default function FreelancerProfilePage() {
                   )}
 
                   {/* Reputation Section */}
-                  <div className="space-y-4 pt-4 border-t border-black/5 dark:border-white/5">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
-                        On-Chain Reputation Record
-                      </h3>
-                      <div className="flex items-center gap-4 text-xs font-mono text-foreground/60">
-                        <span>{profile.completedProjectsCount} completed</span>
-                        <span>•</span>
-                        <span className="text-[#0D9488] dark:text-[#2DD4BF]">
-                          {profile.onTimeDeliveryPct}% on-time
-                        </span>
-                        <span>•</span>
-                        <span className="text-amber-500 dark:text-amber-400">
-                          ★ {profile.averageRating}
-                        </span>
+                  <div className="space-y-6 pt-6 border-t border-black/5 dark:border-white/5">
+                    {/* Header & On-Chain Proof Badge */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-[#0D9488] dark:text-[#2DD4BF]" />
+                          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                            On-Chain Reputation Record
+                          </h3>
+                        </div>
+                        <p className="text-xs text-foreground/60 mt-0.5">
+                          Immutable milestone deliveries, earnings, and client ratings verified on Sui Testnet.
+                        </p>
+                      </div>
+
+                      {/* On-Chain Object Status Chip */}
+                      {profile.onChainReputation?.recordId ? (
+                        <div className="flex items-center gap-2 bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 px-3 py-1.5 rounded-xl text-xs font-mono text-foreground/80 self-start sm:self-auto">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-[11px] text-foreground/50">Object:</span>
+                          <a
+                            href={profile.onChainReputation.explorerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-[#0D9488] dark:text-[#2DD4BF] hover:underline flex items-center gap-1"
+                            title="View ReputationRecord on Sui Explorer"
+                          >
+                            {formatSuiAddress(profile.onChainReputation.recordId)}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyRecordId(profile.onChainReputation!.recordId)}
+                            className="p-1 hover:text-foreground text-foreground/40 transition-colors"
+                            title="Copy Object ID"
+                          >
+                            {copiedObjId ? (
+                              <Check className="w-3 h-3 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-foreground/50 font-mono">Not initialized</span>
+                          <GradientButton
+                            size="sm"
+                            loading={isInitializingRep}
+                            onClick={handleInitializeReputation}
+                          >
+                            Initialize Record
+                          </GradientButton>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Init Success Banner */}
+                    {repInitDigest && (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                        <span>On-Chain Reputation Record created on Sui!</span>
+                        <a
+                          href={getSuiscanTxUrl(repInitDigest)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono underline flex items-center gap-1"
+                        >
+                          View Transaction <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+
+                    {/* 3 Stat Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-foreground/60">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
+                          <span>Completed Work</span>
+                        </div>
+                        <p className="text-xl sm:text-2xl font-bold text-foreground">
+                          {completedProjectsCount}
+                        </p>
+                        <p className="text-[11px] text-foreground/40 font-mono">Smart contracts settled</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-foreground/60">
+                          <Coins className="w-3.5 h-3.5 text-[#7B61FF]" />
+                          <span>Total Earned</span>
+                        </div>
+                        <p className="text-xl sm:text-2xl font-bold text-[#7B61FF]">
+                          {totalEarnedSui > 0 ? `${totalEarnedSui.toLocaleString()} SUI` : "0 SUI"}
+                        </p>
+                        <p className="text-[11px] text-foreground/40 font-mono">Released from escrow</p>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-foreground/60">
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                          <span>Client Rating</span>
+                        </div>
+                        <p className="text-xl sm:text-2xl font-bold text-amber-500">
+                          {clientAverageRating > 0 ? `★ ${clientAverageRating.toFixed(1)}` : "★ —"}
+                        </p>
+                        <p className="text-[11px] text-foreground/40 font-mono">
+                          {allReviews.length > 0
+                            ? `${allReviews.length} client review${allReviews.length === 1 ? "" : "s"}`
+                            : "No ratings yet"}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      {profile.reviews.length > 0 ? (
-                        profile.reviews.map((r) => (
-                          <div
-                            key={r.review_id}
-                            className="p-3.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.02] space-y-1.5 text-xs"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
-                                {[...Array(Math.round(Number(r.rating)))].map((_, s) => (
-                                  <Star key={s} className="w-3.5 h-3.5 fill-current" />
-                                ))}
+                    {/* Verified Contracts List */}
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
+                          <Briefcase className="w-3.5 h-3.5 text-foreground/50" />
+                          <span>Verified Contract Escrow History</span>
+                        </h4>
+                        <span className="text-[11px] font-mono text-foreground/50">
+                          {myCompletedProjects.length} Verified
+                        </span>
+                      </div>
+
+                      {myCompletedProjects.length > 0 ? (
+                        <div className="space-y-2.5">
+                          {myCompletedProjects.map((proj) => {
+                            const clientUser = users.find((u) => u.id === proj.clientId);
+                            return (
+                              <div
+                                key={proj.id}
+                                className="p-4 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.015] dark:bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                              >
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-sm text-foreground">{proj.title}</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-semibold border border-emerald-500/20">
+                                      100% Released
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-foreground/60 font-mono text-[11px] flex-wrap">
+                                    <span className="text-emerald-500 font-semibold">{proj.estimatedBudget.toLocaleString()} SUI</span>
+                                    {clientUser && (
+                                      <>
+                                        <span>•</span>
+                                        <span>Client: {clientUser.name}</span>
+                                      </>
+                                    )}
+                                    {proj.escrowObjectId && (
+                                      <>
+                                        <span>•</span>
+                                        <a
+                                          href={getSuiscanObjectUrl(proj.escrowObjectId)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-[#0D9488] dark:text-[#2DD4BF] hover:underline flex items-center gap-1"
+                                          title="View Escrow on Sui Explorer"
+                                        >
+                                          Escrow: {formatSuiAddress(proj.escrowObjectId)}
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <Link href={`/project/${proj.id}/workspace`}>
+                                  <GhostButton size="sm">Workspace Record</GhostButton>
+                                </Link>
                               </div>
-                              <span className="font-mono text-[11px] text-foreground/40">
-                                {new Date(r.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                            {r.comment && (
-                              <p className="text-foreground/80 italic">"{r.comment}"</p>
-                            )}
-                          </div>
-                        ))
+                            );
+                          })}
+                        </div>
                       ) : (
                         <div className="p-4 rounded-xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 text-xs text-foreground/50 text-center">
-                          No reviews yet. Completed milestone records will appear here.
+                          No completed contracts recorded yet. As clients approve and release milestones, completed contracts will appear here with on-chain cryptographic proofs.
                         </div>
                       )}
+                    </div>
+
+                    {/* Client Reviews Section */}
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-foreground/50" />
+                        <span>Client Reviews &amp; Testimonials</span>
+                      </h4>
+
+                      <div className="space-y-2">
+                        {allReviews.length > 0 ? (
+                          allReviews.map((r) => (
+                            <div
+                              key={r.review_id}
+                              className="p-3.5 rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.02] space-y-1.5 text-xs"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1 text-amber-500 dark:text-amber-400">
+                                  {[...Array(Math.max(1, Math.round(Number(r.rating) || 5)))].map((_, s) => (
+                                    <Star key={s} className="w-3.5 h-3.5 fill-current" />
+                                  ))}
+                                </div>
+                                <span className="font-mono text-[11px] text-foreground/40">
+                                  {new Date(r.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              {r.comment && (
+                                <p className="text-foreground/80 italic">"{r.comment}"</p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-4 rounded-xl bg-black/[0.01] dark:bg-white/[0.01] border border-black/5 dark:border-white/5 text-xs text-foreground/50 text-center">
+                            No reviews submitted yet. Client ratings left upon final milestone approvals will appear here.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </GlassCard>

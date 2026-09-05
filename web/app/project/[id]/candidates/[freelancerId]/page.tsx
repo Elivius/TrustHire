@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -26,6 +26,14 @@ import { SkillChip } from "@/components/ui/skill-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { computeFreelancerMatchForProject } from "@/lib/simulation";
 import { MessagingModalStub } from "@/components/layout/messaging-modal-stub";
+import { useCurrentClient } from "@mysten/dapp-kit-react";
+import {
+  resolveFreelancerReputationRecordId,
+  fetchOnChainReputationRecord,
+  getSuiscanObjectUrl,
+  formatSuiAddress,
+  type OnChainReputationData,
+} from "@/lib/sui/escrow";
 
 export default function FreelancerProfileDetailClientViewPage() {
   const params = useParams();
@@ -37,6 +45,7 @@ export default function FreelancerProfileDetailClientViewPage() {
 
   const {
     projects,
+    milestones,
     users,
     freelancerProfiles,
     invitations,
@@ -45,6 +54,10 @@ export default function FreelancerProfileDetailClientViewPage() {
     respondToApplication,
     ratings
   } = useApp();
+
+  const client = useCurrentClient();
+  const [repRecordId, setRepRecordId] = useState<string | null>(null);
+  const [onChainRep, setOnChainRep] = useState<OnChainReputationData | null>(null);
 
   const [messagingOpen, setMessagingOpen] = useState(false);
   const [messagingName, setMessagingName] = useState("");
@@ -86,6 +99,79 @@ export default function FreelancerProfileDetailClientViewPage() {
       averageRating: 4.8
     };
 
+  const existingInvitation = project
+    ? invitations.find(
+        (i) => i.projectId === projectId && i.freelancerId.toLowerCase() === freelancerId.toLowerCase()
+      )
+    : undefined;
+  const existingApplication = project
+    ? applications.find(
+        (a) => a.projectId === projectId && a.freelancerId.toLowerCase() === freelancerId.toLowerCase()
+      )
+    : undefined;
+
+  const matchResult = computeFreelancerMatchForProject(
+    profile.skills,
+    project?.requiredSkills || [],
+    profile.trustScore
+  );
+
+  const candidateAddress = freelancerUser.walletAddress || (freelancerUser.id.startsWith("0x") ? freelancerUser.id : null);
+
+  useEffect(() => {
+    let isCancelled = false;
+    async function loadRep() {
+      if (!client || !candidateAddress) return;
+      try {
+        const recordId = await resolveFreelancerReputationRecordId(client, candidateAddress);
+        if (!isCancelled) {
+          setRepRecordId(recordId);
+        }
+        if (recordId) {
+          const rec = await fetchOnChainReputationRecord(client, candidateAddress);
+          if (!isCancelled && rec) {
+            setOnChainRep(rec);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load candidate on-chain reputation:", err);
+      }
+    }
+    loadRep();
+    return () => {
+      isCancelled = true;
+    };
+  }, [client, candidateAddress]);
+
+  // Candidate's verified project earnings from released milestones across projects
+  const candidateEarnedSui = React.useMemo(() => {
+    const candidateProjects = projects.filter(
+      (p) =>
+        Boolean(p.matchedFreelancerId) &&
+        (p.matchedFreelancerId === freelancerId ||
+          p.matchedFreelancerId?.toLowerCase() === freelancerId.toLowerCase() ||
+          (candidateAddress && p.matchedFreelancerId?.toLowerCase() === candidateAddress.toLowerCase()))
+    );
+    const releasedMs = milestones.filter(
+      (m) => m.status === "released" && candidateProjects.some((p) => p.id === m.projectId)
+    );
+    return releasedMs.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+  }, [projects, milestones, freelancerId, candidateAddress]);
+
+  const candidateCompletedCount = React.useMemo(() => {
+    const candidateProjects = projects.filter(
+      (p) =>
+        Boolean(p.matchedFreelancerId) &&
+        (p.matchedFreelancerId === freelancerId ||
+          p.matchedFreelancerId?.toLowerCase() === freelancerId.toLowerCase() ||
+          (candidateAddress && p.matchedFreelancerId?.toLowerCase() === candidateAddress.toLowerCase()))
+    );
+    const completed = candidateProjects.filter((p) => p.status === "completed").length;
+    if (completed > 0) return completed;
+    if (onChainRep && onChainRep.completedProjects > 0) return onChainRep.completedProjects;
+    return profile.completedProjectsCount || 0;
+  }, [projects, freelancerId, candidateAddress, onChainRep, profile.completedProjectsCount]);
+
   if (!project) {
     return (
       <AppShell>
@@ -98,19 +184,6 @@ export default function FreelancerProfileDetailClientViewPage() {
       </AppShell>
     );
   }
-
-  const existingInvitation = invitations.find(
-    (i) => i.projectId === projectId && i.freelancerId.toLowerCase() === freelancerId.toLowerCase()
-  );
-  const existingApplication = applications.find(
-    (a) => a.projectId === projectId && a.freelancerId.toLowerCase() === freelancerId.toLowerCase()
-  );
-
-  const matchResult = computeFreelancerMatchForProject(
-    profile.skills,
-    project.requiredSkills,
-    profile.trustScore
-  );
 
   const freelancerRatings = ratings.filter((r) => r.freelancerId === freelancerId);
 
@@ -160,16 +233,42 @@ export default function FreelancerProfileDetailClientViewPage() {
               <div className="space-y-1">
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">{freelancerUser.name}</h1>
                 <p className="text-xs sm:text-sm text-[#2563EB] dark:text-[#4DA2FF] font-medium">{profile.headline}</p>
-                <div className="flex items-center gap-3 pt-1 text-xs text-foreground/60">
+                <div className="flex items-center gap-2.5 pt-1 text-xs text-foreground/60 flex-wrap">
                   <span className="flex items-center gap-1 text-amber-500 dark:text-amber-400 font-mono font-semibold">
                     <Star className="w-3.5 h-3.5 fill-amber-500 dark:fill-amber-400" />
-                    {profile.averageRating.toFixed(1)} ({profile.completedProjectsCount} projects)
+                    {profile.averageRating.toFixed(1)} ({candidateCompletedCount} projects)
                   </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1 text-[#0D9488] dark:text-[#2DD4BF] font-mono">
-                    <Clock className="w-3.5 h-3.5" />
-                    {profile.onTimeDeliveryPct}% On-Time Delivery
-                  </span>
+
+                  {candidateAddress && (
+                    <>
+                      <span>•</span>
+                      {repRecordId ? (
+                        <a
+                          href={getSuiscanObjectUrl(repRecordId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#0D9488]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#0D9488]/20 font-mono text-[11px] font-semibold hover:underline"
+                          title={`View verified on-chain ReputationRecord on Sui Explorer (${repRecordId})`}
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
+                          <span>On-Chain Rep: {formatSuiAddress(repRecordId)}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                        </a>
+                      ) : (
+                        <a
+                          href={`https://suiscan.xyz/testnet/account/${candidateAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/5 dark:bg-white/5 text-foreground/70 border border-black/10 dark:border-white/10 font-mono text-[11px] hover:text-foreground hover:underline"
+                          title={`View candidate Sui address on Explorer (${candidateAddress})`}
+                        >
+                          <Globe className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF]" />
+                          <span>Sui: {formatSuiAddress(candidateAddress)}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                        </a>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -189,6 +288,39 @@ export default function FreelancerProfileDetailClientViewPage() {
               )}
             </div>
           </div>
+
+          {/* Verified On-Chain Reputation Banner */}
+          {repRecordId && onChainRep && (
+            <div className="p-4 rounded-2xl border border-[#0D9488]/30 bg-[#0D9488]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0D9488]/20 text-[#0D9488] dark:text-[#2DD4BF] flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                    Verified Sui On-Chain Reputation
+                    <span className="text-[10px] font-mono font-normal px-2 py-0.5 rounded-full bg-[#0D9488]/20 text-[#0D9488] dark:text-[#2DD4BF]">
+                      Live on Testnet
+                    </span>
+                  </h4>
+                  <p className="text-xs text-foreground/70 mt-0.5 font-mono">
+                    Completed: <strong>{candidateCompletedCount}</strong> projects • Earned:{" "}
+                    <strong>{candidateEarnedSui > 0 ? `${candidateEarnedSui.toLocaleString()} SUI` : (onChainRep.totalEarnedSui >= 1 ? `${onChainRep.totalEarnedSui.toFixed(1)} SUI` : "0 SUI")}</strong>
+                    {onChainRep.ratingCount > 0 && ` • Rated: ★ ${onChainRep.avgRating.toFixed(1)} (${onChainRep.ratingCount})`}
+                  </p>
+                </div>
+              </div>
+              <a
+                href={getSuiscanObjectUrl(repRecordId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0D9488]/20 hover:bg-[#0D9488]/30 text-[#0D9488] dark:text-[#2DD4BF] border border-[#0D9488]/30 text-xs font-semibold transition-all font-mono"
+              >
+                <span>View Record on Suiscan</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          )}
 
           {/* Application Cover Note if arrived from Application */}
           {fromTab === "applications" && existingApplication?.coverNote && (

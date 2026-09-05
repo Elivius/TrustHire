@@ -208,7 +208,7 @@ export const DEFAULT_FREELANCER_REPUTATION_RECORD_ID =
 export async function resolveFreelancerReputationRecordId(
   client: any,
   freelancerAddress: string
-): Promise<string> {
+): Promise<string | null> {
   try {
     const registryId = DEFAULT_TESTNET_REGISTRY_ID;
     if (client && typeof client.listDynamicFields === "function") {
@@ -232,13 +232,13 @@ export async function resolveFreelancerReputationRecordId(
   } catch (err) {
     console.warn("resolveFreelancerReputationRecordId warning:", err);
   }
-  return DEFAULT_FREELANCER_REPUTATION_RECORD_ID;
+  return null;
 }
 
 export interface ApproveMilestoneParams {
   packageId?: string;
   escrowObjectId: string;
-  reputationRecordId?: string;
+  reputationRecordId?: string | null;
   milestoneId: number;
   gonkaVerifyRequestId?: string;
 }
@@ -270,4 +270,111 @@ export function buildApproveMilestoneTx(params: ApproveMilestoneParams): Transac
   });
 
   return tx;
+}
+
+export interface OnChainReputationData {
+  recordId: string;
+  freelancer: string;
+  completedProjects: number;
+  totalEarnedMist: number;
+  totalEarnedSui: number;
+  onTimeCount: number;
+  onTimeDeliveryPct: number;
+  avgRating: number;
+  ratingCount: number;
+  gonkaTrustScore: number;
+  gonkaTrustRequestId: string;
+  lastUpdatedMs: number;
+  explorerUrl: string;
+}
+
+/**
+ * Builds a PTB to call `trusthire::reputation::create_record`
+ */
+export function buildCreateReputationRecordTx(params: {
+  packageId?: string;
+  registryId?: string;
+  freelancerAddress: string;
+}): Transaction {
+  const packageId = params.packageId || TESTNET_PACKAGE_ID;
+  if (!packageId) {
+    throw new Error("Cannot build create_record transaction: NEXT_PUBLIC_TESTNET_PACKAGE_ID is not configured.");
+  }
+  const registryId = params.registryId || DEFAULT_TESTNET_REGISTRY_ID;
+  const tx = new Transaction();
+
+  tx.moveCall({
+    target: `${packageId}::reputation::create_record`,
+    arguments: [
+      tx.object(registryId),
+      tx.pure.address(params.freelancerAddress),
+      tx.object(SUI_CLOCK_OBJECT_ID),
+    ],
+  });
+
+  return tx;
+}
+
+/**
+ * Queries and parses an on-chain ReputationRecord from Sui Testnet
+ */
+export async function fetchOnChainReputationRecord(
+  client: any,
+  freelancerAddress: string
+): Promise<OnChainReputationData | null> {
+  if (!freelancerAddress) return null;
+  try {
+    const recordId = await resolveFreelancerReputationRecordId(client, freelancerAddress);
+    if (!recordId) return null;
+
+    let objData: any = null;
+    if (client && typeof client.getObject === "function") {
+      try {
+        const resp = await client.getObject({
+          objectId: recordId,
+          include: { json: true }
+        });
+        objData = resp?.object?.json || resp?.object?.content;
+      } catch (clientErr) {
+        console.warn("Could not query getObject on client:", clientErr);
+      }
+    }
+
+    if (!objData) return null;
+
+    if (objData.freelancer && objData.freelancer.toLowerCase() !== freelancerAddress.toLowerCase()) {
+      return null;
+    }
+
+    const completedProjects = Number(objData.completed_projects) || 0;
+    const totalEarnedMist = Number(objData.total_earned) || 0;
+    const totalEarnedSui = totalEarnedMist / 1_000_000_000;
+    const onTimeCount = Number(objData.on_time_count) || 0;
+    const onTimeDeliveryPct = completedProjects > 0 ? Math.round((onTimeCount / completedProjects) * 100) : 100;
+    const avgRatingX10 = Number(objData.avg_rating_x10) || 0;
+    const avgRating = avgRatingX10 > 0 ? Number((avgRatingX10 / 10).toFixed(1)) : 0;
+    const ratingCount = Number(objData.rating_count) || 0;
+    const gonkaTrustScore = Number(objData.gonka_trust_score) || 0;
+    const gonkaTrustRequestId = objData.gonka_trust_request_id || "";
+    const lastUpdatedMs = Number(objData.last_updated_ms) || 0;
+
+    return {
+      recordId,
+      freelancer: objData.freelancer || freelancerAddress,
+      completedProjects,
+      totalEarnedMist,
+      totalEarnedSui,
+      onTimeCount,
+      onTimeDeliveryPct,
+      avgRating,
+      ratingCount,
+      gonkaTrustScore,
+      gonkaTrustRequestId,
+      lastUpdatedMs,
+      explorerUrl: getSuiscanObjectUrl(recordId),
+    };
+  } catch (err) {
+    console.warn("fetchOnChainReputationRecord warning:", err);
+    return null;
+  }
 }

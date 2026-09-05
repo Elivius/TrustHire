@@ -201,9 +201,9 @@ export default function ProjectDetailPage() {
               {isClientOwner && (
                 <div className="flex items-center gap-2">
                   <Link href={`/project/${project.id}/candidates`}>
-                    <GhostButton size="sm" icon={<Users className="w-4 h-4" />}>
-                      Candidates ({candidateCount})
-                    </GhostButton>
+                    <GradientButton size="sm" icon={<Users className="w-4 h-4" />}>
+                      Candidates Pool ({candidateCount})
+                    </GradientButton>
                   </Link>
                   {(project.status === "matched" ||
                     (project.matchedFreelancerId && !project.escrowObjectId)) && (
