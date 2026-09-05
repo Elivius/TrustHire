@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ShieldCheck,
   Lock,
@@ -22,6 +23,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GhostButton } from "@/components/ui/ghost-button";
+import { GradientButton } from "@/components/ui/gradient-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { OnChainTransaction } from "@/types";
 import {
@@ -35,9 +37,11 @@ import { useCurrentAccount, useCurrentClient } from "@mysten/dapp-kit-react";
 
 export default function ClientEscrowPage() {
   const router = useRouter();
-  const { currentUser, projects, milestones, transactions } = useApp();
+  const { currentUser, projects, milestones, transactions, users } = useApp();
   const [filterProject, setFilterProject] = useState<string>("all");
-  const [escrowTab, setEscrowTab] = useState<"active" | "completed" | "all">("active");
+  const [escrowTab, setEscrowTab] = useState<
+    "active" | "pending" | "completed" | "all"
+  >("active");
 
   const currentAccount = useCurrentAccount();
   const client = useCurrentClient();
@@ -110,17 +114,36 @@ export default function ClientEscrowPage() {
     return clientProjects.filter((p) => p.status === "in_progress");
   }, [clientProjects]);
 
+  const matchedAwaitingEscrowProjects = useMemo(() => {
+    return clientProjects.filter(
+      (p) =>
+        p.status === "matched" ||
+        (p.status === "open" && Boolean(p.matchedFreelancerId) && !p.escrowObjectId)
+    );
+  }, [clientProjects]);
+
   const completedEscrowProjects = useMemo(() => {
     return clientProjects.filter((p) => p.status === "completed");
   }, [clientProjects]);
 
   const displayedEscrowProjects = useMemo(() => {
     if (escrowTab === "active") return inProgressProjects;
+    if (escrowTab === "pending") return matchedAwaitingEscrowProjects;
     if (escrowTab === "completed") return completedEscrowProjects;
     return clientProjects.filter(
-      (p) => p.status === "in_progress" || p.status === "completed"
+      (p) =>
+        p.status === "in_progress" ||
+        p.status === "completed" ||
+        p.status === "matched" ||
+        (p.status === "open" && Boolean(p.matchedFreelancerId))
     );
-  }, [escrowTab, inProgressProjects, completedEscrowProjects, clientProjects]);
+  }, [
+    escrowTab,
+    inProgressProjects,
+    matchedAwaitingEscrowProjects,
+    completedEscrowProjects,
+    clientProjects,
+  ]);
 
   const currentlyEscrowed = useMemo(() => {
     return milestones
@@ -446,32 +469,46 @@ export default function ClientEscrowPage() {
               <span>
                 {escrowTab === "active"
                   ? "Active Project Escrows"
+                  : escrowTab === "pending"
+                  ? "Awaiting Escrow Deposit"
                   : escrowTab === "completed"
                   ? "Completed Project Escrows"
                   : "All Project Escrows"}
               </span>
             </h2>
 
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs font-medium self-start sm:self-auto">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs font-medium self-start sm:self-auto overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setEscrowTab("active")}
                 className={clsx(
-                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   escrowTab === "active"
                     ? "bg-white dark:bg-[#1C1D2A] text-[#0D9488] dark:text-[#2DD4BF] font-semibold shadow-sm"
                     : "text-foreground/60 hover:text-foreground"
                 )}
               >
-                Active ({inProgressProjects.length})
+                Funded ({inProgressProjects.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscrowTab("pending")}
+                className={clsx(
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
+                  escrowTab === "pending"
+                    ? "bg-white dark:bg-[#1C1D2A] text-[#D97706] dark:text-[#F59E0B] font-semibold shadow-sm"
+                    : "text-foreground/60 hover:text-foreground"
+                )}
+              >
+                Awaiting Escrow ({matchedAwaitingEscrowProjects.length})
               </button>
               <button
                 type="button"
                 onClick={() => setEscrowTab("completed")}
                 className={clsx(
-                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   escrowTab === "completed"
-                    ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
+                    ? "bg-white dark:bg-[#1C1D2A] text-[#10B981] font-semibold shadow-sm"
                     : "text-foreground/60 hover:text-foreground"
                 )}
               >
@@ -481,13 +518,17 @@ export default function ClientEscrowPage() {
                 type="button"
                 onClick={() => setEscrowTab("all")}
                 className={clsx(
-                  "px-3 py-1 rounded-lg transition-all cursor-pointer",
+                  "px-3 py-1 rounded-lg transition-all cursor-pointer whitespace-nowrap",
                   escrowTab === "all"
                     ? "bg-white dark:bg-[#1C1D2A] text-foreground font-semibold shadow-sm"
                     : "text-foreground/60 hover:text-foreground"
                 )}
               >
-                All ({inProgressProjects.length + completedEscrowProjects.length})
+                All (
+                {inProgressProjects.length +
+                  matchedAwaitingEscrowProjects.length +
+                  completedEscrowProjects.length}
+                )
               </button>
             </div>
           </div>
@@ -495,12 +536,18 @@ export default function ClientEscrowPage() {
           {displayedEscrowProjects.length === 0 ? (
             <EmptyState
               title={
-                escrowTab === "completed"
+                escrowTab === "pending"
+                  ? "No proposals awaiting escrow deposit"
+                  : escrowTab === "completed"
                   ? "No completed escrows"
-                  : "No active escrows in progress"
+                  : escrowTab === "active"
+                  ? "No active escrows in progress"
+                  : "No project escrows found"
               }
               description={
-                escrowTab === "completed"
+                escrowTab === "pending"
+                  ? "When you accept a freelancer proposal, it will appear here ready for you to lock funds into Sui smart contract escrow."
+                  : escrowTab === "completed"
                   ? "Projects where all escrow milestones have been released and paid out will appear here."
                   : "This is where you'll track locked and released funds once you match with a freelancer and fund smart contract escrow."
               }
@@ -516,12 +563,28 @@ export default function ClientEscrowPage() {
                   .filter((m) => m.status === "released")
                   .reduce((s, m) => s + m.amount, 0);
                 const remaining = total - released;
+                const isAwaitingEscrow =
+                  proj.status === "matched" ||
+                  (proj.status === "open" &&
+                    Boolean(proj.matchedFreelancerId) &&
+                    !proj.escrowObjectId);
+                const freelancer = users.find(
+                  (u) =>
+                    u.id === proj.matchedFreelancerId ||
+                    (proj.matchedFreelancerId &&
+                      u.walletAddress?.toLowerCase() ===
+                        proj.matchedFreelancerId.toLowerCase())
+                );
 
                 return (
                   <div
                     key={proj.id}
                     onClick={() =>
-                      router.push(`/project/${proj.id}/workspace`)
+                      router.push(
+                        isAwaitingEscrow
+                          ? `/project/${proj.id}/fund`
+                          : `/project/${proj.id}/workspace`
+                      )
                     }
                     className="block group cursor-pointer"
                   >
@@ -550,21 +613,39 @@ export default function ClientEscrowPage() {
                             <ExternalLink className="w-2.5 h-2.5" />
                           </a>
                         ) : (
-                          <span className="text-xs text-foreground/50 font-mono">
-                            Object: Pending Escrow
-                          </span>
+                          <div className="flex items-center gap-2 text-xs font-mono">
+                            <span className="text-[#D97706] dark:text-[#F59E0B]">
+                              Awaiting Escrow Deposit
+                            </span>
+                            {freelancer && (
+                              <span className="text-foreground/50">
+                                • Matched: {freelancer.name}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
 
                       <div className="flex items-center gap-6 text-xs font-mono">
-                        <div>
-                          <span className="text-foreground/45 block text-[10px] uppercase">
-                            Locked
-                          </span>
-                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
-                            {remaining.toLocaleString()} SUI
-                          </span>
-                        </div>
+                        {isAwaitingEscrow ? (
+                          <div>
+                            <span className="text-foreground/45 block text-[10px] uppercase">
+                              To Deposit
+                            </span>
+                            <span className="text-[#D97706] dark:text-[#F59E0B] font-semibold">
+                              {(total > 0 ? total : proj.estimatedBudget).toLocaleString()} SUI
+                            </span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="text-foreground/45 block text-[10px] uppercase">
+                              Locked
+                            </span>
+                            <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
+                              {remaining.toLocaleString()} SUI
+                            </span>
+                          </div>
+                        )}
                         <div>
                           <span className="text-foreground/45 block text-[10px] uppercase">
                             Released
@@ -573,16 +654,34 @@ export default function ClientEscrowPage() {
                             {released.toLocaleString()} SUI
                           </span>
                         </div>
-                        <GhostButton
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/project/${proj.id}/workspace`);
-                          }}
-                        >
-                          <span>Workspace</span>
-                          <ArrowRight className="w-3 h-3 ml-1" />
-                        </GhostButton>
+                        {isAwaitingEscrow ? (
+                          <Link
+                            href={`/project/${proj.id}/fund`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <GradientButton
+                              size="sm"
+                              icon={<ArrowRight className="w-3 h-3 ml-1" />}
+                            >
+                              Fund Escrow
+                            </GradientButton>
+                          </Link>
+                        ) : (
+                          <GhostButton
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/project/${proj.id}/workspace`);
+                            }}
+                          >
+                            <span>
+                              {proj.status === "completed"
+                                ? "Record"
+                                : "Workspace"}
+                            </span>
+                            <ArrowRight className="w-3 h-3 ml-1" />
+                          </GhostButton>
+                        )}
                       </div>
                     </GlassCard>
                   </div>

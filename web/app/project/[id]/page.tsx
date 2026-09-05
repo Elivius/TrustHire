@@ -199,11 +199,24 @@ export default function ProjectDetailPage() {
               )}
 
               {isClientOwner && (
-                <Link href={`/project/${project.id}/candidates`}>
-                  <GradientButton size="sm" icon={<Users className="w-4 h-4" />}>
-                    Candidates Pool ({candidateCount})
-                  </GradientButton>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link href={`/project/${project.id}/candidates`}>
+                    <GhostButton size="sm" icon={<Users className="w-4 h-4" />}>
+                      Candidates ({candidateCount})
+                    </GhostButton>
+                  </Link>
+                  {(project.status === "matched" ||
+                    (project.matchedFreelancerId && !project.escrowObjectId)) && (
+                    <Link href={`/project/${project.id}/fund`}>
+                      <GradientButton
+                        size="sm"
+                        icon={<Lock className="w-3.5 h-3.5 ml-1" />}
+                      >
+                        Fund Escrow
+                      </GradientButton>
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
           </div>
