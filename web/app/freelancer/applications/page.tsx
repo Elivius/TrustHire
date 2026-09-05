@@ -36,9 +36,27 @@ export default function FreelancerApplicationsPage() {
 
   const [activeTab, setActiveTab] = useState<"applications" | "invitations" | "saved">("applications");
 
-  const myApplications = applications.filter((a) => a.freelancerId === currentUser.id);
-  const myInvitations = invitations.filter((i) => i.freelancerId === currentUser.id);
-  const mySaved = savedProjects.filter((s) => s.freelancerId === currentUser.id);
+  const myApplications = applications.filter(
+    (a) =>
+      a.freelancerId === currentUser.id ||
+      (currentUser.walletAddress &&
+        a.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+      a.freelancerId?.toLowerCase() === currentUser.id.toLowerCase()
+  );
+  const myInvitations = invitations.filter(
+    (i) =>
+      i.freelancerId === currentUser.id ||
+      (currentUser.walletAddress &&
+        i.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+      i.freelancerId?.toLowerCase() === currentUser.id.toLowerCase()
+  );
+  const mySaved = savedProjects.filter(
+    (s) =>
+      s.freelancerId === currentUser.id ||
+      (currentUser.walletAddress &&
+        s.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+      s.freelancerId?.toLowerCase() === currentUser.id.toLowerCase()
+  );
 
   const pendingInvitationsCount = myInvitations.filter((i) => i.status === "pending").length;
 

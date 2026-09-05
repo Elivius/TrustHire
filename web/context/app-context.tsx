@@ -23,6 +23,8 @@ import {
   buildCreateEscrowTx,
   buildSubmitMilestoneTx,
   buildApproveMilestoneTx,
+  resolveFreelancerReputationRecordId,
+  getMilestoneOnChainId,
   TESTNET_PACKAGE_ID,
 } from "@/lib/sui/escrow";
 import { createClient } from "@/lib/supabase/client";
@@ -167,15 +169,11 @@ function mapSupabaseToProject(
 
     estimatedBudget: Number(p.total_budget) || 0,
     timelineDays: Number(p.timeline) || 14,
-
-    status:
-      (p.status?.toLowerCase() as ProjectStatus) || "open",
-
-    createdAt:
-      p.created_at || new Date().toISOString(),
-
-    updatedAt:
-      p.created_at || new Date().toISOString(),
+status: (p.status?.toLowerCase() as ProjectStatus) || "open",
+escrowObjectId: p.escrow_object_id || undefined,
+escrowTxHash: p.escrow_tx_hash || undefined,
+createdAt: p.created_at || new Date().toISOString(),
+updatedAt: p.created_at || new Date().toISOString(),
   };
 }
 
@@ -498,13 +496,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Build projects array
         if (dbProjects && dbProjects.length > 0) {
-          const loadedProjects = (dbProjects ?? []).map(
-            (project) =>
-              mapSupabaseToProject(
-                project,
-                projectSkillsMap[project.project_id] ?? []
-              )
-          );
+const acceptedProposalMap: Record<string, string> = {};
+if (dbProposals) {
+  for (const prop of dbProposals as any[]) {
+    if (prop.status === "ACCEPTED" && prop.project_id && prop.freelancer_id) {
+      acceptedProposalMap[prop.project_id] = prop.freelancer_id;
+    }
+  }
+}
+const loadedProjects: Project[] = (dbProjects ?? []).map((p: any) => {
+  const mapped = mapSupabaseToProject(
+    p,
+    projectSkillsMap[p.project_id] ?? []
+  );
+  return {
+    ...mapped,
+    matchedFreelancerId: acceptedProposalMap[mapped.id] || undefined
+  };
+});
           setProjects((prev) => {
             const existingIds = new Set(loadedProjects.map((p) => p.id));
             const unmanaged = prev.filter((p) => !existingIds.has(p.id));
@@ -514,7 +523,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Build milestones array
         if (dbMilestones && dbMilestones.length > 0) {
-          const loadedMilestones: Milestone[] = dbMilestones.map(mapSupabaseToMilestone);
+          const loadedMilestones: Milestone[] = dbMilestones
+            .map(mapSupabaseToMilestone)
+            .sort((a, b) => {
+              if (a.projectId !== b.projectId) return a.projectId.localeCompare(b.projectId);
+              const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+              const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+              if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+              return (a.title || "").localeCompare(b.title || "");
+            });
           setMilestones((prev) => {
             const existingIds = new Set(loadedMilestones.map((m) => m.id));
             const unmanaged = prev.filter((m) => !existingIds.has(m.id));
@@ -1060,10 +1077,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProjects((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p))
     );
+
+    if (data.status || data.escrowObjectId || data.escrowTxHash) {
+      (async () => {
+        try {
+          const supabase = createClient();
+          const updatePayload: Record<string, any> = {};
+          if (data.status) updatePayload.status = data.status.toUpperCase();
+          if (data.escrowObjectId) updatePayload.escrow_object_id = data.escrowObjectId;
+          if (data.escrowTxHash) updatePayload.escrow_tx_hash = data.escrowTxHash;
+
+          await supabase.from("projects").update(updatePayload).eq("project_id", id);
+        } catch (err) {
+          console.warn("Could not sync project update to Supabase:", err);
+        }
+      })();
+    }
   };
 
   const updateMilestone = (id: string, data: Partial<Milestone>) => {
     setMilestones((prev) => prev.map((m) => (m.id === id ? { ...m, ...data } : m)));
+
+    if (
+      data.status ||
+      data.submissionContent ||
+      data.submissionLinks ||
+      data.revisionNote ||
+      data.onChainTxHash
+    ) {
+      (async () => {
+        try {
+          const supabase = createClient();
+          const updatePayload: Record<string, any> = {};
+          if (data.status) updatePayload.status = data.status.toUpperCase();
+          if (data.submissionContent) updatePayload.submission_content = data.submissionContent;
+          if (data.submissionLinks) updatePayload.submission_links = data.submissionLinks;
+          if (data.revisionNote) updatePayload.revision_note = data.revisionNote;
+          if (data.onChainTxHash) updatePayload.on_chain_tx_hash = data.onChainTxHash;
+
+          await supabase.from("milestones").update(updatePayload).eq("milestone_id", id);
+        } catch (err) {
+          console.warn("Could not sync milestone update to Supabase:", err);
+        }
+      })();
+    }
   };
 
   const inviteFreelancer = (projectId: string, freelancerId: string) => {
@@ -1271,7 +1328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const msToUse = updatedMilestones || milestones.filter((m) => m.projectId === projectId);
 
     let txHash: string;
-    let escrowObjectId: string;
+    let escrowObjectId: string = "";
 
     // If package ID is configured and wallet is connected, run real Sui Testnet transaction
     if (TESTNET_PACKAGE_ID && currentAccount?.address) {
@@ -1308,27 +1365,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         txHash = result.Transaction.digest;
         try {
-          await (client.core as any).waitForTransaction({ digest: txHash });
-          const txBlock: any = await (client.core as any).getTransactionBlock?.({
-            digest: txHash,
-            options: { showObjectChanges: true }
-          });
-          const createdEscrow = txBlock?.objectChanges?.find(
-            (c: any) => c.type === "created" && c.objectType?.includes("::escrow::EscrowContract")
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
+
+          // Fetch transaction execution data using SuiGrpcClient with effects & events
+          let txData: any;
+          if (typeof (client as any).getTransaction === "function") {
+            txData = await (client as any).getTransaction({
+              digest: txHash,
+              include: { effects: true, events: true }
+            });
+          } else if (typeof (client.core as any)?.getTransaction === "function") {
+            txData = await (client.core as any).getTransaction({
+              digest: txHash,
+              include: { effects: true, events: true }
+            });
+          }
+
+          // 1. Try finding real escrow_id from emitted EscrowCreated event
+          const events = txData?.events || txData?.Transaction?.events;
+          const escrowEvent = events?.find((e: any) =>
+            e.eventType?.includes("::escrow::EscrowCreated")
           );
-          if (createdEscrow && createdEscrow.objectId) {
-            escrowObjectId = createdEscrow.objectId;
-          } else {
-            escrowObjectId = `0x${txHash.slice(0, 8)}...${txHash.slice(-6)}`;
+          if (escrowEvent?.json?.escrow_id) {
+            escrowObjectId = escrowEvent.json.escrow_id;
+          }
+
+          // 2. Try finding Created shared object in effects
+          if (!escrowObjectId) {
+            const effects = txData?.effects || txData?.Transaction?.effects;
+            const createdObj = effects?.changedObjects?.find((o: any) => o.idOperation === "Created");
+            if (createdObj?.objectId) {
+              escrowObjectId = createdObj.objectId;
+            }
+          }
+
+          // 3. Fallback to legacy getTransactionBlock if using JSON-RPC client
+          if (!escrowObjectId && typeof (client.core as any)?.getTransactionBlock === "function") {
+            const txBlock: any = await (client.core as any).getTransactionBlock({
+              digest: txHash,
+              options: { showObjectChanges: true }
+            });
+            const createdEscrow = txBlock?.objectChanges?.find(
+              (c: any) => c.type === "created" && c.objectType?.includes("::escrow::EscrowContract")
+            );
+            if (createdEscrow?.objectId) {
+              escrowObjectId = createdEscrow.objectId;
+            }
           }
         } catch (waitErr) {
-          console.warn("waitForTransaction warning:", waitErr);
-          escrowObjectId = `0x${txHash.slice(0, 8)}...${txHash.slice(-6)}`;
+          console.warn("waitForTransaction/getTransaction warning:", waitErr);
+        }
+
+        if (!escrowObjectId) {
+          escrowObjectId = txHash;
         }
       } catch (err) {
         console.error("On-chain fundProjectEscrow failed, falling back to local simulation:", err);
         txHash = generateSuiTxHash();
-        escrowObjectId = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`;
+        escrowObjectId = generateSuiTxHash();
       }
     } else {
       // Local simulation / demo mode
@@ -1382,16 +1480,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const proj = targetMs ? projects.find((p) => p.id === targetMs.projectId) : null;
     let txHash = generateSuiTxHash();
 
-    if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
+    if (targetMs && TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
       try {
-        const msIndex = milestones
-          .filter((m) => m.projectId === targetMs?.projectId)
-          .findIndex((m) => m.id === milestoneId);
+        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
 
         const tx = buildSubmitMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
           escrowObjectId: proj.escrowObjectId,
-          milestoneId: Math.max(0, msIndex),
+          milestoneId: onChainMilestoneId,
         });
 
         const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
@@ -1400,7 +1496,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }
@@ -1417,6 +1517,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submissionContent: content,
       submissionLinks: links,
       submittedAt: now,
+      ...(txHash && !txHash.startsWith("0x") ? { onChainTxHash: txHash } : {})
     });
 
     if (proj) {
@@ -1459,14 +1560,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
       try {
-        const msIndex = milestones
-          .filter((m) => m.projectId === targetMs.projectId)
-          .findIndex((m) => m.id === milestoneId);
+        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
+
+        const freelancerAddr =
+          (proj?.matchedFreelancerId?.startsWith("0x") ? proj.matchedFreelancerId : null) ||
+          users.find((u) => u.id === proj?.matchedFreelancerId)?.walletAddress ||
+          "0x843543df2cbe873b0e963835129022ec3d9680ce1ad4777dda1aeb44abbcd265";
+
+        const repRecordId = await resolveFreelancerReputationRecordId(client, freelancerAddr);
 
         const tx = buildApproveMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
           escrowObjectId: proj.escrowObjectId,
-          milestoneId: Math.max(0, msIndex),
+          reputationRecordId: repRecordId,
+          milestoneId: onChainMilestoneId,
         });
 
         const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
@@ -1475,7 +1582,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         txHash = result.Transaction.digest;
         try {
-          await client.core.waitForTransaction({ digest: txHash });
+          if ((client as any).waitForTransaction) {
+            await (client as any).waitForTransaction({ digest: txHash });
+          } else if ((client.core as any)?.waitForTransaction) {
+            await (client.core as any).waitForTransaction({ digest: txHash });
+          }
         } catch (e) {
           console.warn("waitForTransaction warning:", e);
         }

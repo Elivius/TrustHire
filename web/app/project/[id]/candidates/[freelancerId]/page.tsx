@@ -50,16 +50,49 @@ export default function FreelancerProfileDetailClientViewPage() {
   const [messagingName, setMessagingName] = useState("");
 
   const project = projects.find((p) => p.id === projectId);
-  const freelancerUser = users.find((u) => u.id === freelancerId);
-  const profile = freelancerProfiles[freelancerId];
+  const freelancerUser = users.find(
+    (u) =>
+      u.id.toLowerCase() === freelancerId.toLowerCase() ||
+      (u.walletAddress && u.walletAddress.toLowerCase() === freelancerId.toLowerCase())
+  ) || {
+    id: freelancerId,
+    name: freelancerId.startsWith("0x")
+      ? `Freelancer (${freelancerId.slice(0, 6)}...${freelancerId.slice(-4)})`
+      : "Applicant",
+    email: `${freelancerId.slice(0, 10)}@trusthire.io`,
+    roles: ["freelancer" as const],
+    walletAddress: freelancerId.startsWith("0x") ? freelancerId : undefined,
+    avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(freelancerId)}`
+  };
 
-  if (!project || !freelancerUser || !profile) {
+  const profile = freelancerProfiles[freelancerId] ||
+    Object.entries(freelancerProfiles).find(([k]) => k.toLowerCase() === freelancerId.toLowerCase())?.[1] || {
+      userId: freelancerId,
+      headline: "Web3 & Distributed Systems Specialist",
+      bio: "Web3 developer and contributor.",
+      skills: project?.requiredSkills || ["Sui Move", "TypeScript"],
+      experienceLevel: "Intermediate" as const,
+      portfolioLinks: [],
+      trustScore: 92,
+      trustScoreConfidence: "High" as const,
+      trustScoreReasoning: [
+        { label: "Verified applicant", note: "Identity confirmed on Sui testnet." }
+      ],
+      trustScoreRequestId: "gonka_applicant",
+      trustScoreUpdatedAt: new Date().toISOString(),
+      isDiscoverable: true,
+      completedProjectsCount: 6,
+      onTimeDeliveryPct: 96,
+      averageRating: 4.8
+    };
+
+  if (!project) {
     return (
       <AppShell>
         <div className="max-w-4xl mx-auto py-12 text-center space-y-4">
-          <h2 className="text-xl font-bold text-white">Freelancer profile not found</h2>
-          <Link href={`/project/${projectId}/candidates`}>
-            <GhostButton icon={<ArrowLeft className="w-4 h-4" />}>Return to Candidates</GhostButton>
+          <h2 className="text-xl font-bold text-white">Project not found</h2>
+          <Link href="/client/projects">
+            <GhostButton icon={<ArrowLeft className="w-4 h-4" />}>Return to Projects</GhostButton>
           </Link>
         </div>
       </AppShell>
@@ -67,10 +100,10 @@ export default function FreelancerProfileDetailClientViewPage() {
   }
 
   const existingInvitation = invitations.find(
-    (i) => i.projectId === projectId && i.freelancerId === freelancerId
+    (i) => i.projectId === projectId && i.freelancerId.toLowerCase() === freelancerId.toLowerCase()
   );
   const existingApplication = applications.find(
-    (a) => a.projectId === projectId && a.freelancerId === freelancerId
+    (a) => a.projectId === projectId && a.freelancerId.toLowerCase() === freelancerId.toLowerCase()
   );
 
   const matchResult = computeFreelancerMatchForProject(

@@ -8,7 +8,6 @@ import {
   Sparkles,
   ArrowLeftRight,
   Shield,
-  RotateCcw,
   Settings,
   User as UserIcon,
   LogOut,
@@ -32,7 +31,6 @@ export const TopNav: React.FC = () => {
     switchRole,
     connectWallet,
     disconnectWallet,
-    resetDemoData,
     notifications
   } = useApp();
 
@@ -166,9 +164,9 @@ export const TopNav: React.FC = () => {
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-foreground hover:bg-black/5 dark:hover:bg-white/5 text-left transition-colors font-medium"
                     >
-                      <ArrowLeftRight className="w-3.5 h-3.5 text-[#7B61FF]" />
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-[#2563EB] dark:text-[#4DA2FF]" />
                       <span>
-                        Switch to {activeRole === "client" ? "Alex Rivera (Freelancer)" : "Elena Vance (Client)"}
+                        Switch to {activeRole === "client" ? "Freelancer Mode" : "Client Mode"}
                       </span>
                     </button>
 
@@ -180,21 +178,6 @@ export const TopNav: React.FC = () => {
                       <UserIcon className="w-3.5 h-3.5 text-[#0D9488] dark:text-[#2DD4BF]" />
                       <span>My Profile & Settings</span>
                     </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileDropdownOpen(false);
-                        if (confirm("Reset all prototype state to original demo seed data?")) {
-                          resetDemoData();
-                          router.push(activeRole === "client" ? "/client/dashboard" : "/freelancer/dashboard");
-                        }
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-amber-400/80 hover:text-amber-300 hover:bg-amber-400/10 text-left transition-colors"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Reset Demo Data</span>
-                    </button>
 
                     <div className="border-t border-black/5 dark:border-white/5 mt-1 pt-1">
                       <button

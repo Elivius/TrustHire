@@ -26,8 +26,10 @@ import { WalletChip } from "@/components/ui/wallet-chip";
 import { TransactionCard } from "@/components/ui/transaction-card";
 import { Milestone } from "@/types";
 import { clsx } from "clsx";
+import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 export default function FinalizeAndFundPage() {
+  const currentAccount = useCurrentAccount();
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
@@ -426,7 +428,7 @@ export default function FinalizeAndFundPage() {
             {/* Wallet & Gas Banner */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03]">
               <div className="flex items-center gap-3">
-                <WalletChip address={currentUser.walletAddress || "0x4f2a91...9a2c"} />
+                <WalletChip address={currentAccount?.address || currentUser.walletAddress || "0x4f2a91...9a2c"} />
                 <span className="text-xs text-foreground/50 font-mono">Sui Testnet</span>
               </div>
 
@@ -455,7 +457,7 @@ export default function FinalizeAndFundPage() {
                   tx={{
                     txHash: fundingSuccessTx.txHash,
                     amount: totalBudget,
-                    fromAddress: currentUser.walletAddress || "0x4f2a91...9a2c",
+                    fromAddress: currentAccount?.address || currentUser.walletAddress || "0x4f2a91...9a2c",
                     toAddress: `${fundingSuccessTx.escrowObjectId} (Sui Escrow)`
                   }}
                 />

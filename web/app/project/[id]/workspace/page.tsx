@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -31,6 +31,7 @@ import { DisputeModal } from "./dispute-modal";
 import { CompletionRatingModal } from "./completion-rating-modal";
 import { Milestone } from "@/types";
 import { clsx } from "clsx";
+import { getSuiscanObjectUrl, formatSuiAddress } from "@/lib/sui/escrow";
 
 export default function ActiveWorkspacePage() {
   const params = useParams();
@@ -50,7 +51,16 @@ export default function ActiveWorkspacePage() {
   } = useApp();
 
   const project = projects.find((p) => p.id === projectId);
-  const projMilestones = milestones.filter((m) => m.projectId === projectId);
+  const projMilestones = useMemo(() => {
+    return milestones
+      .filter((m) => m.projectId === projectId)
+      .sort((a, b) => {
+        const aNum = a.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        const bNum = b.title?.match(/Milestone\s+(\d+)/i)?.[1];
+        if (aNum && bNum) return parseInt(aNum, 10) - parseInt(bNum, 10);
+        return (a.title || "").localeCompare(b.title || "");
+      });
+  }, [milestones, projectId]);
   const isClient = activeRole === "client" || currentUser.id === project?.clientId;
 
   const freelancer = project?.matchedFreelancerId
@@ -165,9 +175,22 @@ export default function ActiveWorkspacePage() {
                       {releasedAmount === totalAmount ? "100% Released" : `$${releasedAmount.toLocaleString()} of $${totalAmount.toLocaleString()} Released`}
                     </span>
                   </div>
-                  <span className="text-xs text-foreground/65">
-                    Smart contract object: {project.escrowObjectId || "0x9182...fa01"}
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs text-foreground/65">
+                    <span>Smart contract object:</span>
+                    {project.escrowObjectId ? (
+                      <a
+                        href={getSuiscanObjectUrl(project.escrowObjectId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[#2563EB] dark:text-[#4DA2FF] hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>{formatSuiAddress(project.escrowObjectId)}</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    ) : (
+                      <span className="font-mono">Pending Escrow</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -185,10 +208,10 @@ export default function ActiveWorkspacePage() {
               <div className="pt-2">
                 <TransactionCard
                   tx={{
-                    txHash: project.escrowTxHash || "0x8f2a1100bb43",
+                    txHash: project.escrowTxHash || "",
                     amount: totalAmount,
-                    fromAddress: client?.walletAddress || "0x4f2a91...9a2c",
-                    toAddress: `${project.escrowObjectId || "0x9182...fa01"} (Sui Escrow)`
+                    fromAddress: client?.walletAddress || client?.id || "",
+                    toAddress: project.escrowObjectId ? `${formatSuiAddress(project.escrowObjectId)} (Sui Escrow)` : "Sui Escrow"
                   }}
                 />
               </div>
@@ -323,8 +346,8 @@ export default function ActiveWorkspacePage() {
                           tx={{
                             txHash: m.onChainTxHash,
                             amount: m.amount,
-                            fromAddress: `${project.escrowObjectId || "Escrow"} (Sui Escrow)`,
-                            toAddress: freelancer?.walletAddress || "0x8e3b22...4c19"
+                            fromAddress: project.escrowObjectId ? `${formatSuiAddress(project.escrowObjectId)} (Sui Escrow)` : "Sui Escrow",
+                            toAddress: freelancer?.walletAddress || freelancer?.id || "Freelancer Wallet"
                           }}
                         />
                       )}

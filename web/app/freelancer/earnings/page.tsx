@@ -15,12 +15,20 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WalletChip } from "@/components/ui/wallet-chip";
+import { isRealSuiDigest, formatSuiAddress } from "@/lib/sui/escrow";
 
 export default function FreelancerEarningsPage() {
   const { currentUser, projects, milestones, transactions } = useApp();
   const [filterProject, setFilterProject] = useState<string>("all");
 
-  const myProjects = projects.filter((p) => p.matchedFreelancerId === currentUser.id);
+  const myProjects = projects.filter(
+    (p) =>
+      Boolean(p.matchedFreelancerId) &&
+      (p.matchedFreelancerId === currentUser.id ||
+        (currentUser.walletAddress &&
+          p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
+        p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
+  );
 
   const releasedTransactions = transactions.filter(
     (t) => t.type === "milestone_released" && myProjects.some((p) => p.id === t.projectId)
@@ -132,15 +140,21 @@ export default function FreelancerEarningsPage() {
                       <span className="text-[#0D9488] dark:text-[#2DD4BF] font-bold text-sm sm:text-base">${tx.amount.toLocaleString()} USDC</span>
                     </div>
 
-                    <a
-                      href={`https://suiscan.xyz/testnet/tx/${tx.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:text-[#7B61FF] transition-colors"
-                    >
-                      <span className="truncate max-w-[100px]">{tx.txHash}</span>
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                    </a>
+                    {isRealSuiDigest(tx.txHash) ? (
+                      <a
+                        href={`https://suiscan.xyz/testnet/tx/${tx.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:text-[#7B61FF] transition-colors"
+                      >
+                        <span className="truncate max-w-[100px]">{formatSuiAddress(tx.txHash) || tx.txHash}</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-mono border border-amber-500/20">
+                        Simulated
+                      </span>
+                    )}
                   </div>
                 </GlassCard>
               ))}

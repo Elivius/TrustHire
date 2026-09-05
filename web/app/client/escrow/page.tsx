@@ -17,6 +17,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GhostButton } from "@/components/ui/ghost-button";
+import {
+  getSuiscanTxUrl,
+  getSuiscanObjectUrl,
+  formatSuiAddress,
+  isRealSuiDigest,
+  TESTNET_PACKAGE_ID
+} from "@/lib/sui/escrow";
 
 export default function ClientEscrowPage() {
   const { currentUser, projects, milestones, transactions } = useApp();
@@ -53,13 +60,25 @@ export default function ClientEscrowPage() {
     <AppShell>
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-            Escrow & Payments Ledger
-          </h1>
-          <p className="text-xs sm:text-sm text-foreground/60 mt-1">
-            Real-time on-chain accounting of locked deposits and released milestone disbursements.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              Escrow & Payments Ledger
+            </h1>
+            <p className="text-xs sm:text-sm text-foreground/60 mt-1">
+              Real-time on-chain accounting of locked deposits and released milestone disbursements.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-xs font-mono text-foreground/75 self-start sm:self-auto">
+            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+            <span>Sui Testnet</span>
+            {TESTNET_PACKAGE_ID && (
+              <span className="text-[10px] text-foreground/45 border-l border-black/10 dark:border-white/10 pl-2">
+                Pkg: {formatSuiAddress(TESTNET_PACKAGE_ID)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -116,9 +135,22 @@ export default function ClientEscrowPage() {
                         <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
                           {proj.title}
                         </h3>
-                        <span className="text-xs text-foreground/50 font-mono">
-                          Object: {proj.escrowObjectId || "0x9182...fa01"}
-                        </span>
+                        {proj.escrowObjectId ? (
+                          <a
+                            href={getSuiscanObjectUrl(proj.escrowObjectId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-xs text-foreground/50 hover:text-[#2563EB] dark:hover:text-[#4DA2FF] font-mono transition-colors"
+                          >
+                            <span>Object: {formatSuiAddress(proj.escrowObjectId)}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-foreground/50 font-mono">
+                            Object: Pending Escrow
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-6 text-xs font-mono">
@@ -206,10 +238,21 @@ export default function ClientEscrowPage() {
                         ${tx.amount.toLocaleString()} USDC
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 text-[#2563EB] dark:text-[#4DA2FF]">
-                          <span className="font-mono text-[11px]">{tx.txHash}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </div>
+                        {isRealSuiDigest(tx.txHash) ? (
+                          <a
+                            href={getSuiscanTxUrl(tx.txHash)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[#2563EB] dark:text-[#4DA2FF] hover:underline"
+                          >
+                            <span className="font-mono text-[11px]">{formatSuiAddress(tx.txHash) || tx.txHash}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                          </a>
+                        ) : (
+                          <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                            Simulated Demo
+                          </span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-foreground/50 text-[11px]">
                         {new Date(tx.timestamp).toLocaleString()}
