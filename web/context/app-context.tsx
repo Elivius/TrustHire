@@ -154,18 +154,28 @@ function mapSupabaseToClientProfile(cp: any): ClientProfile {
   };
 }
 
-function mapSupabaseToProject(p: any): Project {
+function mapSupabaseToProject(
+  p: any,
+  requiredSkills: string[] = []
+): Project {
   return {
     id: p.project_id,
     clientId: p.client_id,
     title: p.title || "Untitled Project",
     descriptionRaw: p.description || "",
-    requiredSkills: p.category ? [p.category] : ["General"],
+    requiredSkills,
+
     estimatedBudget: Number(p.total_budget) || 0,
     timelineDays: Number(p.timeline) || 14,
-    status: (p.status?.toLowerCase() as ProjectStatus) || "open",
-    createdAt: p.created_at || new Date().toISOString(),
-    updatedAt: p.created_at || new Date().toISOString()
+
+    status:
+      (p.status?.toLowerCase() as ProjectStatus) || "open",
+
+    createdAt:
+      p.created_at || new Date().toISOString(),
+
+    updatedAt:
+      p.created_at || new Date().toISOString(),
   };
 }
 
@@ -328,17 +338,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           { data: dbClients },
           { data: dbProjects },
           { data: dbMilestones },
-          { data: dbProposals }
+          { data: dbProposals },
+          { data: allSkills },
         ] = await Promise.all([
-          supabase.from("freelancer_profiles").select("*"),
-          supabase.from("freelancer_skills").select("freelancer_id, skills(skill_name)"),
-          supabase.from("freelancer_portfolios").select("freelancer_id, title, url"),
-          supabase.from("users").select("*"),
-          supabase.from("client_profiles").select("*"),
-          supabase.from("projects").select("*"),
-          supabase.from("milestones").select("*"),
-          supabase.from("proposals").select("*")
+          supabase
+            .from("freelancer_profiles")
+            .select("*"),
+
+          supabase
+            .from("freelancer_skills")
+            .select("freelancer_id, skills(skill_name)"),
+
+          supabase
+            .from("freelancer_portfolios")
+            .select("freelancer_id, title, url"),
+
+          supabase
+            .from("users")
+            .select("*"),
+
+          supabase
+            .from("client_profiles")
+            .select("*"),
+
+          supabase
+            .from("projects")
+            .select("*"),
+
+          supabase
+            .from("milestones")
+            .select("*"),
+
+          supabase
+            .from("proposals")
+            .select("*"),
+
+          // Get the actual skills table
+          supabase
+            .from("skills")
+            .select("skill_id, skill_name"),
         ]);
+
+        // Get project → skill relationships separately
+        const {
+          data: dbProjectSkills,
+          error: projectSkillsError,
+        } = await supabase
+          .from("project_skills")
+          .select("project_id, skill_id");
+
+        console.log(
+          "[Supabase DEBUG] project_skills:",
+          dbProjectSkills
+        );
+
+        console.log(
+          "[Supabase DEBUG] project_skills error:",
+          projectSkillsError
+        );
+
+        console.log(
+          "[Supabase DEBUG] skills:",
+          allSkills
+        );
+
+        const skillNameMap: Record<string, string> = {};
+
+        for (const skill of allSkills ?? []) {
+          skillNameMap[skill.skill_id] = skill.skill_name;
+        }
+
+        const projectSkillsMap: Record<string, string[]> = {};
+
+        for (const item of dbProjectSkills ?? []) {
+          const skillName = skillNameMap[item.skill_id];
+
+          if (!skillName) {
+            continue;
+          }
+
+          if (!projectSkillsMap[item.project_id]) {
+            projectSkillsMap[item.project_id] = [];
+          }
+
+          projectSkillsMap[item.project_id].push(skillName);
+        }
+
+        console.log(
+          "[Supabase DEBUG] projectSkillsMap:",
+          projectSkillsMap
+        );
 
         if (isCancelled) return;
 
@@ -354,6 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
         }
+        // Group required skills by project_id
 
         // Group portfolios by freelancer_id
         const portfolioMap: Record<string, { title: string; url: string }[]> = {};
@@ -408,7 +498,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Build projects array
         if (dbProjects && dbProjects.length > 0) {
-          const loadedProjects: Project[] = dbProjects.map(mapSupabaseToProject);
+          const loadedProjects = (dbProjects ?? []).map(
+            (project) =>
+              mapSupabaseToProject(
+                project,
+                projectSkillsMap[project.project_id] ?? []
+              )
+          );
           setProjects((prev) => {
             const existingIds = new Set(loadedProjects.map((p) => p.id));
             const unmanaged = prev.filter((p) => !existingIds.has(p.id));
@@ -582,85 +678,378 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createProject = (
-    projectData: Omit<Project, "id" | "clientId" | "createdAt" | "updatedAt">,
-    milestoneData: Omit<Milestone, "id" | "projectId">[]
+    projectData: Omit<
+      Project,
+      "id" | "clientId" | "createdAt" | "updatedAt"
+    >,
+    milestoneData: Omit<
+      Milestone,
+      "id" | "projectId"
+    >[]
   ): string => {
     const newProjectId = generateUUID();
-    const targetClientId = currentUser.walletAddress || currentUser.id;
+    const targetClientId =
+      currentUser.walletAddress || currentUser.id;
+
     const newProject: Project = {
       ...projectData,
       id: newProjectId,
       clientId: targetClientId,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
-    const newMilestones: Milestone[] = milestoneData.map((m) => ({
-      ...m,
-      id: generateUUID(),
-      projectId: newProjectId
-    }));
+    const newMilestones: Milestone[] =
+      milestoneData.map((m) => ({
+        ...m,
+        id: generateUUID(),
+        projectId: newProjectId,
+      }));
 
-    setProjects((prev) => [newProject, ...prev]);
-    setMilestones((prev) => [...prev, ...newMilestones]);
+    // Update local state immediately
+    setProjects((prev) => [
+      newProject,
+      ...prev,
+    ]);
 
-    // Asynchronously persist project & milestones to Supabase
+    setMilestones((prev) => [
+      ...prev,
+      ...newMilestones,
+    ]);
+
+    // Persist project, skills and milestones to Supabase
     (async () => {
       try {
         const supabase = createClient();
 
-        // 1. Ensure client user exists in users table
-        await supabase.from("users").upsert({
-          user_id: targetClientId,
-          name: currentUser.name || "Client",
-          email: currentUser.email || `${targetClientId.slice(0, 10)}@trusthire.io`,
-          role: "CLIENT",
-          status: "ACTIVE"
-        }, { onConflict: "user_id" });
+        /*
+        * ----------------------------------------------------
+        * 1. Ensure client exists
+        * ----------------------------------------------------
+        */
 
-        await supabase.from("client_profiles").upsert({
-          client_id: targetClientId,
-          company_name: currentUser.companyName || "Organization"
-        }, { onConflict: "client_id" });
+        const { error: userError } =
+          await supabase
+            .from("users")
+            .upsert(
+              {
+                user_id: targetClientId,
+                name:
+                  currentUser.name ||
+                  "Client",
+                email:
+                  currentUser.email ||
+                  `${targetClientId.slice(
+                    0,
+                    10
+                  )}@trusthire.io`,
+                role: "CLIENT",
+                status: "ACTIVE",
+              },
+              {
+                onConflict: "user_id",
+              }
+            );
 
-        // 2. Insert into projects table
-        await supabase.from("projects").insert({
-          project_id: newProjectId,
-          client_id: targetClientId,
-          title: newProject.title,
-          description: newProject.descriptionRaw,
-          total_budget: newProject.estimatedBudget,
-          timeline: newProject.timelineDays || 14,
-          status: newProject.status === "open" ? "OPEN" : "DRAFT",
-          category: newProject.requiredSkills[0] || "General"
-        });
-
-        // 3. Insert into milestones table
-        if (newMilestones.length > 0) {
-          await supabase.from("milestones").insert(
-            newMilestones.map((m) => ({
-              milestone_id: m.id,
-              project_id: newProjectId,
-              title: m.title,
-              description: m.deliverable,
-              amount: m.amount,
-              duration_days: Math.max(1, Math.round(newProject.timelineDays / newMilestones.length)),
-              status: "PENDING"
-            }))
+        if (userError) {
+          console.error(
+            "Failed to upsert client user:",
+            userError
           );
         }
+
+        const { error: clientError } =
+          await supabase
+            .from("client_profiles")
+            .upsert(
+              {
+                client_id: targetClientId,
+                company_name:
+                  currentUser.companyName ||
+                  "Organization",
+              },
+              {
+                onConflict: "client_id",
+              }
+            );
+
+        if (clientError) {
+          console.error(
+            "Failed to upsert client profile:",
+            clientError
+          );
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 2. Insert project
+        * ----------------------------------------------------
+        */
+
+        const { error: projectError } =
+          await supabase
+            .from("projects")
+            .insert({
+              project_id: newProjectId,
+              client_id: targetClientId,
+              title: newProject.title,
+              description:
+                newProject.descriptionRaw,
+              total_budget:
+                newProject.estimatedBudget,
+              timeline:
+                newProject.timelineDays || 14,
+              status:
+                newProject.status === "open"
+                  ? "OPEN"
+                  : "DRAFT",
+
+              // Keep category for compatibility
+              // with the existing database schema.
+              category:
+                newProject.requiredSkills?.[0] ||
+                "General",
+            });
+
+        if (projectError) {
+          console.error(
+            "Failed to insert project:",
+            projectError
+          );
+
+          return;
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 3. Insert ALL required skills
+        * ----------------------------------------------------
+        *
+        * Project:
+        * ["React", "TypeScript"]
+        *
+        *      ↓
+        *
+        * skills table:
+        * React      → UUID A
+        * TypeScript → UUID B
+        *
+        *      ↓
+        *
+        * project_skills:
+        * project_id → UUID A
+        * project_id → UUID B
+        */
+
+        const requiredSkills =
+          Array.from(
+            new Set(
+              (newProject.requiredSkills || [])
+                .map((skill) =>
+                  skill.trim()
+                )
+                .filter(Boolean)
+            )
+          );
+
+        console.log(
+          "[CreateProject DEBUG] requiredSkills:",
+          requiredSkills
+        );
+
+        if (requiredSkills.length > 0) {
+          const {
+            data: skillRows,
+            error: skillLookupError,
+          } = await supabase
+            .from("skills")
+            .select(
+              "skill_id, skill_name"
+            )
+            .in(
+              "skill_name",
+              requiredSkills
+            );
+
+          if (skillLookupError) {
+            console.error(
+              "[CreateProject] Failed to find skills:",
+              skillLookupError
+            );
+          } else {
+            console.log(
+              "[CreateProject DEBUG] skillRows:",
+              skillRows
+            );
+
+            /*
+            * Convert:
+            *
+            * ["React", "TypeScript"]
+            *
+            * into:
+            *
+            * [
+            *   {
+            *     project_id: "...",
+            *     skill_id: "react-uuid"
+            *   },
+            *   {
+            *     project_id: "...",
+            *     skill_id: "typescript-uuid"
+            *   }
+            * ]
+            */
+
+            const projectSkillRows =
+              (skillRows || []).map(
+                (skill) => ({
+                  project_id:
+                    newProjectId,
+                  skill_id:
+                    skill.skill_id,
+                })
+              );
+
+            console.log(
+              "[CreateProject DEBUG] projectSkillRows:",
+              projectSkillRows
+            );
+
+            if (
+              projectSkillRows.length > 0
+            ) {
+              const {
+                error:
+                  projectSkillsError,
+              } = await supabase
+                .from("project_skills")
+                .insert(
+                  projectSkillRows
+                );
+
+              if (
+                projectSkillsError
+              ) {
+                console.error(
+                  "[CreateProject] Failed to insert project skills:",
+                  projectSkillsError
+                );
+              } else {
+                console.log(
+                  "[CreateProject] Project skills inserted successfully."
+                );
+              }
+            }
+
+            /*
+            * Warn if some requested skills
+            * don't exist in the skills table.
+            */
+
+            const foundSkillNames =
+              new Set(
+                (skillRows || []).map(
+                  (skill) =>
+                    skill.skill_name
+                )
+              );
+
+            const missingSkills =
+              requiredSkills.filter(
+                (skill) =>
+                  !foundSkillNames.has(
+                    skill
+                  )
+              );
+
+            if (
+              missingSkills.length > 0
+            ) {
+              console.warn(
+                "[CreateProject] Skills not found in skills table:",
+                missingSkills
+              );
+            }
+          }
+        } else {
+          console.log(
+            "[CreateProject] No required skills specified."
+          );
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 4. Insert milestones
+        * ----------------------------------------------------
+        */
+
+        if (
+          newMilestones.length > 0
+        ) {
+          const durationPerMilestone =
+            Math.max(
+              1,
+              Math.round(
+                newProject.timelineDays /
+                  newMilestones.length
+              )
+            );
+
+          const milestoneRows =
+            newMilestones.map(
+              (m) => ({
+                milestone_id: m.id,
+                project_id:
+                  newProjectId,
+                title: m.title,
+                description:
+                  m.deliverable,
+                amount: m.amount,
+                duration_days:
+                  durationPerMilestone,
+                status: "PENDING",
+              })
+            );
+
+          const {
+            error: milestoneError,
+          } = await supabase
+            .from("milestones")
+            .insert(
+              milestoneRows
+            );
+
+          if (milestoneError) {
+            console.error(
+              "Failed to insert milestones:",
+              milestoneError
+            );
+          }
+        }
+
+        console.log(
+          "[CreateProject] Project persisted successfully:",
+          newProjectId
+        );
       } catch (err) {
-        console.warn("Could not persist new project to Supabase:", err);
+        console.warn(
+          "Could not persist new project to Supabase:",
+          err
+        );
       }
     })();
 
-    // Notification if status is open
+    /*
+    * Notify client when project is open
+    */
+
     if (newProject.status === "open") {
       addNotification({
         userId: currentUser.id,
         type: "new_recommendation",
         text: `AI generated candidate recommendations for "${newProject.title}"`,
-        linkTo: `/project/${newProjectId}/candidates`
+        linkTo: `/project/${newProjectId}/candidates`,
       });
     }
 

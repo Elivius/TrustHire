@@ -8,6 +8,15 @@ export async function POST(request: NextRequest) {
   try {
     const body =
       (await request.json()) as MatchFreelancersInput;
+      console.log(
+        "[Gonka DEBUG] Project requiredSkills:",
+        body.project?.requiredSkills
+        );
+
+        console.log(
+        "[Gonka DEBUG] requiredSkills count:",
+        body.project?.requiredSkills?.length
+        );
 
     if (!body.project) {
       return NextResponse.json(
@@ -33,6 +42,7 @@ export async function POST(request: NextRequest) {
       "Starting Gonka Freelancer Matching:",
       body.project.projectTitle
     );
+    
 
     const results =
       await matchFreelancers(body);

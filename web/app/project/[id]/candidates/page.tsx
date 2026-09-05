@@ -45,6 +45,17 @@ export default function CandidatesPage() {
   const [matchingError, setMatchingError] = useState<string | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
+  console.log("[Candidates] FULL PROJECT:", project);
+
+console.log(
+  "[Candidates] Project requiredSkills:",
+  project?.requiredSkills
+);
+
+console.log(
+  "[Candidates] Required skill count:",
+  project?.requiredSkills?.length
+);
   const calculateOverallScore = (
     matchScore: number,
     trustScore: number | null | undefined
@@ -418,11 +429,37 @@ export default function CandidatesPage() {
                         </div>
                       </div>
 
-                      {/* AI Reasoning */}
-                      <p className="text-xs text-foreground/75 leading-relaxed bg-black/[0.02] dark:bg-white/[0.02] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                        <span className="text-[#7C3AED] dark:text-[#A78BFA] font-semibold mr-1.5">Gonka AI:</span>
-                        {match.reasoning}
-                      </p>
+                      {/* Gonka AI Reasoning */}
+                      <div className="rounded-xl border border-purple-200/70 bg-purple-50/40 p-4 dark:border-purple-900/50 dark:bg-purple-950/20">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400">
+                            ✦
+                          </div>
+
+                          <div>
+                            <div className="text-sm font-semibold text-purple-900 dark:text-purple-200">
+                              AI Matching 
+                            </div>
+                            <div className="text-xs text-purple-600/70 dark:text-purple-400/70">
+                              Powered by Gonka AI
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          {match.reasoning}
+                        </p>
+
+                        <div className="mt-4 flex items-center gap-2 border-t border-purple-200/60 pt-3 dark:border-purple-900/40">
+                          <span className="text-xs text-muted-foreground">
+                            Gonka Request ID
+                          </span>
+
+                          <span className="rounded-md bg-purple-100/80 px-2 py-1 font-mono text-[11px] text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                            {match.gonkaRequestId}
+                          </span>
+                        </div>
+                      </div>
 
                       {/* Skills */}
                       <div className="flex flex-wrap gap-1.5 pt-1">

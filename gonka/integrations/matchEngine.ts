@@ -171,17 +171,32 @@ export function prefilterFreelancers(
   freelancers: MatchFreelancer[],
   minimumOverlap = 0.2,
 ): MatchFreelancer[] {
+  // No requirements means there is nothing useful to filter on.
   if (project.requiredSkills.length === 0) {
     return freelancers;
   }
 
-  return freelancers.filter(
+  // For small candidate pools, don't filter aggressively.
+  // Gonka can handle the semantic matching.
+  if (freelancers.length <= MAX_CANDIDATES_PER_REQUEST) {
+    return freelancers;
+  }
+
+  const filtered = freelancers.filter(
     (freelancer) =>
       calculateSkillOverlap(
         project.requiredSkills,
         freelancer.skills,
       ) >= minimumOverlap,
   );
+
+  // If the lexical filter removes everyone, do not block matching.
+  // Return the original pool and let Gonka perform the semantic evaluation.
+  if (filtered.length === 0) {
+    return freelancers;
+  }
+
+  return filtered;
 }
 
 /* ============================================================
@@ -206,18 +221,21 @@ function buildMatchPrompt(
   return `
 You are TrustHire's Freelancer Matching AI.
 
-Your task is to rank candidates against a source entity.
+Your task is to evaluate and rank every candidate against the source.
 
-Evaluate ONLY the information provided below.
+Use ONLY the information provided in SOURCE and CANDIDATES.
 
-Do not invent:
-- experience
+Never invent:
 - skills
+- experience
+- portfolio work
 - budget
 - timeline
-- portfolio work
 - project requirements
 - project history
+- certifications
+- achievements
+- availability
 
 SOURCE TYPE:
 ${sourceLabel}
@@ -228,144 +246,236 @@ ${JSON.stringify(source, null, 2)}
 ${candidateLabel}:
 ${JSON.stringify(candidates, null, 2)}
 
-MATCHING PRINCIPLES:
+MATCHING RULES:
 
-1. Evaluate the candidate against the actual requirements and
-   context of the source.
+1. Evaluate each candidate against the actual requirements and context of the source.
 
 2. For freelancer-for-project matching:
-   - Compare freelancer skills with project requirements.
-   - Consider project type, technical scope, experience level,
-     budget, timeline, deliverables, and portfolio evidence
-     when available.
+   - Compare the freelancer against the project's requirements.
+   - Consider skills, experience, bio, portfolio evidence, and other supplied information.
 
 3. For project-for-freelancer matching:
-   - Compare project requirements with the freelancer's skills,
-     experience, bio, portfolio evidence, and past project
-     information when available.
+   - Compare the project requirements with the freelancer's skills,
+     experience, bio, portfolio evidence, and other supplied information.
 
-4. REQUIRED SKILLS — EVALUATE EVERY SKILL:
+4. REQUIRED SKILLS:
 
-The project's requiredSkills list is authoritative.
+If the source contains a "requiredSkills" array, you MUST evaluate
+EVERY item in that array individually.
 
-You MUST evaluate EVERY skill in requiredSkills individually.
+Required skills are NOT necessarily standardized skills.
 
-For EACH required skill:
+A requirement may be:
+- a programming language
+- a framework
+- a library
+- a software/tool
+- a technical capability
+- a professional skill
+- a soft skill
+- domain knowledge
+- an industry capability
+- a design capability
+- a methodology
+- another free-form requirement
 
-1. Identify the exact skill name.
-2. Check whether the freelancer has that skill.
-3. Determine whether the supplied evidence supports the match.
-4. Mark it as matched=true or matched=false.
-5. Provide a short evidence-based explanation.
+Do NOT assume a requirement must exist in a predefined skill taxonomy.
+
+For EVERY required skill:
+
+- Evaluate it individually.
+- Compare it against the candidate's supplied information.
+- Consider the candidate's skills.
+- Consider the candidate's bio.
+- Consider portfolio evidence when provided.
+- Consider semantically related capabilities ONLY when supported by the evidence.
+- Set "matched" to true or false.
+- Give concise evidence.
+
+Do NOT require exact text matching.
+
+For example:
+
+Required:
+"User Interface Design"
+
+Candidate:
+"UI/UX Design"
+
+This MAY be considered a match if the supplied evidence supports the equivalence.
+
+However, do NOT assume equivalence without evidence.
 
 IMPORTANT:
 
 If requiredSkills contains:
 
-["React", "TypeScript"]
+["React", "TypeScript", "UI/UX Design"]
 
-you MUST return exactly two skillEvaluation entries:
+then skillEvaluation MUST contain exactly 3 entries:
 
-[
-  {
-    "skill": "React",
-    "matched": true or false,
-    "evidence": "..."
-  },
-  {
-    "skill": "TypeScript",
-    "matched": true or false,
-    "evidence": "..."
-  }
-]
+1. React
+2. TypeScript
+3. UI/UX Design
 
-Do NOT evaluate only the first skill.
+Never:
+- evaluate only one required skill
+- omit a required skill
+- combine multiple required skills
+- invent a required skill
+- add a skill that is not required
+- evaluate only the skills that the candidate happens to have
 
-Do NOT omit a required skill.
+The final matchScore MUST consider ALL required skills.
 
-Do NOT combine multiple skills into one skillEvaluation entry.
+If no requiredSkills are provided, evaluate the candidate using the
+other available project/source information.
 
-Do NOT assume that matching one required skill means all required skills are satisfied.
+5. Do NOT reject a candidate solely because they do not match every skill.
 
-The final Match Score must consider the complete requiredSkills list.
+6. Consider transferable or related capabilities only when supported
+   by the supplied evidence.
 
-6. Do NOT reject a candidate solely because they do not match
-   every general or inferred skill.
+7. MatchScore represents suitability for this specific source/candidate pair.
 
-7. Consider transferable and related skills when appropriate,
-   but only when supported by the supplied candidate data.
+8. Do NOT use Trust Score as Match Score.
 
-8. Match Score must represent suitability for THIS specific
-   source/candidate pair.
+11. Provide evidence-based reasoning.
 
-9. Do NOT use Trust Score as Match Score.
+12. Do not invent reasons for a match.
 
-10. Trust Score is a separate freelancer reputation signal
-    handled by TrustHire.
+13. Return exactly ONE result for EVERY candidate provided.
 
-11. Provide a short, evidence-based reasoning for every score.
-
-12. The reasoning MUST explain important strengths or gaps,
-    especially when an explicit client requirement is satisfied
-    or missing.
-
-13. Do not invent reasons for a match.
-
-14. Return exactly one result for every candidate ID provided.
-
-15. Scores must be integers from 0 to 100.
+14. Every candidate MUST appear exactly once in the matches array.
 
 SCORING GUIDANCE:
 
+The Match Score must primarily reflect how suitable the candidate
+is for this specific project.
+
+When requiredSkills are present, they are the most important factor.
+
+Consider the following factors:
+
+1. Required skill coverage.
+2. Strength and relevance of evidence for each required skill.
+3. Relevant experience level.
+4. Relevant portfolio evidence.
+5. Relevance of the candidate's bio.
+6. Other explicit project requirements.
+
+Do NOT calculate the score using a simple required-skill count alone.
+
+Two candidates with the same number of matched skills may receive
+different scores when the strength, relevance, or quality of their
+supporting evidence differs.
+
+For example, a candidate who matches Java and Sui Move through
+direct skills and relevant portfolio evidence should generally
+score higher than a candidate who only has one directly relevant
+skill with no additional supporting evidence.
+
+TRUST SCORE:
+
+Trust Score MUST NOT affect Match Score.
+
+Do NOT increase or decrease Match Score because of Trust Score.
+
+Do NOT mention Trust Score as a reason for the Match Score.
+
+Trust Score is a separate TrustHire reputation signal and will be
+displayed separately.
+
+SCORE RANGES:
+
 90-100:
-Excellent match. Strong alignment with the important project
-requirements and explicit client requirements.
+Excellent match. Strong evidence that the candidate can satisfy
+the project's important requirements.
 
 75-89:
 Strong match. Most important requirements are satisfied with
-only minor gaps.
+good supporting evidence and only minor gaps.
 
 60-74:
-Moderate match. Relevant candidate but has noticeable gaps.
+Moderate match. Several relevant capabilities are present, but
+there are noticeable gaps in important requirements.
 
 40-59:
 Weak match. Some relevant capabilities exist, but important
-requirements are missing.
+requirements are missing or poorly supported.
 
 0-39:
-Poor match. Very limited evidence of suitability.
+Poor match. Very limited evidence of suitability for the project.
 
-IMPORTANT CANDIDATE ID RULE:
+The final score must be an integer from 0 to 100.
 
-Each candidate object has an "id" field.
+CANDIDATE ID RULE:
 
-You MUST copy that exact "id" value into "candidateId".
+Each candidate has an "id" field.
+
+You MUST copy the candidate's "id" EXACTLY into "candidateId".
 
 Do NOT:
-- create a new ID
-- rename the ID
+- modify the ID
 - shorten the ID
+- create a new ID
 - use the candidate's name
 - use the candidate's array index
 - use "candidate-1", "candidate-2", etc.
 
-Every returned candidateId MUST exactly match one of the
-candidate "id" values provided above.
+Every returned candidateId MUST exactly match an id from the
+candidate list.
 
-Return ONLY valid JSON in exactly this structure:
+OUTPUT SIZE RULES:
 
-Return ONLY valid JSON in exactly this structure:
+The response must be compact.
+
+For each skillEvaluation:
+- "evidence" MUST be no more than ONE short sentence.
+- Keep evidence under approximately 15 words.
+- Do not repeat information already obvious from the candidate data.
+
+For "reasoning":
+- Provide a clear, evidence-based explanation of approximately 50-80 words.
+- Explain the candidate's strongest relevant capabilities.
+- Explain which required skills are satisfied and which are missing.
+- Explain important supporting evidence from the candidate's skills, bio,
+  experience, and portfolio when available.
+- Explain important gaps that reduce the match score.
+- Explain why the candidate is suitable or unsuitable for this specific project.
+- Do NOT repeat the candidate's entire profile.
+- Do NOT invent information.
+- Do NOT mention information that was not supplied.
+
+The reasoning should be detailed enough for a client to understand
+WHY the candidate received the score, while remaining concise.
+
+Do NOT provide long explanations.
+
+Do NOT repeat the candidate's full profile.
+
+Do NOT repeat the project description.
+
+Do NOT include markdown.
+
+Do NOT include comments.
+
+Do NOT include <think> or analysis.
+
+Return ONLY valid JSON.
+
+OUTPUT FORMAT:
 
 {
   "matches": [
     {
-      "candidateId": "candidate-id",
+      "candidateId": "EXACT-CANDIDATE-ID",
       "matchScore": 0,
       "skillEvaluation": [
         {
           "skill": "Required Skill 1",
           "matched": true,
-          "evidence": "Evidence from candidate data."
+          "evidence": "Short evidence from supplied candidate data."
         },
         {
           "skill": "Required Skill 2",
@@ -373,10 +483,21 @@ Return ONLY valid JSON in exactly this structure:
           "evidence": "No supporting evidence found."
         }
       ],
-      "reasoning": "Brief explanation based only on the supplied data."
+      "reasoning": "Short explanation of the strongest strengths and gaps."
     }
   ]
 }
+
+FINAL CHECK BEFORE RESPONDING:
+
+- Return exactly ${candidates.length} matches.
+- Every candidate appears exactly once.
+- Every candidateId exactly matches an input candidate id.
+- Every requiredSkills item is evaluated exactly once.
+- Do not omit required skills.
+- Do not add extra skills.
+- matchScore is an integer from 0 to 100.
+- Return JSON only.
 `.trim();
 }
 
@@ -666,9 +787,17 @@ async function scoreBatch(
   );
 
   const expectedIds = new Set(candidateIds);
+  
 
   console.log(
     `Sending ${direction} matching request to Gonka model: ${model}`,
+  );
+  
+  console.log(
+  "[Gonka DEBUG] scoreBatch requiredSkills:",
+  direction === "FREELANCER_FOR_PROJECT"
+    ? (source as MatchProject).requiredSkills
+    : []
   );
 
   const result =
@@ -695,8 +824,7 @@ async function scoreBatch(
 
     const response = result.data;
     const gonkaRequestId = result.request_id;
-
-    const requestId = response.id ?? "unknown";
+    console.log("[Gonka] Request ID:", gonkaRequestId);
 
   const content =
     response.choices[0]?.message?.content;
@@ -722,7 +850,7 @@ async function scoreBatch(
 
     return parsed.matches.map((match) => ({
       ...match,
-      gonkaRequestId: requestId,
+      gonkaRequestId: gonkaRequestId,
     }));
 }
 
