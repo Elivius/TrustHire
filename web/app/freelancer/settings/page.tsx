@@ -126,7 +126,7 @@ export default function FreelancerSettingsPage() {
         </div>
 
         {/* Section 1: Account */}
-        <GlassCard className="p-6 sm:p-8 space-y-6">
+        {/* <GlassCard className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
             <User className="w-4 h-4 text-[#7C3AED] dark:text-[#A78BFA]" />
             <h2 className="text-base font-bold text-foreground">Account Information</h2>
@@ -172,10 +172,10 @@ export default function FreelancerSettingsPage() {
               </GradientButton>
             </div>
           </form>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* Section 2: Payout Wallet */}
-        <GlassCard className="p-6 sm:p-8 space-y-6">
+        {/* <GlassCard className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
             <Wallet className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
             <h2 className="text-base font-bold text-foreground">Payout Wallet (Sui)</h2>
@@ -223,7 +223,7 @@ export default function FreelancerSettingsPage() {
               )}
             </div>
           </div>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* Section 3: Privacy & Discoverability */}
         <GlassCard className="p-6 sm:p-8 space-y-4">
@@ -253,7 +253,7 @@ export default function FreelancerSettingsPage() {
         </GlassCard>
 
         {/* Section 4: Dual Role Switch */}
-        <GlassCard className="p-6 sm:p-8 space-y-6">
+        {/* <GlassCard className="p-6 sm:p-8 space-y-6">
           <div className="flex items-center gap-2.5 pb-2 border-b border-black/5 dark:border-white/5">
             <ArrowLeftRight className="w-4 h-4 text-[#7C3AED] dark:text-[#7B61FF]" />
             <h2 className="text-base font-bold text-foreground">Dual Role Setup</h2>
@@ -277,7 +277,7 @@ export default function FreelancerSettingsPage() {
               Also Set Up as Client
             </GradientButton>
           </div>
-        </GlassCard>
+        </GlassCard> */}
 
         {/* Danger Zone */}
         <div className="rounded-3xl border border-red-500/20 bg-red-500/[0.02] p-6 sm:p-8 space-y-4">
