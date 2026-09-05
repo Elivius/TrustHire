@@ -461,6 +461,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return [...loadedApps, ...unmanaged];
           });
         }
+
+        // Build initial on-chain transactions array from projects and released milestones
+        if ((dbProjects && dbProjects.length > 0) || (dbMilestones && dbMilestones.length > 0)) {
+          const initialTxList: OnChainTransaction[] = [];
+          if (dbProjects) {
+            for (const p of dbProjects as any[]) {
+              if (p.escrow_tx_hash || p.escrow_object_id || p.status === "IN_PROGRESS" || p.status === "COMPLETED") {
+                initialTxList.push({
+                  id: `tx-escrow-${p.project_id}`,
+                  txHash: p.escrow_tx_hash || (p.escrow_object_id ? p.escrow_object_id : "0x" + p.project_id.replace(/-/g, "").slice(0, 64)),
+                  type: "escrow_created",
+                  projectId: p.project_id,
+                  projectTitle: p.title || "Escrow Contract",
+                  amount: Number(p.total_budget) || 0,
+                  fromAddress: p.client_id || "Client",
+                  toAddress: p.escrow_object_id ? `${p.escrow_object_id} (Sui Escrow)` : "Sui Escrow",
+                  timestamp: p.created_at || new Date().toISOString(),
+                  status: "confirmed"
+                });
+              }
+            }
+          }
+          if (dbMilestones) {
+            for (const m of dbMilestones as any[]) {
+              if (m.status === "RELEASED") {
+                const proj = (dbProjects || []).find((p: any) => p.project_id === m.project_id);
+                initialTxList.push({
+                  id: `tx-ms-${m.milestone_id}`,
+                  txHash: m.on_chain_tx_hash || (proj?.escrow_tx_hash ? proj.escrow_tx_hash : "0x" + m.milestone_id.replace(/-/g, "").slice(0, 64)),
+                  type: "milestone_released",
+                  projectId: m.project_id,
+                  projectTitle: proj?.title || "Project Milestone",
+                  milestoneTitle: m.title || "Milestone",
+                  amount: Number(m.amount) || 0,
+                  fromAddress: proj?.escrow_object_id ? `${proj.escrow_object_id} (Sui Escrow)` : "Sui Escrow",
+                  toAddress: "Freelancer Wallet",
+                  timestamp: m.due_date || proj?.created_at || new Date().toISOString(),
+                  status: "confirmed"
+                });
+              }
+            }
+          }
+          if (initialTxList.length > 0) {
+            initialTxList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setTransactions((prev) => {
+              const existingIds = new Set(prev.map((t) => t.id));
+              const newTxs = initialTxList.filter((t) => !existingIds.has(t.id));
+              return [...prev, ...newTxs];
+            });
+          }
+        }
       } catch (err) {
         console.warn("Could not load talent pool from Supabase, maintaining seed fallback:", err);
       }
