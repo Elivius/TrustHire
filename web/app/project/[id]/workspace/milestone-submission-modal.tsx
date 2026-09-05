@@ -201,7 +201,7 @@ export const MilestoneSubmissionModal: React.FC<MilestoneSubmissionModalProps> =
           <p className="text-xs text-foreground/60 mt-0.5">
             Payout upon client approval:{" "}
             <strong className="text-[#0D9488] dark:text-[#2DD4BF] font-mono">
-              ${milestone.amount.toLocaleString()} USDC
+              {milestone.amount.toLocaleString()} SUI
             </strong>
           </p>
         </div>

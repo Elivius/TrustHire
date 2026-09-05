@@ -197,7 +197,7 @@ export default function ClientProjectsPage() {
 
                       <div className="flex items-center gap-4 text-xs font-mono text-foreground/50 pt-1 flex-wrap">
                         <span className="text-foreground font-semibold">
-                          ${project.estimatedBudget.toLocaleString()} <span className="text-[10px] text-foreground/50 font-normal">USDC</span>
+                          {project.estimatedBudget.toLocaleString()} <span className="text-[10px] text-foreground/50 font-normal">SUI</span>
                         </span>
                         <span>•</span>
                         <span>{project.timelineDays} days</span>

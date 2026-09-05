@@ -77,7 +77,7 @@ export default function FreelancerActiveWorkPage() {
                         <StatusBadge status="matched" />
                       </div>
                       <p className="text-xs text-foreground/70">
-                        Matched with <strong>{clientUser?.name}</strong> • ${proj.estimatedBudget.toLocaleString()} USDC
+                        Matched with <strong>{clientUser?.name}</strong> • {proj.estimatedBudget.toLocaleString()} SUI
                       </p>
                       <p className="text-[11px] text-[#D97706] dark:text-[#F59E0B] font-mono">
                         Client is currently reviewing finalized terms and funding escrow on Sui.
@@ -135,7 +135,7 @@ export default function FreelancerActiveWorkPage() {
                           <StatusBadge status="in_progress" />
                         </div>
                         <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono">
-                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{proj.estimatedBudget.toLocaleString()} SUI</span>
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
@@ -158,7 +158,7 @@ export default function FreelancerActiveWorkPage() {
                       <div className="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/5 flex items-center justify-between">
                         <div>
                           <span className="text-xs text-foreground/60 block">Current Actionable Milestone:</span>
-                          <span className="text-xs font-semibold text-foreground">{nextPending.title} (${nextPending.amount.toLocaleString()} USDC)</span>
+                          <span className="text-xs font-semibold text-foreground">{nextPending.title} ({nextPending.amount.toLocaleString()} SUI)</span>
                         </div>
                         <Link href={`/project/${proj.id}/workspace`}>
                           <GradientButton size="sm">
@@ -188,7 +188,7 @@ export default function FreelancerActiveWorkPage() {
                   <div>
                     <h4 className="font-semibold text-sm sm:text-base text-foreground">{proj.title}</h4>
                     <span className="text-xs text-foreground/50 font-mono">
-                      ${proj.estimatedBudget.toLocaleString()} USDC • 100% Released
+                      {proj.estimatedBudget.toLocaleString()} SUI • 100% Released
                     </span>
                   </div>
 

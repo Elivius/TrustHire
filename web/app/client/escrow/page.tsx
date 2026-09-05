@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
   Lock,
@@ -26,6 +26,7 @@ import {
 } from "@/lib/sui/escrow";
 
 export default function ClientEscrowPage() {
+  const router = useRouter();
   const { currentUser, projects, milestones, transactions } = useApp();
   const [filterProject, setFilterProject] = useState<string>("all");
 
@@ -86,7 +87,7 @@ export default function ClientEscrowPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Currently Escrowed</span>
             <div className="text-2xl sm:text-3xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-              ${currentlyEscrowed.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              {currentlyEscrowed.toLocaleString()} <span className="text-xs font-normal">SUI</span>
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">Locked in Sui smart contracts</span>
           </GlassCard>
@@ -94,7 +95,7 @@ export default function ClientEscrowPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Released</span>
             <div className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-              ${totalReleased.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              {totalReleased.toLocaleString()} <span className="text-xs font-normal">SUI</span>
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">Paid out across completed milestones</span>
           </GlassCard>
@@ -129,7 +130,11 @@ export default function ClientEscrowPage() {
                 const remaining = total - released;
 
                 return (
-                  <Link key={proj.id} href={`/project/${proj.id}/workspace`} className="block group">
+                  <div
+                    key={proj.id}
+                    onClick={() => router.push(`/project/${proj.id}/workspace`)}
+                    className="block group cursor-pointer"
+                  >
                     <GlassCard hoverEffect className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
                         <h3 className="font-semibold text-sm sm:text-base text-foreground group-hover:text-[#2563EB] dark:group-hover:text-[#4DA2FF] transition-colors">
@@ -156,19 +161,25 @@ export default function ClientEscrowPage() {
                       <div className="flex items-center gap-6 text-xs font-mono">
                         <div>
                           <span className="text-foreground/45 block text-[10px] uppercase">Locked</span>
-                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${remaining.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{remaining.toLocaleString()} SUI</span>
                         </div>
                         <div>
                           <span className="text-foreground/45 block text-[10px] uppercase">Released</span>
-                          <span className="text-foreground font-semibold">${released.toLocaleString()} USDC</span>
+                          <span className="text-foreground font-semibold">{released.toLocaleString()} SUI</span>
                         </div>
-                        <GhostButton size="sm">
+                        <GhostButton
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/project/${proj.id}/workspace`);
+                          }}
+                        >
                           <span>Workspace</span>
                           <ArrowRight className="w-3 h-3 ml-1" />
                         </GhostButton>
                       </div>
                     </GlassCard>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
@@ -235,7 +246,7 @@ export default function ClientEscrowPage() {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-foreground">
-                        ${tx.amount.toLocaleString()} USDC
+                        {tx.amount.toLocaleString()} SUI
                       </td>
                       <td className="py-3.5 px-4">
                         {isRealSuiDigest(tx.txHash) ? (

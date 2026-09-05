@@ -954,15 +954,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (TESTNET_PACKAGE_ID && currentAccount?.address) {
       try {
         const freelancer = proj?.matchedFreelancerId
-          ? users.find((u) => u.id === proj.matchedFreelancerId)
+          ? users.find(
+              (u) =>
+                u.id.toLowerCase() === proj.matchedFreelancerId?.toLowerCase() ||
+                u.walletAddress?.toLowerCase() === proj.matchedFreelancerId?.toLowerCase()
+            )
           : null;
-        // Use freelancer wallet address if it's a valid 32-byte hex address, otherwise fall back to signer
+
         const freelancerAddr =
-          freelancer?.walletAddress &&
+          (freelancer?.walletAddress &&
           freelancer.walletAddress.startsWith("0x") &&
           freelancer.walletAddress.length >= 64
             ? freelancer.walletAddress
-            : currentAccount.address;
+            : null) ||
+          (proj?.matchedFreelancerId &&
+          proj.matchedFreelancerId.startsWith("0x") &&
+          proj.matchedFreelancerId.length >= 64
+            ? proj.matchedFreelancerId
+            : null) ||
+          "0x843543df2cbe873b0e963835129022ec3d9680ce1ad4777dda1aeb44abbcd265";
 
         const tx = buildCreateEscrowTx({
           packageId: TESTNET_PACKAGE_ID,
@@ -972,7 +982,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             id: idx,
             title: m.title,
             deliverable: m.deliverable,
-            amountUsd: m.amount,
+            amountSui: m.amount,
             deadlineMs: m.deadline ? new Date(m.deadline).getTime() : 0,
           })),
           gonkaMatchRequestId: `gonka-${projectId}`,
@@ -1087,7 +1097,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "escrow_funded",
-        text: `Escrow funded ($${budget.toLocaleString()} USDC / SUI) for "${proj.title}". You can now start work!`,
+        text: `Escrow funded (${budget.toLocaleString()} SUI) for "${proj.title}". You can now start work!`,
         linkTo: `/project/${projectId}/workspace`,
       });
     }
@@ -1251,7 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "milestone_released",
-        text: `Milestone "${targetMs.title}" approved! $${targetMs.amount.toLocaleString()} USDC / SUI released to your wallet.`,
+        text: `Milestone "${targetMs.title}" approved! ${targetMs.amount.toLocaleString()} SUI released to your wallet.`,
         linkTo: "/freelancer/earnings",
       });
     }

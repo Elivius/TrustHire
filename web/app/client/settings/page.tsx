@@ -284,7 +284,7 @@ export default function ClientSettingsPage() {
 
           <p className="text-xs text-foreground/60 leading-relaxed">
             {activeEscrowSum > 0
-              ? `You currently have $${activeEscrowSum.toLocaleString()} USDC locked across active escrow contracts. These funds remain protected on-chain.`
+              ? `You currently have ${activeEscrowSum.toLocaleString()} SUI locked across active escrow contracts. These funds remain protected on-chain.`
               : "Prototype state can be reset to restore original demo seed values at any time."}
           </p>
 
