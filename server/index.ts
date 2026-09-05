@@ -764,30 +764,30 @@ app.post("/profile/trust-score", async (c) => {
     // Calculate overall skill score
     // ------------------------------------
 
-    const successfulSkillResults =
+    const verifiedSkillResults =
       skillResults.filter(
         (result) =>
-          result.verification.successfulModels > 0,
+          result.verification.consensus.verdict === "TRUE",
       );
 
     const overallSkillScore =
-      successfulSkillResults.length > 0
+      verifiedSkillResults.length > 0
         ? Math.round(
-            successfulSkillResults.reduce(
+            verifiedSkillResults.reduce(
               (total, result) =>
                 total +
                 result.verification.consensus.score,
               0,
             ) /
-              successfulSkillResults.length,
+              verifiedSkillResults.length,
           )
         : 0;
 
     console.log(
       "Gonka skill verification complete:",
       {
-        skillsVerified:
-          successfulSkillResults.length,
+        totalSkills: skillResults.length,
+        verifiedSkills: verifiedSkillResults.length,
         overallSkillScore,
       },
     );
@@ -884,6 +884,9 @@ app.post("/profile/trust-score", async (c) => {
               verdict:
                 result.verification
                   .consensus.verdict,
+                  
+              verified:
+                result.verification.consensus.verdict === "TRUE",
 
               confidence:
                 result.verification

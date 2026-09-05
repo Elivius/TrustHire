@@ -42,7 +42,15 @@ export interface MatchProject {
 export interface MatchFreelancer {
   id: string;
   name?: string;
+
+  // Claimed skills
   skills: string[];
+
+  // NEW
+  verifiedSkills?: string[];
+
+  unsupportedSkills?: string[];
+
   bio?: string;
   portfolioLinks?: string[];
   pastProjectLinks?: string[];
@@ -96,7 +104,7 @@ const DEFAULT_MATCH_MODEL =
  * because every project can contain its own requiredSkills
  * and the response can become large.
  */
-const MAX_CANDIDATES_PER_REQUEST = 20;
+const MAX_CANDIDATES_PER_REQUEST = 10;
 const PROJECT_MATCH_BATCH_SIZE = 8;
 
 export function getMatchModel(): string {
@@ -176,30 +184,56 @@ export function prefilterFreelancers(
   freelancers: MatchFreelancer[],
   minimumOverlap = 0.2,
 ): MatchFreelancer[] {
-  if (project.requiredSkills.length === 0) {
+  // ------------------------------------------------------------
+  // If the project does not explicitly specify required skills,
+  // do NOT reject freelancers based on their skill list.
+  //
+  // Gonka can evaluate:
+  // - project description
+  // - freelancer bio
+  // - experience
+  // - portfolio evidence
+  // - other contextual information
+  // ------------------------------------------------------------
+
+  if (
+    !Array.isArray(project.requiredSkills) ||
+    project.requiredSkills.length === 0
+  ) {
     return freelancers;
   }
 
-  /**
-   * IMPORTANT:
-   * Keep the existing behaviour for the original
-   * freelancer-for-project matching flow.
-   */
-  if (freelancers.length <= MAX_CANDIDATES_PER_REQUEST) {
-    return freelancers;
-  }
+  // ------------------------------------------------------------
+  // If required skills exist, ONLY freelancer.skills are used
+  // for this local pre-filter.
+  //
+  // freelancer.skills MUST contain ONLY database-verified
+  // skills.
+  // ------------------------------------------------------------
 
   const filtered = freelancers.filter(
-    (freelancer) =>
-      calculateSkillOverlap(
-        project.requiredSkills,
-        freelancer.skills,
-      ) >= minimumOverlap,
+    (freelancer) => {
+      const verifiedSkills =
+        Array.isArray(freelancer.skills)
+          ? freelancer.skills
+          : [];
+
+      const overlap =
+        calculateSkillOverlap(
+          project.requiredSkills,
+          verifiedSkills,
+        );
+
+      return overlap >= minimumOverlap;
+    },
   );
 
-  if (filtered.length === 0) {
-    return freelancers;
-  }
+  console.log(
+    `[Gonka Match] Verified-skill pre-filter: ` +
+      `${filtered.length}/${freelancers.length} ` +
+      `freelancers passed ` +
+      `(${Math.round(minimumOverlap * 100)}% minimum overlap).`,
+  );
 
   return filtered;
 }
@@ -338,12 +372,17 @@ MATCHING RULES:
 
 2. For freelancer-for-project matching:
    - Compare the freelancer against the project's requirements.
-   - Consider skills, experience, bio, portfolio evidence, and other supplied information.
+   - Treat “freelancer.skills” as VERIFIED SKILLS ONLY.
+   - Use bio, experience, and portfolio only as supporting context.
+   - Never convert information from bio, experience, or portfolio into a
+     verified skill match.
 
 3. For project-for-freelancer matching:
-   - Compare each project candidate with the freelancer's skills,
+   - Compare each project candidate with the freelancer's VERIFIED skills,
      experience, bio, portfolio evidence, and other supplied information.
-   - Each project candidate must be evaluated independently.
+   - Treat the freelancer's “skills” array as the authoritative list of
+     verified skills.
+   - Bio, experience, and portfolio cannot create a verified skill match.
 
 4. REQUIRED SKILLS:
 
@@ -371,11 +410,15 @@ For EVERY required skill:
 
 - Evaluate it individually.
 - Compare it against the candidate's supplied information.
-- Consider the candidate's skills.
-- Consider the candidate's bio.
-- Consider portfolio evidence when provided.
-- Consider semantically related capabilities ONLY when supported by the evidence.
-- Set "matched" to true or false.
+- The candidate's “skills” array contains ONLY database-verified skills.
+- A required skill may be marked “matched”: true ONLY when it is supported by
+  a skill in the candidate's verified “skills” array.
+- The bio, experience, portfolio, and other profile information may be used
+  as supporting context and reasoning.
+- HOWEVER, bio, experience, portfolio, project history, or semantic similarity
+  MUST NOT create a verified skill match.
+- If the required skill is not present or clearly equivalent in the candidate's
+  verified “skills” array, set “matched” to false.
 - Give concise evidence.
 
 Do NOT require exact text matching.
@@ -439,6 +482,24 @@ project affect the skillEvaluation of another project.
 13. Return exactly ONE result for EVERY candidate provided.
 
 14. Every candidate MUST appear exactly once in the matches array.
+
+VERIFIED SKILL POLICY:
+
+The freelancer's “skills” array is authoritative.
+
+IMPORTANT:
+- “skills” contains ONLY skills that TrustHire has verified in the database.
+- An empty “skills” array means the freelancer currently has NO VERIFIED SKILLS.
+- Do NOT infer verified skills from the bio.
+- Do NOT infer verified skills from experience.
+- Do NOT infer verified skills from portfolio links.
+- Do NOT infer verified skills from previous projects.
+- Do NOT infer verified skills from semantic similarity alone.
+- Do NOT mark a required skill as matched unless the freelancer's VERIFIED
+  skills support that requirement.
+
+Bio, experience, portfolio, and other profile information may be used only
+as contextual information and must never be treated as verified skill evidence.
 
 SCORING GUIDANCE:
 

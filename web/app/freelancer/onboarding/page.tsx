@@ -195,13 +195,16 @@ export default function FreelancerOnboardingPage() {
             "Content-Type": "application/json"
           },
 
-          body: JSON.stringify({
-            sessionId: githubSession,
+        body: JSON.stringify({
+          freelancerId: payoutWallet,
 
-            skills: skills.map((skill) => ({
-              name: skill,
-              tier: experienceLevel
-            })),
+          sessionId: githubSession,
+
+          skills: skills.map((skill) => ({
+            name: skill,
+            tier: experienceLevel
+          })),
+
 
             profileComplete:
               Boolean(name.trim()) &&
@@ -338,6 +341,71 @@ export default function FreelancerOnboardingPage() {
                 "freelancer_id"
             }
           );
+
+          // ========================================
+          // Save Gonka skill verification
+          // ========================================
+
+          const verifiedSkills =
+            scoreResult.skillVerification?.skills ?? [];
+
+          for (const skillResult of verifiedSkills) {
+            let claimStatus = "UNVERIFIED";
+
+            if (skillResult.verdict === "TRUE") {
+              claimStatus = "VERIFIED";
+            } else if (
+              skillResult.verdict === "PARTIAL"
+            ) {
+              claimStatus = "SUPPORTED";
+            } else if (
+              skillResult.verdict === "FALSE"
+            ) {
+              claimStatus = "UNVERIFIED";
+            }
+
+            // Save the freelancer's skill claim
+            const { data: claim, error: claimError } =
+              await supabase
+                .from("profile_claims")
+                .insert({
+                  freelancer_id: targetUserId,
+
+                  claim_text:
+                    `${skillResult.name} - ${skillResult.tier}`,
+
+                  claim_type: "Skill",
+
+                  status: claimStatus
+                })
+                .select("claim_id")
+                .single();
+
+            if (claimError) {
+              console.error(
+                `Failed to save skill claim: ${skillResult.name}`,
+                claimError
+              );
+
+              continue;
+            }
+
+            // Save GitHub/Gonka evidence
+            await supabase
+              .from("evidence")
+              .insert({
+                claim_id: claim.claim_id,
+
+                evidence_type: "TEXT",
+
+                description:
+                  `Gonka skill verification for ${skillResult.name}. ` +
+                  `Verdict: ${skillResult.verdict}. ` +
+                  `Score: ${skillResult.score}. ` +
+                  `Confidence: ${skillResult.confidence}. ` +
+                  `Reasoning: ${skillResult.reasoning}`
+              });
+          }
 
       } catch (e) {
         console.warn(

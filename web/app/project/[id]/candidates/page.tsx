@@ -462,14 +462,42 @@ console.log(
 
                       {/* Skills */}
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {profile.skills.map((s: string) => (
-                          <SkillChip
-                            key={s}
-                            label={s}
-                            size="sm"
-                            highlighted={project.requiredSkills.includes(s)}
-                          />
-                        ))}
+                        {profile.skills.map((skill: string) => {
+                          /*
+                          * IMPORTANT:
+                          *
+                          * A skill being present in profile.skills does NOT mean
+                          * that the skill has been verified.
+                          *
+                          * The green SkillChip is reserved for skills that Gonka
+                          * explicitly evaluated as matched/verified.
+                          *
+                          * This prevents a claimed database/profile skill such as
+                          * "Python" from appearing green when its verification
+                          * status is false or unverified.
+                          */
+                          const skillEvaluation = Array.isArray(
+                            match.skillEvaluation
+                          )
+                            ? match.skillEvaluation.find(
+                                (evaluation: any) =>
+                                  evaluation.skill?.trim().toLowerCase() ===
+                                  skill.trim().toLowerCase()
+                              )
+                            : undefined;
+
+                          const isVerified =
+                            skillEvaluation?.matched === true;
+
+                          return (
+                            <SkillChip
+                              key={skill}
+                              label={skill}
+                              size="sm"
+                              highlighted={isVerified}
+                            />
+                          );
+                        })}
                       </div>
                     </GlassCard>
                   );

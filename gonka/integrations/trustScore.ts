@@ -1,9 +1,9 @@
-import { gonka } from "../client.js";
-import { parseGonkaJson } from "../responseParser.js";
-import { runAcrossModels } from "../multiModel.js";
-import { calculateConsensus } from "../consensus.js";
+import { gonka } from "../client";
+import { parseGonkaJson } from "../responseParser";
+import { runAcrossModels } from "../multiModel";
+import { calculateConsensus } from "../consensus";
 
-import type { SkillClaim } from "../../server/evidence.js";
+import type { SkillClaim } from "../../server/evidence";
 
 import type {
   ModelVerificationResult,

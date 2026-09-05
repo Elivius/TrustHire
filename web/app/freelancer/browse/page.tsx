@@ -500,14 +500,37 @@ export default function BrowseProjectsPage() {
                   )}
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {project.requiredSkills.map((s) => (
-                      <SkillChip
-                        key={s}
-                        label={s}
-                        size="sm"
-                        highlighted={myProfile?.skills.includes(s) ?? false}
-                      />
-                    ))}
+                      {project.requiredSkills.map((skill) => {
+                        /*
+                        * IMPORTANT:
+                        *
+                        * myProfile.skills can contain claimed/unverified skills.
+                        *
+                        * Only the actual Gonka match evaluation is allowed
+                        * to make a required skill green.
+                        */
+                        const skillEvaluation = Array.isArray(
+                          matchResult?.skillEvaluation
+                        )
+                          ? matchResult.skillEvaluation.find(
+                              (evaluation: any) =>
+                                evaluation.skill?.trim().toLowerCase() ===
+                                skill.trim().toLowerCase()
+                            )
+                          : undefined;
+
+                        const isVerified =
+                          skillEvaluation?.matched === true;
+
+                        return (
+                          <SkillChip
+                            key={skill}
+                            label={skill}
+                            size="sm"
+                            highlighted={isVerified}
+                          />
+                        );
+                      })}
                   </div>
                 </GlassCard>
               );
