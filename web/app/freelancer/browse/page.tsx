@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Bookmark,
   BookmarkCheck,
+  Cpu,
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { AppShell } from "@/components/layout/app-shell";
@@ -598,14 +599,29 @@ export default function BrowseProjectsPage() {
                     {project.descriptionRaw}
                   </p>
 
-                  {activeTab === "recommended" && matchResult && (
-                    <p className="text-xs text-foreground/70 bg-[#8B5CF6]/[0.06] p-2.5 rounded-xl border border-[#8B5CF6]/20 font-mono">
-                      <span className="text-[#A78BFA] font-semibold mr-1.5">
-                        Gonka Match:
-                      </span>
-                      {matchResult.reasoning}
-                    </p>
-                  )}
+{activeTab === "recommended" && matchResult && (
+  <div className="text-xs text-foreground/70 bg-[#8B5CF6]/[0.06] p-2.5 rounded-xl border border-[#8B5CF6]/20 font-mono">
+    <div>
+      <span className="text-[#A78BFA] font-semibold mr-1.5">
+        Gonka Match:
+      </span>
+      {matchResult.reasoning}
+    </div>
+
+    {matchResult.gonkaRequestId && (
+      <div className="pt-2 mt-2 border-t border-[#8B5CF6]/20 flex items-center justify-between text-[11px]">
+        <span className="flex items-center gap-1 text-[#A78BFA]">
+          <Cpu className="w-3 h-3" />
+          <span>Gonka Router v2.4</span>
+        </span>
+
+        <span className="bg-purple-500/10 dark:bg-black/30 px-2 py-0.5 rounded border border-purple-500/20 dark:border-white/5 text-[#A78BFA]/80">
+          {matchResult.gonkaRequestId}
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
                       {project.requiredSkills.map((skill) => {

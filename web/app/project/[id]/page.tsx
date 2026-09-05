@@ -32,7 +32,6 @@ import { SkillChip } from "@/components/ui/skill-chip";
 import { AIReasoningCallout } from "@/components/ui/ai-reasoning-callout";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
 import { MessagingModalStub } from "@/components/layout/messaging-modal-stub";
-import { computeFreelancerMatchForProject } from "@/lib/simulation";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -158,6 +157,17 @@ export default function ProjectDetailPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [appliedSuccess, setAppliedSuccess] = useState(false);
   const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [aiMatch, setAiMatch] = useState<{
+    projectId: string;
+    matchScore: number;
+    reasoning: string;
+    skillEvaluation: {
+      skill: string;
+      matched: boolean;
+      evidence: string;
+    }[];
+    gonkaRequestId: string;
+  } | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
   const projMilestones = milestones.filter((m) => m.projectId === projectId);
@@ -207,9 +217,43 @@ export default function ProjectDetailPage() {
   const myProfile =
     freelancerProfiles[currentUser.id] ||
     (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined);
-  const aiMatch = myProfile
-    ? computeFreelancerMatchForProject(myProfile.skills, project.requiredSkills, myProfile.trustScore)
-    : null;
+
+useEffect(() => {
+  if (!isFreelancerRole || !currentUser.id || !projectId) {
+    return;
+  }
+
+  const loadGonkaResult = async () => {
+    try {
+      const response = await fetch(
+        `/api/gonka/match-results?freelancerId=${encodeURIComponent(
+          currentUser.id
+        )}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        return;
+      }
+
+      const result = (data.results ?? []).find(
+        (item: { projectId?: string }) =>
+          item.projectId === projectId
+      );
+
+      setAiMatch(result ?? null);
+    } catch (error) {
+      console.error(
+        "[Project Detail] Failed to load Gonka match:",
+        error
+      );
+      setAiMatch(null);
+    }
+  };
+
+  void loadGonkaResult();
+}, [currentUser.id, projectId, isFreelancerRole]);
 
   const candidateCount = new Set([
     ...invitations.filter((i) => i.projectId === projectId).map((i) => i.freelancerId.toLowerCase()),
@@ -275,6 +319,12 @@ export default function ProjectDetailPage() {
                   {project.title}
                 </h1>
                 <StatusBadge status={project.status} />
+
+              {aiMatch && (
+                <span className="px-2 py-0.5 rounded-md bg-[#8B5CF6]/20 text-[#A78BFA] text-xs font-bold">
+                  Match: {Math.round(aiMatch.matchScore)}
+                </span>
+              )}
               </div>
               <div className="flex items-center gap-4 text-xs font-mono text-foreground/60 flex-wrap">
                 <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold text-sm">
@@ -286,51 +336,19 @@ export default function ProjectDetailPage() {
                 <span>Posted {new Date(project.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              {isFreelancerRole && (
-                <button
-                  type="button"
-                  onClick={() => toggleSaveProject(currentUser.id, projectId)}
-                  className="p-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-foreground/75 hover:text-foreground transition-all cursor-pointer"
-                  title={isSaved ? "Saved" : "Save for later"}
-                >
-                  {isSaved ? (
-                    <BookmarkCheck className="w-4 h-4 text-[#0D9488] dark:text-[#2DD4BF]" />
-                  ) : (
-                    <Bookmark className="w-4 h-4" />
-                  )}
-                </button>
-              )}
-
-              {isClientOwner && (
-                <div className="flex items-center gap-2">
-                  <Link href={`/project/${project.id}/candidates`}>
-                    <GradientButton size="sm" icon={<Users className="w-4 h-4" />}>
-                      Candidates Pool ({candidateCount})
-                    </GradientButton>
-                  </Link>
-                  {(project.status === "matched" ||
-                    (project.matchedFreelancerId && !project.escrowObjectId)) && (
-                    <Link href={`/project/${project.id}/fund`}>
-                      <GradientButton
-                        size="sm"
-                        icon={<Lock className="w-3.5 h-3.5 ml-1" />}
-                      >
-                        Fund Escrow
-                      </GradientButton>
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           {isFreelancerRole && aiMatch && (
             <AIReasoningCallout
               reasoning={aiMatch.reasoning}
-              requestId={aiMatch.requestId}
-              confidence="High"
+              requestId={aiMatch.gonkaRequestId}
+              confidence={
+                aiMatch.matchScore >= 70
+                  ? "High"
+                  : aiMatch.matchScore >= 40
+                  ? "Medium"
+                  : "Low"
+              }
             />
           )}
 
