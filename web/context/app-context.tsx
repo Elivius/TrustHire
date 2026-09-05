@@ -8,6 +8,7 @@ import {
   FreelancerProfile,
   Project,
   Milestone,
+  MilestoneVerification,
   ProjectStatus,
   MilestoneStatus,
   Invitation,
@@ -38,6 +39,10 @@ interface AppContextType {
   freelancerProfiles: Record<string, FreelancerProfile>;
   projects: Project[];
   milestones: Milestone[];
+  milestoneVerifications: Record<
+    string,
+    MilestoneVerification
+  >;
   invitations: Invitation[];
   applications: Application[];
   savedProjects: SavedProject[];
@@ -244,6 +249,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [transactions, setTransactions] = useState<OnChainTransaction[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [milestoneVerifications, setMilestoneVerifications] =
+  useState<Record<string, MilestoneVerification>>({});
 
   const currentAccount = useCurrentAccount();
   const dAppKit = useDAppKit();
@@ -338,17 +345,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const supabase = createClient();
 
         // Fetch profiles, skills, portfolios, users, clients, projects, milestones, proposals in parallel
-        const [
-          { data: dbProfiles },
-          { data: dbSkills },
-          { data: dbPortfolios },
-          { data: dbUsers },
-          { data: dbClients },
-          { data: dbProjects },
-          { data: dbMilestones },
-          { data: dbProposals },
-          { data: allSkills },
-        ] = await Promise.all([
+          const [
+            { data: dbProfiles },
+            { data: dbSkills },
+            { data: dbPortfolios },
+            { data: dbUsers },
+            { data: dbClients },
+            { data: dbProjects },
+            { data: dbMilestones },
+            { data: dbProposals },
+            { data: dbVerifications },
+            { data: allSkills },
+          ] = await Promise.all([
           supabase
             .from("freelancer_profiles")
             .select("*"),
@@ -379,6 +387,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           supabase
             .from("proposals")
+            .select("*"),
+
+          supabase
+            .from("milestone_verifications")
             .select("*"),
 
           // Get the actual skills table
@@ -572,6 +584,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const unmanaged = prev.filter((m) => !existingIds.has(m.id));
             return [...loadedMilestones, ...unmanaged];
           });
+        }
+
+        // ============================================================
+        // Load Gonka milestone verification results
+        // ============================================================
+
+        if (dbVerifications && dbVerifications.length > 0) {
+          const verificationMap: Record<
+            string,
+            MilestoneVerification
+          > = {};
+
+          for (const row of dbVerifications as any[]) {
+            if (!row.milestone_id) continue;
+
+            verificationMap[row.milestone_id] = {
+              verificationId:
+                row.verification_id || undefined,
+
+              milestoneId:
+                row.milestone_id,
+
+              score:
+                Number(row.score) || 0,
+
+              reasoning:
+                row.reasoning || "",
+
+              suggestions:
+                Array.isArray(row.suggestions)
+                  ? row.suggestions
+                  : [],
+
+              repository:
+                row.repository || undefined,
+
+              prNumber:
+                row.pr_number
+                  ? Number(row.pr_number)
+                  : undefined,
+
+              prTitle:
+                row.pr_title || undefined,
+
+              prDescription:
+                row.pr_description || undefined,
+
+              gonkaRequestId:
+                row.gonka_request_id || undefined,
+
+              status:
+                row.status || undefined,
+
+              createdAt:
+                row.created_at || undefined,
+            };
+          }
+
+          setMilestoneVerifications(
+            verificationMap
+          );
         }
 
         // Build applications array from proposals
@@ -1574,314 +1647,378 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { txHash, escrowObjectId };
   };
 
-const submitMilestoneWork = async (
-  milestoneId: string,
-  content: string,
-  links: string[] = []
-): Promise<{
-  txHash: string;
-  verification: {
-    verificationScore: number;
-    reasoning: string;
-    suggestions: string[];
-  } | null;
-}> => {
-  const targetMs = milestones.find(
-    (m) => m.id === milestoneId
-  );
+  const submitMilestoneWork = async (
+    milestoneId: string,
+    content: string,
+    links: string[] = []
+  ): Promise<{
+    txHash: string;
+    verification: {
+      verificationScore: number;
+      reasoning: string;
+      suggestions: string[];
+    } | null;
+  }> => {
+    const targetMs = milestones.find(
+      (m) => m.id === milestoneId
+    );
 
-  const proj = targetMs
-    ? projects.find(
-        (p) => p.id === targetMs.projectId
-      )
-    : null;
+    const proj = targetMs
+      ? projects.find(
+          (p) => p.id === targetMs.projectId
+        )
+      : null;
 
-  let txHash = generateSuiTxHash();
+    let txHash = generateSuiTxHash();
 
-  // ============================================================
-  // 1. SUBMIT MILESTONE ON SUI
-  // ============================================================
+    // ============================================================
+    // 1. SUBMIT MILESTONE ON SUI
+    // ============================================================
 
-  if (
-    targetMs &&
-    TESTNET_PACKAGE_ID &&
-    currentAccount?.address &&
-    proj?.escrowObjectId &&
-    proj.escrowObjectId.startsWith("0x")
-  ) {
-    try {
-      const onChainMilestoneId =
-        getMilestoneOnChainId(
-          targetMs,
-          milestones
-        );
+    if (
+      targetMs &&
+      TESTNET_PACKAGE_ID &&
+      currentAccount?.address &&
+      proj?.escrowObjectId &&
+      proj.escrowObjectId.startsWith("0x")
+    ) {
+      try {
+        const onChainMilestoneId =
+          getMilestoneOnChainId(
+            targetMs,
+            milestones
+          );
 
-      const tx = buildSubmitMilestoneTx({
-        packageId: TESTNET_PACKAGE_ID,
-        escrowObjectId:
-          proj.escrowObjectId,
-        milestoneId:
-          onChainMilestoneId,
-      });
-
-      const result =
-        await dAppKit.signAndExecuteTransaction({
-          transaction: tx,
+        const tx = buildSubmitMilestoneTx({
+          packageId: TESTNET_PACKAGE_ID,
+          escrowObjectId:
+            proj.escrowObjectId,
+          milestoneId:
+            onChainMilestoneId,
         });
 
-      if (
-        result.$kind ===
-        "FailedTransaction"
-      ) {
-        throw new Error(
-          result.FailedTransaction.status
-            .error?.message ??
-            "Transaction failed on Sui"
-        );
-      }
-
-      txHash =
-        result.Transaction.digest;
-
-      try {
-        if (
-          (client as any)
-            .waitForTransaction
-        ) {
-          await (
-            client as any
-          ).waitForTransaction({
-            digest: txHash,
-          });
-        } else if (
-          (client.core as any)
-            ?.waitForTransaction
-        ) {
-          await (
-            client.core as any
-          ).waitForTransaction({
-            digest: txHash,
-          });
-        }
-      } catch (e) {
-        console.warn(
-          "waitForTransaction warning:",
-          e
-        );
-      }
-    } catch (err) {
-      console.error(
-        "On-chain submit_milestone failed, falling back to local simulation:",
-        err
-      );
-    }
-  } else {
-    // Local/demo mode
-    await new Promise((r) =>
-      setTimeout(r, 1500)
-    );
-  }
-
-  // ============================================================
-  // 2. SAVE FREELANCER SUBMISSION
-  // ============================================================
-
-  const now =
-    new Date().toISOString();
-
-  updateMilestone(
-    milestoneId,
-    {
-      status: "submitted",
-      submissionContent:
-        content,
-      submissionLinks:
-        links,
-      submittedAt: now,
-      ...(txHash &&
-      !txHash.startsWith("0x")
-        ? {
-            onChainTxHash:
-              txHash,
-          }
-        : {}),
-    }
-  );
-
-  // ============================================================
-  // 3. GONKA MILESTONE EVALUATION
-  // ============================================================
-
-  let verification: {
-    verificationScore: number;
-    reasoning: string;
-    suggestions: string[];
-  } | null = null;
-
-  try {
-    /*
-     * The submission links should contain the GitHub PR URL.
-     *
-     * Example:
-     * https://github.com/owner/repository/pull/123
-     */
-
-    const githubPrLink =
-      links.find((link) =>
-        /github\.com\/[^/]+\/[^/]+\/pull\/\d+/i.test(
-          link
-        )
-      );
-
-    if (githubPrLink) {
-      const githubMatch =
-        githubPrLink.match(
-          /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i
-        );
-
-      if (githubMatch) {
-        const repository =
-          `${githubMatch[1]}/${githubMatch[2]}`;
-
-        const prNumber =
-          Number(githubMatch[3]);
-
-        console.log(
-          "[Gonka Submission Verification] Starting evaluation..."
-        );
-
-        console.log(
-          "[Gonka Submission Verification] Milestone:",
-          milestoneId
-        );
-
-        console.log(
-          "[Gonka Submission Verification] Repository:",
-          repository
-        );
-
-        console.log(
-          "[Gonka Submission Verification] PR:",
-          prNumber
-        );
-
-        const response =
-          await fetch(
-            "/api/gonka/verify-submission",
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                milestoneId,
-
-                repository,
-
-                prNumber,
-
-                submissionDescription:
-                  content,
-              }),
-            }
-          );
-
         const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result?.message ??
-              "Gonka milestone verification failed."
-          );
-        }
+          await dAppKit.signAndExecuteTransaction({
+            transaction: tx,
+          });
 
         if (
-          result?.success &&
-          result?.verification
+          result.$kind ===
+          "FailedTransaction"
         ) {
-          verification = {
-            verificationScore:
-              Number(
-                result.verification
-                  .verificationScore
-              ),
-
-            reasoning:
-              result.verification
-                .reasoning ?? "",
-
-            suggestions:
-              Array.isArray(
-                result.verification
-                  .suggestions
-              )
-                ? result.verification
-                    .suggestions
-                : [],
-          };
-
-          console.log(
-            "[Gonka Submission Verification] Completed:",
-            verification
+          throw new Error(
+            result.FailedTransaction.status
+              .error?.message ??
+              "Transaction failed on Sui"
           );
         }
+
+        txHash =
+          result.Transaction.digest;
+
+        try {
+          if (
+            (client as any)
+              .waitForTransaction
+          ) {
+            await (
+              client as any
+            ).waitForTransaction({
+              digest: txHash,
+            });
+          } else if (
+            (client.core as any)
+              ?.waitForTransaction
+          ) {
+            await (
+              client.core as any
+            ).waitForTransaction({
+              digest: txHash,
+            });
+          }
+        } catch (e) {
+          console.warn(
+            "waitForTransaction warning:",
+            e
+          );
+        }
+      } catch (err) {
+        console.error(
+          "On-chain submit_milestone failed, falling back to local simulation:",
+          err
+        );
       }
     } else {
-      console.log(
-        "[Gonka Submission Verification] No GitHub PR link supplied. Skipping AI evaluation."
+      // Local/demo mode
+      await new Promise((r) =>
+        setTimeout(r, 1500)
       );
     }
-  } catch (error) {
-    /*
-     * Important:
-     *
-     * Gonka is an evaluation layer.
-     *
-     * If Gonka fails, we do NOT undo the freelancer's
-     * milestone submission or Sui transaction.
-     *
-     * The submission still exists and the client can
-     * review it normally.
-     */
-    console.error(
-      "[Gonka Submission Verification] Failed:",
-      error
+
+    // ============================================================
+    // 2. SAVE FREELANCER SUBMISSION
+    // ============================================================
+
+    const now =
+      new Date().toISOString();
+
+    updateMilestone(
+      milestoneId,
+      {
+        status: "submitted",
+        submissionContent:
+          content,
+        submissionLinks:
+          links,
+        submittedAt: now,
+        ...(txHash &&
+        !txHash.startsWith("0x")
+          ? {
+              onChainTxHash:
+                txHash,
+            }
+          : {}),
+      }
     );
-  }
 
-  // ============================================================
-  // 4. NOTIFY CLIENT
-  // ============================================================
+    // ============================================================
+    // 3. GONKA MILESTONE EVALUATION
+    // ============================================================
 
-  if (proj) {
-    addNotification({
-      userId:
-        proj.clientId,
+    let verification: {
+      verificationScore: number;
+      reasoning: string;
+      suggestions: string[];
+    } | null = null;
 
-      type:
-        "milestone_submitted",
+    try {
+      /*
+      * The submission links should contain the GitHub PR URL.
+      *
+      * Example:
+      * https://github.com/owner/repository/pull/123
+      */
 
-      text:
-        `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
+      const githubPrLink =
+        links.find((link) =>
+          /github\.com\/[^/]+\/[^/]+\/pull\/\d+/i.test(
+            link
+          )
+        );
 
-      linkTo:
-        `/project/${proj.id}/workspace`,
-    });
-  }
+      if (githubPrLink) {
+        const githubMatch =
+          githubPrLink.match(
+            /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i
+          );
 
-  // ============================================================
-  // 5. RETURN SUBMISSION + GONKA RESULT
-  // ============================================================
+        if (githubMatch) {
+          const repository =
+            `${githubMatch[1]}/${githubMatch[2]}`;
 
-  return {
-    txHash,
-    verification,
+          const prNumber =
+            Number(githubMatch[3]);
+
+          console.log(
+            "[Gonka Submission Verification] Starting evaluation..."
+          );
+
+          console.log(
+            "[Gonka Submission Verification] Milestone:",
+            milestoneId
+          );
+
+          console.log(
+            "[Gonka Submission Verification] Repository:",
+            repository
+          );
+
+          console.log(
+            "[Gonka Submission Verification] PR:",
+            prNumber
+          );
+
+          const response =
+            await fetch(
+              "/api/gonka/verify-submission",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify({
+                  milestoneId,
+
+                  repository,
+
+                  prNumber,
+
+                  submissionDescription:
+                    content,
+                }),
+              }
+            );
+
+          const result =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              result?.message ??
+                "Gonka milestone verification failed."
+            );
+          }
+
+          if (
+            result?.success &&
+            result?.verification
+          ) {
+              verification = {
+                verificationScore: Number(
+                  result.verification.verificationScore
+                ),
+
+                reasoning:
+                  result.verification.reasoning ?? "",
+
+                suggestions:
+                  Array.isArray(
+                    result.verification.suggestions
+                  )
+                    ? result.verification.suggestions
+                    : [],
+              };
+
+            // ============================================================
+            // Store Gonka verification in frontend state
+            // ============================================================
+
+            const savedVerification: MilestoneVerification = {
+              verificationId:
+                result.verification.id || undefined,
+
+              milestoneId,
+
+              score: Number(
+                result.verification.verificationScore
+              ),
+
+              reasoning:
+                result.verification.reasoning ?? "",
+
+              suggestions:
+                Array.isArray(
+                  result.verification.suggestions
+                )
+                  ? result.verification.suggestions
+                  : [],
+
+              repository:
+                result.verification.repository ||
+                repository,
+
+              prNumber:
+                result.verification.prNumber ||
+                prNumber,
+
+              prTitle:
+                result.verification.prTitle ||
+                undefined,
+
+              prDescription:
+                result.verification.prDescription ||
+                undefined,
+
+              gonkaRequestId:
+                result.verification.gonkaRequestId ||
+                undefined,
+
+              status: "COMPLETED",
+
+              createdAt:
+                new Date().toISOString(),
+            };
+
+            setMilestoneVerifications(
+              (prev) => ({
+                ...prev,
+                [milestoneId]:
+                  savedVerification,
+              })
+            );
+            setMilestones((prev) =>
+              prev.map((m) =>
+                m.id === milestoneId
+                  ? {
+                      ...m,
+                      verification:
+                        savedVerification,
+                    }
+                  : m
+              )
+            );
+
+            console.log(
+              "[Gonka Submission Verification] Completed:",
+              verification
+            );
+          }
+        }
+      } else {
+        console.log(
+          "[Gonka Submission Verification] No GitHub PR link supplied. Skipping AI evaluation."
+        );
+      }
+    } catch (error) {
+      /*
+      * Important:
+      *
+      * Gonka is an evaluation layer.
+      *
+      * If Gonka fails, we do NOT undo the freelancer's
+      * milestone submission or Sui transaction.
+      *
+      * The submission still exists and the client can
+      * review it normally.
+      */
+      console.error(
+        "[Gonka Submission Verification] Failed:",
+        error
+      );
+    }
+
+    // ============================================================
+    // 4. NOTIFY CLIENT
+    // ============================================================
+
+    if (proj) {
+      addNotification({
+        userId:
+          proj.clientId,
+
+        type:
+          "milestone_submitted",
+
+        text:
+          `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
+
+        linkTo:
+          `/project/${proj.id}/workspace`,
+      });
+    }
+
+    // ============================================================
+    // 5. RETURN SUBMISSION + GONKA RESULT
+    // ============================================================
+
+    return {
+      txHash,
+      verification,
+    };
   };
-};
 
   const requestChangesOnMilestone = (milestoneId: string, revisionNote: string) => {
     const targetMs = milestones.find((m) => m.id === milestoneId);
@@ -2064,6 +2201,7 @@ const submitMilestoneWork = async (
         freelancerProfiles,
         projects,
         milestones,
+        milestoneVerifications,
         invitations,
         applications,
         savedProjects,
