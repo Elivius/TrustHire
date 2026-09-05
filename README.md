@@ -2,7 +2,7 @@
 
 TrustHire is a decentralized hiring platform where **AI decides who to trust** and **Sui Move contracts enforce that trust is honored**. Clients describe a project, the Gonka AI router turns it into structured requirements and ranked freelancer matches, and payments are held in an on-chain milestone escrow instead of platform custody.
 
-> Status: hackathon prototype. Some flows described in the requirements docs are still specification-only — see [Current state](#current-state).
+> Status: Currently deployed on **Sui Testnet**.
 
 
 ## Key Sui Features
@@ -18,13 +18,14 @@ This project leverages several standout features of the Sui blockchain to provid
 ## Hackathon Tracks & Judging Criteria
 
 ### <img src="https://cryptologos.cc/logos/sui-sui-logo.svg" width="24" height="24" alt="Sui Logo" style="vertical-align: middle; margin-right: 4px;"/> Sui Track 02: AI × Sui
-**The Problem (Trust & Fairness):** On traditional platforms, freelancers worry about clients defaulting on payments, while clients worry about fake profiles or subpar work. 
+**The Problem (Trust, Fairness & Fees):** On traditional platforms, freelancers are forced to pay high fees or buy virtual "tokens" just to apply for jobs, yet still worry about clients defaulting on payments. Meanwhile, clients worry about fake profiles or subpar work.
+
 **The Solution:** TrustHire uses Sui smart contracts to enforce payment fairness via **On-chain Milestone Escrow**. Clients securely lock funds in advance, and freelancers build an immutable **On-chain Reputation** that proves their skills and track record, eliminating fake profiles.
 
 **Product UX (Web2 UX + Web3 Power):** 
-To ensure real-world readiness, TrustHire completely removes blockchain friction for talent:
+To ensure real-world readiness, TrustHire completely removes the Web2 "pay-to-play" model and all Web3 friction for talent:
 - **Zero-Friction Onboarding:** Freelancers sign in with Google (**zkLogin**)—no seed phrases or wallet extensions required.
-- **Gasless Interactions:** Using **Enoki Sponsored Transactions**, freelancer onboarding and milestone submissions are 100% sponsored. They never need faucet tokens to start working.
+- **Gasless Interactions:** Using **Enoki Sponsored Transactions**, freelancer onboarding and milestone submissions are 100% sponsored. Unlike traditional platforms that charge you to apply, talent doesn't even need a crypto wallet or a single SUI token to start working.
 
 **Technical Implementation (End-to-End Completeness):**
 The core Sui integration is fully complete, prioritizing robust, working mechanics over unnecessary complexity:
@@ -46,6 +47,11 @@ To guarantee unbiased milestone approvals, TrustHire utilizes the Gonka Router t
 - **Database & Off-chain state:** Supabase (PostgreSQL)
 - **AI & Verification:** Gonka Router (Multi-model consensus, API client)
 - **Backend Services:** Hono (Node.js server for GitHub OAuth/Evidence)
+
+## Deployed Contracts (Sui Testnet)
+
+- **Package ID:** `0x2e9e39dc1a01008a12bbdd048ec6925dd8aadd659513c270dcc9530a4bd1e9b0`
+- **Reputation Registry ID:** `0x4a658eb28d57d0360de90e05236e2b0c5e088aff9e841f076775d3c350cea50d`
 
 ## Repository layout
 
@@ -167,3 +173,10 @@ Only three API routes exist under `web/app/api/`: `gonka/project-analysis`, `gon
 - [`web/TrustHire_Freelancer_Requirements.md`](web/TrustHire_Freelancer_Requirements.md) — freelancer-side flows
 - [`smart-contracts/Sui_CLI_Testing_Guide.md`](smart-contracts/Sui_CLI_Testing_Guide.md) — manual contract testing on Testnet
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branch naming and Git workflow
+
+## Team Members
+
+- **[Elivius](https://github.com/Elivius)**
+- **[Edwin-Chua](https://github.com/Edwin-Chua)**
+- **[404notfound-j](https://github.com/404notfound-j)**
+- **[Swong-Gitzbos44](https://github.com/Swong-Gitzbos44)**
