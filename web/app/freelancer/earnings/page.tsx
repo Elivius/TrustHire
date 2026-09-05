@@ -20,7 +20,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WalletChip } from "@/components/ui/wallet-chip";
-import { isRealSuiDigest, formatSuiAddress } from "@/lib/sui/escrow";
+import { isRealSuiDigest, formatSuiAddress, getSuiscanTxUrl } from "@/lib/sui/escrow";
 import { useCurrentAccount, useCurrentClient } from "@mysten/dapp-kit-react";
 
 export default function FreelancerEarningsPage() {
@@ -106,7 +106,18 @@ export default function FreelancerEarningsPage() {
         projectTitle: proj?.title || "Project Milestone",
         milestoneTitle: m.title,
         amount: m.amount,
-        txHash: m.onChainTxHash || "",
+        txHash: m.onChainTxHash || (proj?.escrowTxHash ? proj.escrowTxHash : ""),
+        timestamp: (() => {
+          if (m.releasedAt) return m.releasedAt;
+          if (m.deadline) return m.deadline;
+          if (m.submittedAt) return m.submittedAt;
+          if (proj?.createdAt) {
+            const msMatch = m.title?.match(/Milestone\s*(\d+)/i);
+            const msNum = msMatch ? parseInt(msMatch[1], 10) : 1;
+            return new Date(new Date(proj.createdAt).getTime() + msNum * 25 * 60 * 1000).toISOString();
+          }
+          return new Date().toISOString();
+        })(),
         status: "confirmed" as const,
       };
     }),
@@ -126,9 +137,12 @@ export default function FreelancerEarningsPage() {
         milestoneTitle: t.milestoneTitle || "Milestone Payout",
         amount: t.amount,
         txHash: t.txHash,
+        timestamp: t.timestamp || new Date().toISOString(),
         status: t.status,
       })),
-  ];
+  ].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 
   const totalEarned = releasedPayoutItems.reduce((s, t) => s + t.amount, 0);
 
@@ -346,7 +360,7 @@ export default function FreelancerEarningsPage() {
                   className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono"
                 >
                   <div className="space-y-1 font-sans">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="w-2 h-2 rounded-full bg-[#10B981]" />
                       <h4 className="font-semibold text-sm sm:text-base text-foreground">
                         {tx.milestoneTitle || tx.projectTitle}
@@ -355,9 +369,13 @@ export default function FreelancerEarningsPage() {
                         Released
                       </span>
                     </div>
-                    <span className="text-xs text-foreground/50 block">
-                      Contract: {tx.projectTitle}
-                    </span>
+                    <div className="flex items-center gap-2 text-xs text-foreground/50 flex-wrap">
+                      <span>Contract: {tx.projectTitle}</span>
+                      <span>•</span>
+                      <span className="font-mono text-[11px] text-foreground/60">
+                        {new Date(tx.timestamp).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-6 text-xs">
