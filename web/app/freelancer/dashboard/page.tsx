@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -10,8 +10,15 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Wallet,
+  RefreshCw,
+  Copy,
+  Check,
+  ExternalLink,
+  TrendingUp,
 } from "lucide-react";
+import { clsx } from "clsx";
 import { useApp } from "@/context/app-context";
 import { AppShell } from "@/components/layout/app-shell";
 import { GradientButton } from "@/components/ui/gradient-button";
@@ -22,6 +29,8 @@ import { SkillChip } from "@/components/ui/skill-chip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
 import { computeFreelancerMatchForProject } from "@/lib/simulation";
+import { formatSuiAddress } from "@/lib/sui/escrow";
+import { useCurrentAccount, useCurrentClient } from "@mysten/dapp-kit-react";
 
 export default function FreelancerDashboardPage() {
   const {
@@ -32,11 +41,64 @@ export default function FreelancerDashboardPage() {
     transactions
   } = useApp();
 
+  const currentAccount = useCurrentAccount();
+  const client = useCurrentClient();
+  const effectiveAddress =
+    currentAccount?.address || currentUser?.walletAddress;
+
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const fetchWalletBalance = useCallback(async () => {
+    if (!effectiveAddress) {
+      setWalletBalance(null);
+      return;
+    }
+
+    setIsLoadingBalance(true);
+    try {
+      if (client && typeof client.getBalance === "function") {
+        const res: any = await client.getBalance({ owner: effectiveAddress });
+        const rawBalance =
+          res?.balance?.balance ??
+          res?.balance?.coinBalance ??
+          res?.totalBalance;
+
+        if (rawBalance !== undefined && rawBalance !== null) {
+          const sui = Number(BigInt(rawBalance)) / 1_000_000_000;
+          setWalletBalance(sui);
+          return;
+        }
+      }
+      setWalletBalance(0);
+    } catch (err) {
+      console.warn("Could not fetch on-chain Sui balance:", err);
+      setWalletBalance(0);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [client, effectiveAddress]);
+
+  useEffect(() => {
+    fetchWalletBalance();
+  }, [fetchWalletBalance]);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!effectiveAddress) return;
+    navigator.clipboard.writeText(effectiveAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const profile =
+    (effectiveAddress ? freelancerProfiles[effectiveAddress] : undefined) ||
     freelancerProfiles[currentUser.id] ||
     (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
     Object.entries(freelancerProfiles).find(
       ([k]) =>
+        (effectiveAddress && k.toLowerCase() === effectiveAddress.toLowerCase()) ||
         k.toLowerCase() === currentUser.id.toLowerCase() ||
         (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
     )?.[1] || {
@@ -44,13 +106,15 @@ export default function FreelancerDashboardPage() {
       trustScoreConfidence: "High" as const,
       headline: "Senior Move & Full-Stack Developer",
       skills: ["React", "TypeScript", "Sui Move", "Smart Contracts"],
-      completedProjectsCount: 14
+      completedProjectsCount: 0
     };
 
   const myMatchedProjects = projects.filter(
     (p) =>
       Boolean(p.matchedFreelancerId) &&
       (p.matchedFreelancerId === currentUser.id ||
+        (effectiveAddress &&
+          p.matchedFreelancerId?.toLowerCase() === effectiveAddress.toLowerCase()) ||
         (currentUser.walletAddress &&
           p.matchedFreelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
         p.matchedFreelancerId?.toLowerCase() === currentUser.id.toLowerCase())
@@ -62,9 +126,28 @@ export default function FreelancerDashboardPage() {
     (p) => p.status === "completed"
   );
 
-  const totalEarned = transactions
-    .filter((t) => t.type === "milestone_released" && myMatchedProjects.some((p) => p.id === t.projectId))
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Derive released payouts from both database milestones and in-memory transactions (matching freelancer/earnings)
+  const releasedMilestones = milestones.filter(
+    (m) =>
+      m.status === "released" &&
+      myMatchedProjects.some((p) => p.id === m.projectId)
+  );
+
+  const releasedPayoutAmounts = [
+    ...releasedMilestones.map((m) => m.amount),
+    ...transactions
+      .filter(
+        (t) =>
+          t.type === "milestone_released" &&
+          myMatchedProjects.some((p) => p.id === t.projectId) &&
+          !releasedMilestones.some(
+            (m) => m.onChainTxHash && m.onChainTxHash === t.txHash
+          )
+      )
+      .map((t) => t.amount),
+  ];
+
+  const totalEarned = releasedPayoutAmounts.reduce((sum, a) => sum + a, 0);
 
   const openProjects = projects.filter((p) => p.status === "open");
 
@@ -99,38 +182,168 @@ export default function FreelancerDashboardPage() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <GlassCard className="p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Active Contracts</span>
-            <div className="text-2xl font-bold text-foreground mt-1 font-mono">{activeContracts.length}</div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">In development</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+          {/* Card 1: Active Contracts */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
+                  <span>Active Contracts</span>
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold">
+                  Live
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 font-mono">
+                {activeContracts.length}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+              <span className="text-foreground/50">In development</span>
+              <span className="text-[9px] font-mono text-foreground/40">Milestones</span>
+            </div>
           </GlassCard>
 
-          <Link href="/freelancer/earnings" className="block">
-            <GlassCard className="p-5 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer">
-              <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Earned</span>
-              <div className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-                {(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">SUI</span>
+          {/* Card 2: Total Earned (All-Time) */}
+          <Link href="/freelancer/earnings" className="block h-full group">
+            <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden hover:border-[#0D9488]/40 dark:hover:border-[#2DD4BF]/40 transition-all cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                    <TrendingUp className="w-3 h-3 text-[#0D9488] dark:text-[#2DD4BF]" />
+                    <span>Total Earned</span>
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#0D9488]/20 font-semibold">
+                    On-Chain
+                  </span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono flex items-baseline gap-1.5">
+                  <span>{totalEarned.toLocaleString()}</span>
+                  <span className="text-xs font-normal text-foreground/60">SUI</span>
+                </div>
               </div>
-              <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF]/80 mt-1 flex items-center gap-1">
-                <span>View earnings proof</span>
-                <ArrowRight className="w-3 h-3" />
-              </span>
+
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+                <span className="text-[#0D9488] dark:text-[#2DD4BF] font-medium flex items-center gap-1 group-hover:underline">
+                  <span>View proof</span>
+                  <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+                <span className="text-[9px] font-mono text-[#0D9488]/70 dark:text-[#2DD4BF]/70">Verified</span>
+              </div>
             </GlassCard>
           </Link>
 
-          <GlassCard className="p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Completed Projects</span>
-            <div className="text-2xl font-bold text-foreground mt-1 font-mono">
-              {profile.completedProjectsCount || 14}
+          {/* Card 3: Completed Projects */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
+                  <span>Completed</span>
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">
+                  100%
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 font-mono">
+                {completedProjects.length}
+              </div>
             </div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">100% on-chain delivery</span>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+              <span className="text-foreground/50">On-chain delivery</span>
+              <span className="text-[9px] font-mono text-foreground/40">Gonka AI</span>
+            </div>
           </GlassCard>
 
-          <GlassCard className="p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Gonka Match Rank</span>
-            <div className="text-2xl font-bold text-[#7C3AED] dark:text-[#A78BFA] mt-1 font-mono">Top 2%</div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">Move / React Ecosystem</span>
+          {/* Card 4: Connected Sui Wallet Balance */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3 text-[#2563EB] dark:text-[#4DA2FF]" />
+                  <span>Wallet Balance</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchWalletBalance}
+                  title="Refresh balance from Sui"
+                  className="text-foreground/40 hover:text-foreground p-0.5 rounded transition-colors"
+                >
+                  <RefreshCw
+                    className={clsx(
+                      "w-2.5 h-2.5 transition-transform",
+                      isLoadingBalance && "animate-spin text-[#2563EB]"
+                    )}
+                  />
+                </button>
+              </div>
+
+              <div className="text-xl sm:text-2xl font-bold text-[#2563EB] dark:text-[#4DA2FF] mt-1 font-mono flex items-baseline gap-1.5">
+                {isLoadingBalance && walletBalance === null ? (
+                  <span className="animate-pulse text-foreground/40 text-base">
+                    Loading...
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      {walletBalance !== null
+                        ? walletBalance.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })
+                        : "0.00"}
+                    </span>
+                    <span className="text-xs font-normal text-foreground/60">
+                      SUI
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px] font-mono">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+                <span
+                  className="text-foreground/60 truncate max-w-[75px]"
+                  title={effectiveAddress}
+                >
+                  {effectiveAddress
+                    ? formatSuiAddress(effectiveAddress)
+                    : "Not Connected"}
+                </span>
+                {effectiveAddress && (
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="text-foreground/40 hover:text-foreground transition-colors p-0.5 shrink-0"
+                    title="Copy address"
+                  >
+                    {copied ? (
+                      <Check className="w-2.5 h-2.5 text-[#10B981]" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {effectiveAddress && (
+                <a
+                  href={`https://suiscan.xyz/testnet/account/${effectiveAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-0.5 text-[9px] shrink-0"
+                  title="View on Suiscan Explorer"
+                >
+                  <span>Suiscan</span>
+                  <ExternalLink className="w-2 h-2" />
+                </a>
+              )}
+            </div>
           </GlassCard>
         </div>
 
@@ -148,10 +361,12 @@ export default function FreelancerDashboardPage() {
           </div>
 
           {activeContracts.length === 0 ? (
-            <GlassCard className="text-center py-10 space-y-3">
-              <p className="text-xs sm:text-sm text-foreground/60">No active contracts right now.</p>
+            <GlassCard className="text-center py-8 sm:py-10 flex flex-col items-center justify-center gap-4 sm:gap-5">
+              <p className="text-xs sm:text-sm text-foreground/60">
+                No active contracts right now.
+              </p>
               <Link href="/freelancer/browse">
-                <GradientButton size="sm">Browse Recommended Projects</GradientButton>
+                <GradientButton size="md">Browse Recommended Projects</GradientButton>
               </Link>
             </GlassCard>
           ) : (
