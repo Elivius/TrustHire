@@ -4,6 +4,16 @@ TrustHire is a decentralized hiring platform where **AI decides who to trust** a
 
 > Status: hackathon prototype. Some flows described in the requirements docs are still specification-only — see [Current state](#current-state).
 
+## Key Sui Features
+
+This project leverages several standout features of the Sui blockchain to provide a seamless Web2-like experience with Web3 guarantees:
+
+- **zkLogin**: Frictionless, passwordless onboarding via Google OAuth. Users can create a wallet and interact with the platform using just their Google account. *(See [`web/components/ui/google-login-button.tsx`](web/components/ui/google-login-button.tsx) and `@mysten/enoki` integration)*.
+- **Enoki Sponsored Transactions**: Gasless interactions for talent. Creating a profile and submitting milestone deliverables are 100% sponsored by the platform, allowing freelancers to start working without needing any SUI for gas fees. *(See [`web/lib/sui/sponsored.ts`](web/lib/sui/sponsored.ts) and [`web/app/api/enoki/sponsor/route.ts`](web/app/api/enoki/sponsor/route.ts))*.
+- **Programmable Transaction Blocks (PTBs)**: Atomic, multi-step transactions. TrustHire uses PTBs to securely batch coin splitting, escrow funding, and milestone approvals into single, atomic executions. *(See [`web/lib/sui/escrow.ts`](web/lib/sui/escrow.ts))*.
+- **On-chain Milestone Escrow**: Trustless payment rails. Client funds are locked securely in a shared escrow object, eliminating platform custody and guaranteeing freelancers get paid when work is approved. *(See [`smart-contracts/trusthire/sources/escrow.move`](smart-contracts/trusthire/sources/escrow.move))*.
+- **On-chain Reputation**: Immutable work history. A shared `ReputationRegistry` tracks completed projects, lifetime earnings, and AI-verified trust scores, giving freelancers verifiable and portable identities. *(See [`smart-contracts/trusthire/sources/reputation.move`](smart-contracts/trusthire/sources/reputation.move))*.
+
 ## Repository layout
 
 ```text
