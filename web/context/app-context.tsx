@@ -27,6 +27,7 @@ import {
   getMilestoneOnChainId,
   TESTNET_PACKAGE_ID,
 } from "@/lib/sui/escrow";
+import { executeWithEnokiSponsorship } from "@/lib/sui/sponsored";
 import { createClient } from "@/lib/supabase/client";
 
 interface AppContextType {
@@ -1179,11 +1180,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           milestoneId: onChainMilestoneId,
         });
 
-        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
-        if (result.$kind === "FailedTransaction") {
-          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
-        }
-        txHash = result.Transaction.digest;
+        const { digest } = await executeWithEnokiSponsorship({
+          transaction: tx,
+          senderAddress: currentAccount.address,
+          suiClient: client,
+          dAppKit,
+        });
+
+        txHash = digest;
         try {
           if ((client as any).waitForTransaction) {
             await (client as any).waitForTransaction({ digest: txHash });
@@ -1265,11 +1269,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           milestoneId: onChainMilestoneId,
         });
 
-        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
-        if (result.$kind === "FailedTransaction") {
-          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
-        }
-        txHash = result.Transaction.digest;
+        const { digest } = await executeWithEnokiSponsorship({
+          transaction: tx,
+          senderAddress: currentAccount.address,
+          suiClient: client,
+          dAppKit,
+        });
+
+        txHash = digest;
         try {
           if ((client as any).waitForTransaction) {
             await (client as any).waitForTransaction({ digest: txHash });
