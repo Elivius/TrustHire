@@ -183,12 +183,13 @@ function mapSupabaseToMilestone(m: any): Milestone {
     deliverable: m.description || "",
     amount: Number(m.amount) || 0,
     percentOfBudget: 25,
-    deadline: m.due_date || new Date().toISOString(),
+    deadline: m.due_date || "",
     status: statusLower,
     submissionContent: m.submission_content || undefined,
     submissionLinks: m.submission_links || undefined,
     revisionNote: m.revision_note || undefined,
-    onChainTxHash: m.on_chain_tx_hash || undefined
+    onChainTxHash: m.on_chain_tx_hash || undefined,
+    releasedAt: statusLower === "released" && m.due_date ? m.due_date : undefined,
   };
 }
 
@@ -794,6 +795,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (data.submissionLinks) updatePayload.submission_links = data.submissionLinks;
           if (data.revisionNote) updatePayload.revision_note = data.revisionNote;
           if (data.onChainTxHash) updatePayload.on_chain_tx_hash = data.onChainTxHash;
+          if (data.releasedAt) {
+            updatePayload.due_date = data.releasedAt;
+          } else if (data.status === "released") {
+            updatePayload.due_date = new Date().toISOString();
+          }
 
           await supabase.from("milestones").update(updatePayload).eq("milestone_id", id);
         } catch (err) {

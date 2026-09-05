@@ -107,12 +107,17 @@ export default function FreelancerEarningsPage() {
         milestoneTitle: m.title,
         amount: m.amount,
         txHash: m.onChainTxHash || (proj?.escrowTxHash ? proj.escrowTxHash : ""),
-        timestamp:
-          m.releasedAt ||
-          m.submittedAt ||
-          m.deadline ||
-          proj?.createdAt ||
-          new Date().toISOString(),
+        timestamp: (() => {
+          if (m.releasedAt) return m.releasedAt;
+          if (m.deadline) return m.deadline;
+          if (m.submittedAt) return m.submittedAt;
+          if (proj?.createdAt) {
+            const msMatch = m.title?.match(/Milestone\s*(\d+)/i);
+            const msNum = msMatch ? parseInt(msMatch[1], 10) : 1;
+            return new Date(new Date(proj.createdAt).getTime() + msNum * 25 * 60 * 1000).toISOString();
+          }
+          return new Date().toISOString();
+        })(),
         status: "confirmed" as const,
       };
     }),
