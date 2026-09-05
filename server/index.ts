@@ -29,7 +29,8 @@ import {
   type TrustScoreInput,
 } from "../gonka/integrations/trustScore.js";
 
-dotenv.config({ path: ".env.local" });
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 const app = new Hono();
 
@@ -732,33 +733,29 @@ app.post("/profile/trust-score", async (c) => {
     // Gonka Skill Verification
     // ------------------------------------
 
-    const skillResults = await Promise.all(
-      skills.map(async (skill: {
-        name: string;
-        tier: "Beginner" | "Intermediate" | "Expert";
-      }) => {
+    const skillResults = [];
+    for (const skill of skills as Array<{
+      name: string;
+      tier: "Beginner" | "Intermediate" | "Expert";
+    }>) {
+      const evidence = buildSkillEvidence(
+        skill,
+        githubUser,
+        repositories,
+      );
 
-        const evidence =
-          buildSkillEvidence(
-            skill,
-            githubUser,
-            repositories,
-          );
+      const verification = await verifySkill(
+        skill,
+        evidence,
+      );
 
-        const verification =
-          await verifySkill(
-            skill,
-            evidence,
-          );
-
-        return {
-          skill: skill.name,
-          tier: skill.tier,
-          evidence,
-          verification,
-        };
-      }),
-    );
+      skillResults.push({
+        skill: skill.name,
+        tier: skill.tier,
+        evidence,
+        verification,
+      });
+    }
 
     // ------------------------------------
     // Calculate overall skill score

@@ -1042,7 +1042,7 @@ async function scoreBatch(
     if (direction === "FREELANCER_FOR_PROJECT") {
       return {
         ...match,
-        gonkaRequestId,
+        gonkaRequestId: gonkaRequestId ?? "unknown",
       };
     }
 
@@ -1059,7 +1059,7 @@ async function scoreBatch(
     return {
       ...match,
       candidateId: candidates[aliasIndex].id,
-      gonkaRequestId,
+      gonkaRequestId: gonkaRequestId ?? "unknown",
     };
   });
 }

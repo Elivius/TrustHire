@@ -1,7 +1,8 @@
 import dotenv from "dotenv";
 import OpenAI from "openai";
 
-dotenv.config({ path: ".env.local" });
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 export const gonka = new OpenAI({
   apiKey: process.env.GONKA_API_KEY,

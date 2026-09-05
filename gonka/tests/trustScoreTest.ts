@@ -9,9 +9,8 @@ import {
 
 import type { SkillClaim } from "../../server/evidence.js";
 
-dotenv.config({
-  path: ".env.local",
-});
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 // ============================================================
 // CONFIGURATION

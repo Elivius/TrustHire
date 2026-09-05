@@ -94,16 +94,17 @@ assert.ok(
 );
 
 assert.ok(
+  Array.isArray(project.explicitSkills),
   "Project must contain explicitSkills",
 );
 
 assert.ok(
+  project.requiredSkills.includes("React"),
   "React should be preserved as an explicit client requirement",
 );
 
 assert.ok(
-    project.requiredSkills.includes("Payment Gateway Integration"),
-  ),
+  project.requiredSkills.includes("Payment Gateway Integration"),
   "Payment Gateway Integration should be preserved as an explicit client requirement",
 );
 
