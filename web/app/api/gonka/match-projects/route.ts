@@ -29,20 +29,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+const supabase = await createClient();
 
-    const freelancerId = body.freelancer.id;
+const freelancerId = body.freelancer.id;
 
-    // ------------------------------------------------------------
-    // Get freelancer profile from DATABASE
-    // ------------------------------------------------------------
+// ------------------------------------------------------------
+// Get freelancer profile from DATABASE
+// ------------------------------------------------------------
 
-    const { data: freelancerProfile, error: profileError } =
-      await supabase
-        .from("freelancer_profiles")
-        .select("trust_score")
-        .eq("freelancer_id", freelancerId)
-        .maybeSingle();
+const { data: freelancerProfile, error: profileError } =
+  await supabase
+    .from("freelancer_profiles")
+    .select("trust_score")
+    .eq("freelancer_id", freelancerId)
+    .maybeSingle();
 
     if (profileError) {
       console.error(
@@ -131,6 +131,61 @@ export async function POST(request: NextRequest) {
       trustScore: databaseTrustScore,
     };
 
+    // ------------------------------------------------------------
+    // CHEAP LOCAL PRE-FILTER
+    //
+    // Do not send every open project to Gonka.
+    // Rank projects using verified freelancer skills first,
+    // then send only the best 16 projects to the AI.
+    // ------------------------------------------------------------
+
+    const normaliseSkill = (skill: string) =>
+      skill.trim().toLowerCase();
+
+    const verifiedSkillSet = new Set(
+      verifiedSkills.map(normaliseSkill)
+    );
+
+    const rankedProjects = [...body.projects]
+      .map((project) => {
+        const requiredSkills = project.requiredSkills ?? [];
+
+        const matchedSkills = requiredSkills.filter((skill) =>
+          verifiedSkillSet.has(normaliseSkill(skill))
+        );
+
+        const overlapCount = matchedSkills.length;
+
+        const overlapRatio =
+          requiredSkills.length > 0
+            ? overlapCount / requiredSkills.length
+            : 0;
+
+        return {
+          project,
+          overlapCount,
+          overlapRatio,
+        };
+      })
+      .sort((a, b) => {
+        // First: percentage of required skills matched
+        if (b.overlapRatio !== a.overlapRatio) {
+          return b.overlapRatio - a.overlapRatio;
+        }
+
+        // Second: absolute number of matching skills
+        if (b.overlapCount !== a.overlapCount) {
+          return b.overlapCount - a.overlapCount;
+        }
+
+        // Third: stable ordering
+        return a.project.id.localeCompare(b.project.id);
+      });
+
+    const projectsForGonka = rankedProjects
+      .slice(0, 16)
+      .map(({ project }) => project);
+
     console.log(
       "[Gonka Project Matching] Freelancer:",
       trustedFreelancer.name || trustedFreelancer.id
@@ -150,6 +205,15 @@ export async function POST(request: NextRequest) {
       "[Gonka Project Matching] Projects received:",
       body.projects.length
     );
+    console.log(
+      "[Gonka Project Matching] Projects selected for Gonka:",
+      projectsForGonka.length
+    );
+
+    console.log(
+      "[Gonka Project Matching] Selected project IDs:",
+      projectsForGonka.map((project) => project.id)
+    );
 
     // ------------------------------------------------------------
     // Send ONLY trusted freelancer data to matching engine
@@ -158,7 +222,56 @@ export async function POST(request: NextRequest) {
     const results = await matchProjects({
       ...body,
       freelancer: trustedFreelancer,
+      projects: projectsForGonka,
     });
+    // ------------------------------------------------------------
+    // PERSIST GONKA MATCH RESULTS
+    // ------------------------------------------------------------
+
+    const matchRows = results.map((result) => ({
+      freelancer_id: freelancerId,
+      project_id: result.candidateId,
+      match_score: Math.round(result.matchScore),
+      reasoning: result.reasoning,
+      skill_evaluation: result.skillEvaluation ?? [],
+      gonka_request_id: result.gonkaRequestId,
+      updated_at: new Date().toISOString(),
+    }));
+
+    if (matchRows.length > 0) {
+      const { error: matchSaveError } = await supabase
+        .from("project_match_results")
+        .upsert(matchRows, {
+          onConflict: "freelancer_id,project_id",
+        });
+
+if (matchSaveError) {
+  console.error(
+    "[Gonka Project Matching] Failed to save match results:",
+    {
+      message: matchSaveError.message,
+      details: matchSaveError.details,
+      hint: matchSaveError.hint,
+      code: matchSaveError.code,
+      rows: matchRows,
+    }
+  );
+
+
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Gonka matching succeeded but results could not be saved.",
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    console.log(
+      "[Gonka Project Matching] Saved results:",
+      matchRows.length
+    );
 
     return NextResponse.json({
       success: true,

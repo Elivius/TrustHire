@@ -97,7 +97,11 @@ export default function BrowseProjectsPage() {
   }, [currentUser.id, myProfile, openProjects]);
 
   useEffect(() => {
-    if (activeTab !== "recommended" || !myProfile || openProjects.length === 0) {
+    if (
+      activeTab !== "recommended" ||
+      !myProfile ||
+      openProjects.length === 0
+    ) {
       return;
     }
 
@@ -108,48 +112,147 @@ export default function BrowseProjectsPage() {
       setMatchError(null);
 
       try {
-        const response = await fetch("/api/gonka/match-projects", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            freelancer: {
-              id: currentUser.id,
-              name: currentUser.name,
-              skills: myProfile.skills,
-              bio: myProfile.bio,
-              portfolioLinks: myProfile.portfolioLinks.map(
-                (portfolio) => portfolio.url
-              ),
-              experienceLevel: myProfile.experienceLevel,
-              trustScore: myProfile.trustScore,
-            },
-            projects: openProjects.map((project) => ({
-              id: project.id,
-              projectTitle: project.title,
-              projectDescription: project.descriptionRaw,
-              requiredSkills: project.requiredSkills,
-              experienceLevel: project.experienceLevel,
-              budget: {
-                amount: project.estimatedBudget,
-                currency: "USDC",
-              },
-              estimatedTimelineDays: project.timelineDays,
-              keyDeliverables: project.deliverables ?? [],
-            })),
-          }),
+        // ------------------------------------------------------------
+        // 1. CHECK DATABASE FIRST
+        // ------------------------------------------------------------
+
+        const params = new URLSearchParams({
+          freelancerId: currentUser.id,
         });
+
+        const cachedResponse = await fetch(
+          `/api/gonka/match-results?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (cachedResponse.ok) {
+          const cachedData = await cachedResponse.json();
+
+          if (
+            cachedData.success &&
+            Array.isArray(cachedData.results) &&
+            cachedData.results.length > 0
+          ) {
+            const cachedResults: Record<
+              string,
+              ProjectMatchResult
+            > = {};
+
+            for (const result of cachedData.results) {
+              if (
+                result &&
+                typeof result.projectId === "string" &&
+                typeof result.matchScore === "number"
+              ) {
+                cachedResults[result.projectId] = result;
+              }
+            }
+
+            // Only use cached results for projects that are
+            // currently open.
+            const openProjectIds = new Set(
+              openProjects.map((project) => project.id)
+            );
+
+            const filteredResults: Record<
+              string,
+              ProjectMatchResult
+            > = {};
+
+            for (const [projectId, result] of Object.entries(
+              cachedResults
+            )) {
+              if (openProjectIds.has(projectId)) {
+                filteredResults[projectId] = result;
+              }
+            }
+
+            if (
+              !cancelled &&
+              Object.keys(filteredResults).length > 0
+            ) {
+              console.log(
+                "[Freelancer Project Matching] Using cached Gonka results:",
+                Object.keys(filteredResults).length
+              );
+
+              setMatchResults(filteredResults);
+              setIsMatching(false);
+              return;
+            }
+          }
+        }
+
+        // ------------------------------------------------------------
+        // 2. NO CACHE → RUN GONKA
+        // ------------------------------------------------------------
+
+        console.log(
+          "[Freelancer Project Matching] No cached results. Running Gonka..."
+        );
+
+        const response = await fetch(
+          "/api/gonka/match-projects",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              freelancer: {
+                id: currentUser.id,
+                name: currentUser.name,
+                skills: myProfile.skills,
+                bio: myProfile.bio,
+                portfolioLinks:
+                  myProfile.portfolioLinks.map(
+                    (portfolio) => portfolio.url
+                  ),
+                experienceLevel:
+                  myProfile.experienceLevel,
+                trustScore: myProfile.trustScore,
+              },
+
+              projects: openProjects.map((project) => ({
+                id: project.id,
+                projectTitle: project.title,
+                projectDescription:
+                  project.descriptionRaw,
+                requiredSkills:
+                  project.requiredSkills,
+                experienceLevel:
+                  project.experienceLevel,
+                budget: {
+                  amount: project.estimatedBudget,
+                  currency: "USDC",
+                },
+                estimatedTimelineDays:
+                  project.timelineDays,
+                keyDeliverables:
+                  project.deliverables ?? [],
+              })),
+            }),
+          }
+        );
 
         const data = await response.json();
 
         if (!response.ok || !data.success) {
           throw new Error(
-            data.message || "Failed to get Gonka project recommendations."
+            data.message ||
+              "Failed to get Gonka project recommendations."
           );
         }
 
-        const nextResults: Record<string, ProjectMatchResult> = {};
+        const nextResults: Record<
+          string,
+          ProjectMatchResult
+        > = {};
 
         for (const result of data.results ?? []) {
           if (
@@ -166,12 +269,17 @@ export default function BrowseProjectsPage() {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("[Freelancer Project Matching]", error);
+          console.error(
+            "[Freelancer Project Matching]",
+            error
+          );
+
           setMatchError(
             error instanceof Error
               ? error.message
               : "Unable to load Gonka recommendations."
           );
+
           setMatchResults({});
         }
       } finally {
