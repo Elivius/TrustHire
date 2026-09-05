@@ -165,6 +165,39 @@ app.get("/auth/github", (c) => {
   const state =
     crypto.randomBytes(32).toString("hex");
 
+  const requestedReturnTo =
+  c.req.query("returnTo");
+
+const defaultReturnTo =
+  "/freelancer/onboarding";
+
+let returnTo =
+  defaultReturnTo;
+
+if (
+  requestedReturnTo &&
+  requestedReturnTo.startsWith("/") &&
+  !requestedReturnTo.startsWith("//")
+) {
+  returnTo = requestedReturnTo;
+}
+
+// Store the destination temporarily.
+// SameSite=Lax allows this cookie to survive
+// the GitHub OAuth redirect.
+setCookie(
+  c,
+  "github_oauth_return_to",
+  returnTo,
+  {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: false, // localhost
+    maxAge: 600,
+    path: "/",
+  },
+);
+
   // Store state temporarily in a cookie.
   setCookie(
     c,
@@ -196,7 +229,7 @@ app.get("/auth/github", (c) => {
 
   githubUrl.searchParams.set(
     "scope",
-    "read:user",
+    "read:user repo",
   );
 
   githubUrl.searchParams.set(
@@ -220,21 +253,107 @@ app.get("/auth/github", (c) => {
 app.get(
   "/auth/github/callback",
   async (c) => {
-    const code =
-      c.req.query("code");
+const returnedState =
+  c.req.query("state");
 
-    const returnedState =
-      c.req.query("state");
+const savedStateCookie =
+  getCookie(
+    c,
+    "github_oauth_state",
+  );
 
-    const savedState =
-      getCookie(
-        c,
-        "github_oauth_state",
+const savedReturnTo =
+  getCookie(
+    c,
+    "github_oauth_return_to",
+  );
+
+let savedState: string | null = null;
+let returnTo: string =
+  "/freelancer/onboarding";
+
+/*
+ * Read the OAuth state cookie.
+ *
+ * The existing implementation stores the state
+ * as a plain string, so keep that behaviour.
+ */
+if (savedStateCookie) {
+  savedState =
+    savedStateCookie;
+}
+
+/*
+ * Read the optional return destination.
+ *
+ * Only allow relative frontend paths.
+ */
+if (
+  savedReturnTo &&
+  savedReturnTo.startsWith("/") &&
+  !savedReturnTo.startsWith("//")
+) {
+  returnTo =
+    savedReturnTo;
+}
+/*
+ * Support both:
+ *
+ * 1. New JSON OAuth state cookie
+ * 2. Old plain state cookie
+ *
+ * This keeps the existing OAuth flow
+ * backwards-compatible.
+ */
+if (savedStateCookie) {
+  try {
+    const decoded =
+      decodeURIComponent(
+        savedStateCookie,
       );
+
+    const parsed =
+      JSON.parse(decoded);
+
+    if (
+      parsed &&
+      typeof parsed.state === "string"
+    ) {
+      savedState = parsed.state;
+
+      if (
+        typeof parsed.returnTo ===
+          "string" &&
+        parsed.returnTo.startsWith("/") &&
+        !parsed.returnTo.startsWith("//")
+      ) {
+        returnTo =
+          parsed.returnTo;
+      }
+    } else {
+      /*
+       * Backwards compatibility with the
+       * previous plain state cookie.
+       */
+      savedState =
+        savedStateCookie;
+    }
+  } catch {
+    /*
+     * Existing cookie format was just the
+     * random state string.
+     */
+    savedState =
+      savedStateCookie;
+  }
+}
 
     // ------------------------------------
     // Check authorization code
     // ------------------------------------
+  
+    const code =
+      c.req.query("code");
 
     if (!code) {
       return c.text(
@@ -384,20 +503,59 @@ app.get(
       // Return result
       // ==================================
 
-      const frontendUrl =
-        process.env.FRONTEND_URL ?? "http://localhost:3000";
+const frontendUrl =
+  process.env.FRONTEND_URL ??
+  "http://localhost:3000";
 
-      const redirectUrl = new URL(
-        "/freelancer/onboarding",
-        frontendUrl
-      );
+const savedReturnTo =
+  getCookie(
+    c,
+    "github_oauth_return_to",
+  );
 
-      redirectUrl.searchParams.set("step", "3");
-      redirectUrl.searchParams.set("github", "connected");
-      redirectUrl.searchParams.set("sessionId", sessionId);
-      redirectUrl.searchParams.set("username", githubUser.login);
+const safeReturnTo =
+  savedReturnTo &&
+  savedReturnTo.startsWith("/") &&
+  !savedReturnTo.startsWith("//")
+    ? savedReturnTo
+    : "/freelancer/onboarding";
 
-      return c.redirect(redirectUrl.toString());
+const redirectUrl =
+  new URL(
+    safeReturnTo,
+    frontendUrl,
+  );
+
+// Always tell the frontend GitHub is connected.
+redirectUrl.searchParams.set(
+  "github",
+  "connected",
+);
+
+redirectUrl.searchParams.set(
+  "sessionId",
+  sessionId,
+);
+
+redirectUrl.searchParams.set(
+  "username",
+  githubUser.login,
+);
+
+// Only onboarding needs step=3.
+if (
+  safeReturnTo ===
+  "/freelancer/onboarding"
+) {
+  redirectUrl.searchParams.set(
+    "step",
+    "3",
+  );
+}
+
+return c.redirect(
+  redirectUrl.toString(),
+);
     } catch (error) {
       console.error(
         "GitHub OAuth error:",
@@ -452,6 +610,117 @@ app.get(
 // Gonka multi-model verification will be
 // added after this evidence stage.
 // ========================================
+
+app.get(
+  "/github/repositories/:owner/:repo/pulls",
+  async (c) => {
+    try {
+      const sessionId =
+        c.req.query("sessionId");
+
+      const owner =
+        c.req.param("owner");
+
+      const repo =
+        c.req.param("repo");
+
+      if (!sessionId) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "sessionId is required",
+          },
+          400,
+        );
+      }
+
+      if (!owner || !repo) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Repository owner and name are required",
+          },
+          400,
+        );
+      }
+
+      const session =
+        getSession(sessionId);
+
+      if (!session) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Invalid or expired GitHub session",
+          },
+          401,
+        );
+      }
+
+      const response =
+        await fetch(
+          `https://api.github.com/repos/${encodeURIComponent(
+            owner,
+          )}/${encodeURIComponent(
+            repo,
+          )}/pulls?state=all&sort=updated&direction=desc&per_page=50`,
+          {
+            headers: {
+              Accept:
+                "application/vnd.github+json",
+
+              Authorization:
+                `Bearer ${session.accessToken}`,
+
+              "X-GitHub-Api-Version":
+                "2022-11-28",
+            },
+          },
+        );
+
+      if (!response.ok) {
+        const errorText =
+          await response.text();
+
+        throw new Error(
+          `GitHub Pull Request request failed: ${response.status} ${errorText}`,
+        );
+      }
+
+      const pullRequests =
+        await response.json();
+
+      return c.json({
+        success: true,
+
+        pullRequests,
+      });
+    } catch (error) {
+      console.error(
+        "GitHub Pull Requests error:",
+        error,
+      );
+
+      return c.json(
+        {
+          success: false,
+
+          message:
+            "Failed to retrieve GitHub Pull Requests",
+
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown error",
+        },
+        500,
+      );
+    }
+  },
+);
 
 app.post(
   "/profile/verify",
@@ -649,6 +918,71 @@ app.post(
   },
 );
 
+app.get(
+  "/github/repositories",
+  async (c) => {
+    try {
+      const sessionId =
+        c.req.query("sessionId");
+
+      if (!sessionId) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "sessionId is required",
+          },
+          400,
+        );
+      }
+
+      const session =
+        getSession(sessionId);
+
+      if (!session) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Invalid or expired GitHub session",
+          },
+          401,
+        );
+      }
+
+      const repositories =
+        await getGitHubRepositories(
+          session.accessToken,
+        );
+
+      return c.json({
+        success: true,
+
+        repositories,
+      });
+    } catch (error) {
+      console.error(
+        "GitHub repositories error:",
+        error,
+      );
+
+      return c.json(
+        {
+          success: false,
+
+          message:
+            "Failed to retrieve GitHub repositories",
+
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown error",
+        },
+        500,
+      );
+    }
+  },
+);
 // ========================================
 // Development OAuth Test Status
 // ========================================

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -25,6 +25,9 @@ import { GhostButton } from "@/components/ui/ghost-button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ScoreBadge } from "@/components/ui/score-badge";
+import {
+  useSearchParams,
+} from "next/navigation";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { AIReasoningCallout } from "@/components/ui/ai-reasoning-callout";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
@@ -34,6 +37,7 @@ import { computeFreelancerMatchForProject } from "@/lib/simulation";
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const projectId = params.id as string;
 
   const {
@@ -49,6 +53,105 @@ export default function ProjectDetailPage() {
     toggleSaveProject,
     applyToProject
   } = useApp();
+
+  /*
+   * GitHub OAuth callback handling
+   *
+   * The GitHub OAuth callback redirects back to this
+   * workspace with:
+   *
+   * ?github=connected
+   * &sessionId=...
+   * &username=...
+   *
+   * Save the session ID locally so the milestone
+   * submission modal can use the real GitHub session.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams(
+        window.location.search,
+      );
+
+      const githubStatus =
+        params.get("github");
+
+      const sessionId =
+        params.get("sessionId");
+
+      const username =
+        params.get("username");
+
+      console.log(
+        "[Workspace GitHub] OAuth callback:",
+        {
+          githubStatus,
+          sessionId,
+          username,
+        },
+      );
+
+      /*
+       * Nothing to do if this is a normal
+       * workspace visit.
+       */
+      if (
+        githubStatus !== "connected" ||
+        !sessionId
+      ) {
+        return;
+      }
+
+      /*
+       * Store the GitHub session returned by
+       * the backend OAuth callback.
+       */
+      sessionStorage.setItem(
+        "trusthire_github_session",
+        sessionId,
+      );
+
+      /*
+       * Store the GitHub username as well.
+       * This is useful for displaying the
+       * connected GitHub account.
+       */
+      if (username) {
+        sessionStorage.setItem(
+          "trusthire_github_username",
+          username,
+        );
+      }
+
+      console.log(
+        "[Workspace GitHub] Session saved:",
+        sessionStorage.getItem(
+          "trusthire_github_session",
+        ),
+      );
+
+      /*
+       * Remove OAuth parameters from the URL
+       * after the session has been saved.
+       *
+       * Keep the current workspace path.
+       */
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname,
+      );
+    } catch (error) {
+      console.error(
+        "[Workspace GitHub] Failed to process OAuth callback:",
+        error,
+      );
+    }
+  }, []);
 
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [coverNote, setCoverNote] = useState("");
@@ -124,6 +227,8 @@ export default function ProjectDetailPage() {
       setAppliedSuccess(false);
     }, 1500);
   };
+
+  
 
   return (
     <AppShell>

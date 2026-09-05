@@ -72,8 +72,18 @@ interface AppContextType {
   
   // Escrow & Execution
   fundProjectEscrow: (projectId: string, updatedMilestones?: Milestone[]) => Promise<{ txHash: string; escrowObjectId: string }>;
-  submitMilestoneWork: (milestoneId: string, content: string, links?: string[]) => Promise<string>;
-  requestChangesOnMilestone: (milestoneId: string, revisionNote: string) => void;
+submitMilestoneWork: (
+  milestoneId: string,
+  content: string,
+  links?: string[]
+) => Promise<{
+  txHash: string;
+  verification: {
+    verificationScore: number;
+    reasoning: string;
+    suggestions: string[];
+  } | null;
+}>;  requestChangesOnMilestone: (milestoneId: string, revisionNote: string) => void;
   approveAndReleaseMilestone: (milestoneId: string) => Promise<{ txHash: string }>;
   flagDisputeOnMilestone: (milestoneId: string, reason: string) => Promise<void>;
   submitRating: (projectId: string, freelancerId: string, stars: number, comment?: string) => void;
@@ -496,24 +506,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Build projects array
         if (dbProjects && dbProjects.length > 0) {
-const acceptedProposalMap: Record<string, string> = {};
-if (dbProposals) {
-  for (const prop of dbProposals as any[]) {
-    if (prop.status === "ACCEPTED" && prop.project_id && prop.freelancer_id) {
-      acceptedProposalMap[prop.project_id] = prop.freelancer_id;
-    }
-  }
-}
-const loadedProjects: Project[] = (dbProjects ?? []).map((p: any) => {
-  const mapped = mapSupabaseToProject(
-    p,
-    projectSkillsMap[p.project_id] ?? []
-  );
-  return {
-    ...mapped,
-    matchedFreelancerId: acceptedProposalMap[mapped.id] || undefined
-  };
-});
+          const acceptedProposalMap: Record<string, string> = {};
+
+          if (dbProposals) {
+            for (const prop of dbProposals as any[]) {
+              if (
+                prop.status === "ACCEPTED" &&
+                prop.project_id &&
+                prop.freelancer_id
+              ) {
+                acceptedProposalMap[prop.project_id] =
+                  prop.freelancer_id;
+              }
+            }
+          }
+
+          const loadedProjects: Project[] = dbProjects.map(
+            (p: any) => {
+              const mapped = mapSupabaseToProject(
+                p,
+                projectSkillsMap[p.project_id] ?? []
+              );
+
+              const matchedFreelancer =
+                acceptedProposalMap[mapped.id];
+
+              // If the project is still open but a freelancer's
+              // proposal has been accepted, mark it as matched
+              // while waiting for escrow funding.
+              const effectiveStatus: ProjectStatus =
+                mapped.status === "open" &&
+                matchedFreelancer
+                  ? "matched"
+                  : mapped.status;
+
+              return {
+                ...mapped,
+                status: effectiveStatus,
+                matchedFreelancerId:
+                  matchedFreelancer || undefined,
+              };
+            }
+          );
+
           setProjects((prev) => {
             const existingIds = new Set(loadedProjects.map((p) => p.id));
             const unmanaged = prev.filter((p) => !existingIds.has(p.id));
@@ -547,6 +582,57 @@ const loadedProjects: Project[] = (dbProjects ?? []).map((p: any) => {
             const unmanaged = prev.filter((a) => !existingIds.has(a.id));
             return [...loadedApps, ...unmanaged];
           });
+        }
+
+        // Build initial on-chain transactions array from projects and released milestones
+        if ((dbProjects && dbProjects.length > 0) || (dbMilestones && dbMilestones.length > 0)) {
+          const initialTxList: OnChainTransaction[] = [];
+          if (dbProjects) {
+            for (const p of dbProjects as any[]) {
+              if (p.escrow_tx_hash || p.escrow_object_id || p.status === "IN_PROGRESS" || p.status === "COMPLETED") {
+                initialTxList.push({
+                  id: `tx-escrow-${p.project_id}`,
+                  txHash: p.escrow_tx_hash || (p.escrow_object_id ? p.escrow_object_id : "0x" + p.project_id.replace(/-/g, "").slice(0, 64)),
+                  type: "escrow_created",
+                  projectId: p.project_id,
+                  projectTitle: p.title || "Escrow Contract",
+                  amount: Number(p.total_budget) || 0,
+                  fromAddress: p.client_id || "Client",
+                  toAddress: p.escrow_object_id ? `${p.escrow_object_id} (Sui Escrow)` : "Sui Escrow",
+                  timestamp: p.created_at || new Date().toISOString(),
+                  status: "confirmed"
+                });
+              }
+            }
+          }
+          if (dbMilestones) {
+            for (const m of dbMilestones as any[]) {
+              if (m.status === "RELEASED") {
+                const proj = (dbProjects || []).find((p: any) => p.project_id === m.project_id);
+                initialTxList.push({
+                  id: `tx-ms-${m.milestone_id}`,
+                  txHash: m.on_chain_tx_hash || (proj?.escrow_tx_hash ? proj.escrow_tx_hash : "0x" + m.milestone_id.replace(/-/g, "").slice(0, 64)),
+                  type: "milestone_released",
+                  projectId: m.project_id,
+                  projectTitle: proj?.title || "Project Milestone",
+                  milestoneTitle: m.title || "Milestone",
+                  amount: Number(m.amount) || 0,
+                  fromAddress: proj?.escrow_object_id ? `${proj.escrow_object_id} (Sui Escrow)` : "Sui Escrow",
+                  toAddress: "Freelancer Wallet",
+                  timestamp: m.due_date || proj?.created_at || new Date().toISOString(),
+                  status: "confirmed"
+                });
+              }
+            }
+          }
+          if (initialTxList.length > 0) {
+            initialTxList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setTransactions((prev) => {
+              const existingIds = new Set(prev.map((t) => t.id));
+              const newTxs = initialTxList.filter((t) => !existingIds.has(t.id));
+              return [...prev, ...newTxs];
+            });
+          }
         }
       } catch (err) {
         console.warn("Could not load talent pool from Supabase, maintaining seed fallback:", err);
@@ -1083,7 +1169,10 @@ const loadedProjects: Project[] = (dbProjects ?? []).map((p: any) => {
         try {
           const supabase = createClient();
           const updatePayload: Record<string, any> = {};
-          if (data.status) updatePayload.status = data.status.toUpperCase();
+          if (data.status) {
+            // Postgres check constraint only allows DRAFT, OPEN, IN_PROGRESS, COMPLETED, CANCELLED
+            updatePayload.status = data.status === "matched" ? "OPEN" : data.status.toUpperCase();
+          }
           if (data.escrowObjectId) updatePayload.escrow_object_id = data.escrowObjectId;
           if (data.escrowTxHash) updatePayload.escrow_tx_hash = data.escrowTxHash;
 
@@ -1485,62 +1574,314 @@ const loadedProjects: Project[] = (dbProjects ?? []).map((p: any) => {
     return { txHash, escrowObjectId };
   };
 
-  const submitMilestoneWork = async (milestoneId: string, content: string, links: string[] = []) => {
-    const targetMs = milestones.find((m) => m.id === milestoneId);
-    const proj = targetMs ? projects.find((p) => p.id === targetMs.projectId) : null;
-    let txHash = generateSuiTxHash();
+const submitMilestoneWork = async (
+  milestoneId: string,
+  content: string,
+  links: string[] = []
+): Promise<{
+  txHash: string;
+  verification: {
+    verificationScore: number;
+    reasoning: string;
+    suggestions: string[];
+  } | null;
+}> => {
+  const targetMs = milestones.find(
+    (m) => m.id === milestoneId
+  );
 
-    if (targetMs && TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
-      try {
-        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
+  const proj = targetMs
+    ? projects.find(
+        (p) => p.id === targetMs.projectId
+      )
+    : null;
 
-        const tx = buildSubmitMilestoneTx({
-          packageId: TESTNET_PACKAGE_ID,
-          escrowObjectId: proj.escrowObjectId,
-          milestoneId: onChainMilestoneId,
+  let txHash = generateSuiTxHash();
+
+  // ============================================================
+  // 1. SUBMIT MILESTONE ON SUI
+  // ============================================================
+
+  if (
+    targetMs &&
+    TESTNET_PACKAGE_ID &&
+    currentAccount?.address &&
+    proj?.escrowObjectId &&
+    proj.escrowObjectId.startsWith("0x")
+  ) {
+    try {
+      const onChainMilestoneId =
+        getMilestoneOnChainId(
+          targetMs,
+          milestones
+        );
+
+      const tx = buildSubmitMilestoneTx({
+        packageId: TESTNET_PACKAGE_ID,
+        escrowObjectId:
+          proj.escrowObjectId,
+        milestoneId:
+          onChainMilestoneId,
+      });
+
+      const result =
+        await dAppKit.signAndExecuteTransaction({
+          transaction: tx,
         });
 
-        const result = await dAppKit.signAndExecuteTransaction({ transaction: tx });
-        if (result.$kind === "FailedTransaction") {
-          throw new Error(result.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
+      if (
+        result.$kind ===
+        "FailedTransaction"
+      ) {
+        throw new Error(
+          result.FailedTransaction.status
+            .error?.message ??
+            "Transaction failed on Sui"
+        );
+      }
+
+      txHash =
+        result.Transaction.digest;
+
+      try {
+        if (
+          (client as any)
+            .waitForTransaction
+        ) {
+          await (
+            client as any
+          ).waitForTransaction({
+            digest: txHash,
+          });
+        } else if (
+          (client.core as any)
+            ?.waitForTransaction
+        ) {
+          await (
+            client.core as any
+          ).waitForTransaction({
+            digest: txHash,
+          });
         }
-        txHash = result.Transaction.digest;
-        try {
-          if ((client as any).waitForTransaction) {
-            await (client as any).waitForTransaction({ digest: txHash });
-          } else if ((client.core as any)?.waitForTransaction) {
-            await (client.core as any).waitForTransaction({ digest: txHash });
+      } catch (e) {
+        console.warn(
+          "waitForTransaction warning:",
+          e
+        );
+      }
+    } catch (err) {
+      console.error(
+        "On-chain submit_milestone failed, falling back to local simulation:",
+        err
+      );
+    }
+  } else {
+    // Local/demo mode
+    await new Promise((r) =>
+      setTimeout(r, 1500)
+    );
+  }
+
+  // ============================================================
+  // 2. SAVE FREELANCER SUBMISSION
+  // ============================================================
+
+  const now =
+    new Date().toISOString();
+
+  updateMilestone(
+    milestoneId,
+    {
+      status: "submitted",
+      submissionContent:
+        content,
+      submissionLinks:
+        links,
+      submittedAt: now,
+      ...(txHash &&
+      !txHash.startsWith("0x")
+        ? {
+            onChainTxHash:
+              txHash,
           }
-        } catch (e) {
-          console.warn("waitForTransaction warning:", e);
+        : {}),
+    }
+  );
+
+  // ============================================================
+  // 3. GONKA MILESTONE EVALUATION
+  // ============================================================
+
+  let verification: {
+    verificationScore: number;
+    reasoning: string;
+    suggestions: string[];
+  } | null = null;
+
+  try {
+    /*
+     * The submission links should contain the GitHub PR URL.
+     *
+     * Example:
+     * https://github.com/owner/repository/pull/123
+     */
+
+    const githubPrLink =
+      links.find((link) =>
+        /github\.com\/[^/]+\/[^/]+\/pull\/\d+/i.test(
+          link
+        )
+      );
+
+    if (githubPrLink) {
+      const githubMatch =
+        githubPrLink.match(
+          /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i
+        );
+
+      if (githubMatch) {
+        const repository =
+          `${githubMatch[1]}/${githubMatch[2]}`;
+
+        const prNumber =
+          Number(githubMatch[3]);
+
+        console.log(
+          "[Gonka Submission Verification] Starting evaluation..."
+        );
+
+        console.log(
+          "[Gonka Submission Verification] Milestone:",
+          milestoneId
+        );
+
+        console.log(
+          "[Gonka Submission Verification] Repository:",
+          repository
+        );
+
+        console.log(
+          "[Gonka Submission Verification] PR:",
+          prNumber
+        );
+
+        const response =
+          await fetch(
+            "/api/gonka/verify-submission",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body: JSON.stringify({
+                milestoneId,
+
+                repository,
+
+                prNumber,
+
+                submissionDescription:
+                  content,
+              }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.message ??
+              "Gonka milestone verification failed."
+          );
         }
-      } catch (err) {
-        console.error("On-chain submit_milestone failed, falling back to local simulation:", err);
+
+        if (
+          result?.success &&
+          result?.verification
+        ) {
+          verification = {
+            verificationScore:
+              Number(
+                result.verification
+                  .verificationScore
+              ),
+
+            reasoning:
+              result.verification
+                .reasoning ?? "",
+
+            suggestions:
+              Array.isArray(
+                result.verification
+                  .suggestions
+              )
+                ? result.verification
+                    .suggestions
+                : [],
+          };
+
+          console.log(
+            "[Gonka Submission Verification] Completed:",
+            verification
+          );
+        }
       }
     } else {
-      await new Promise((r) => setTimeout(r, 1500));
+      console.log(
+        "[Gonka Submission Verification] No GitHub PR link supplied. Skipping AI evaluation."
+      );
     }
+  } catch (error) {
+    /*
+     * Important:
+     *
+     * Gonka is an evaluation layer.
+     *
+     * If Gonka fails, we do NOT undo the freelancer's
+     * milestone submission or Sui transaction.
+     *
+     * The submission still exists and the client can
+     * review it normally.
+     */
+    console.error(
+      "[Gonka Submission Verification] Failed:",
+      error
+    );
+  }
 
-    const now = new Date().toISOString();
-    updateMilestone(milestoneId, {
-      status: "submitted",
-      submissionContent: content,
-      submissionLinks: links,
-      submittedAt: now,
-      ...(txHash && !txHash.startsWith("0x") ? { onChainTxHash: txHash } : {})
+  // ============================================================
+  // 4. NOTIFY CLIENT
+  // ============================================================
+
+  if (proj) {
+    addNotification({
+      userId:
+        proj.clientId,
+
+      type:
+        "milestone_submitted",
+
+      text:
+        `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
+
+      linkTo:
+        `/project/${proj.id}/workspace`,
     });
+  }
 
-    if (proj) {
-      addNotification({
-        userId: proj.clientId,
-        type: "milestone_submitted",
-        text: `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
-        linkTo: `/project/${proj.id}/workspace`,
-      });
-    }
+  // ============================================================
+  // 5. RETURN SUBMISSION + GONKA RESULT
+  // ============================================================
 
-    return txHash;
+  return {
+    txHash,
+    verification,
   };
+};
 
   const requestChangesOnMilestone = (milestoneId: string, revisionNote: string) => {
     const targetMs = milestones.find((m) => m.id === milestoneId);

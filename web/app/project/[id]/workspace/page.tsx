@@ -112,6 +112,7 @@ export default function ActiveWorkspacePage() {
       setReleasingMilestoneId(null);
     }
   };
+  console.log("[DEBUG] MILESTONES:", milestones);
 
   return (
     <AppShell>
