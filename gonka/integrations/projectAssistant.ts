@@ -18,7 +18,7 @@ export interface ProjectProposal {
   description: string;
   coreFeatures: string[];
   requiredSkills: string[];
-  budgetUsdc: number;
+  budgetSui: number;
   timelineDays: number;
   budgetSource: ProposalValueSource;
   timelineSource: ProposalValueSource;
@@ -77,7 +77,7 @@ project proposal containing:
 - Brief description
 - Core features
 - Required skills & technologies
-- Estimated budget in USDC
+- Estimated budget in SUI
 - Estimated timeline in days
 
 The client must approve the proposal before the conversation
@@ -358,7 +358,7 @@ Use exactly:
     "description": "string",
     "coreFeatures": ["string"],
     "requiredSkills": ["string"],
-    "budgetUsdc": 3500,
+    "budgetSui": 250,
     "timelineDays": 35,
     "budgetSource": "CLIENT_PROVIDED",
     "timelineSource": "AI_ESTIMATED"
@@ -381,7 +381,7 @@ During COMPLETED:
 "requiredSkills" are AI recommendations for freelancer
 matching and are not client requirements.
 
-"budgetUsdc" must be a positive number.
+"budgetSui" must be a positive number representing the budget in SUI.
 
 "timelineDays" must be a positive integer.
 
@@ -1099,13 +1099,13 @@ function parseProjectProposal(
       data.technologies,
     );
 
-  const budgetUsdc =
-    typeof data.budgetUsdc === "number"
-      ? data.budgetUsdc
+  const budgetSui =
+    typeof data.budgetSui === "number"
+      ? data.budgetSui
       : typeof data.budget === "number"
         ? data.budget
         : Number(
-            data.budgetUsdc ??
+            data.budgetSui ??
             data.budget,
           );
 
@@ -1134,8 +1134,8 @@ function parseProjectProposal(
     !description ||
     coreFeatures.length === 0 ||
     requiredSkills.length === 0 ||
-    !Number.isFinite(budgetUsdc) ||
-    budgetUsdc <= 0 ||
+    !Number.isFinite(budgetSui) ||
+    budgetSui <= 0 ||
     !Number.isFinite(timelineDays) ||
     timelineDays <= 0
   ) {
@@ -1147,7 +1147,7 @@ function parseProjectProposal(
     description,
     coreFeatures,
     requiredSkills,
-    budgetUsdc,
+    budgetSui,
     timelineDays: Math.round(
       timelineDays,
     ),
@@ -1303,7 +1303,7 @@ function parseProposalFromPlainText(
       /(?:\*\*)?Estimated Timeline(?:\*\*)?\s*:\s*([^\r\n]+)/i,
     );
 
-  const budgetUsdc =
+  const budgetSui =
     parseNumericValue(
       budgetText,
     );
@@ -1318,8 +1318,8 @@ function parseProposalFromPlainText(
     !description ||
     coreFeatures.length === 0 ||
     requiredSkills.length === 0 ||
-    !Number.isFinite(budgetUsdc) ||
-    budgetUsdc <= 0 ||
+    !Number.isFinite(budgetSui) ||
+    budgetSui <= 0 ||
     !Number.isFinite(timelineDays) ||
     timelineDays <= 0
   ) {
@@ -1331,7 +1331,7 @@ function parseProposalFromPlainText(
     description,
     coreFeatures,
     requiredSkills,
-    budgetUsdc,
+    budgetSui,
     timelineDays:
       Math.round(timelineDays),
     budgetSource:

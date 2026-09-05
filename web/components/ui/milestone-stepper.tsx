@@ -83,7 +83,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
               {getStepIcon(m.status)}
               <div className="text-xs">
                 <p className="font-semibold text-foreground truncate max-w-[130px]">{m.title}</p>
-                <p className="text-[11px] font-mono text-foreground/60">${m.amount.toLocaleString()} USDC</p>
+                <p className="text-[11px] font-mono text-foreground/60">{m.amount.toLocaleString()} SUI</p>
               </div>
             </div>
             {idx < milestones.length - 1 && (
@@ -121,7 +121,7 @@ export const MilestoneStepper: React.FC<MilestoneStepperProps> = ({
                   {m.title}
                 </h4>
                 <span className="font-mono text-xs font-semibold text-foreground/90 shrink-0">
-                  ${m.amount.toLocaleString()} <span className="text-[10px] text-foreground/50">USDC</span>
+                  {m.amount.toLocaleString()} <span className="text-[10px] text-foreground/50">SUI</span>
                 </span>
               </div>
               <p className="text-xs text-foreground/60 line-clamp-2 mb-2 leading-relaxed">

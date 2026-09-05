@@ -999,8 +999,8 @@ export default function PostProjectPage() {
         */
 
         budget: {
-          amount: Number(proposal.budgetUsdc),
-          currency: "USDC"
+          amount: Number(proposal.budgetSui ?? 0),
+          currency: "SUI"
         },
 
         timeline: {
@@ -2348,10 +2348,9 @@ export default function PostProjectPage() {
                   </span>
 
                   <span className="text-xs sm:text-sm font-bold font-mono text-foreground">
-                    $
                     {estimatedBudget.toLocaleString()}
                     {" "}
-                    USDC
+                    SUI
                   </span>
                 </div>
 
@@ -2526,7 +2525,7 @@ export default function PostProjectPage() {
                   </div>
 
                   <div className="relative">
-                    <DollarSign className="w-4 h-4 text-foreground/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Coins className="w-4 h-4 text-foreground/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="number"
                       value={estimatedBudget}
@@ -2539,7 +2538,7 @@ export default function PostProjectPage() {
                       }
                       className="w-full pl-9 pr-14 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] text-sm font-mono font-bold text-foreground focus:outline-none focus:border-[#7B61FF]"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-foreground/50 pointer-events-none">USDC</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-bold text-foreground/50 pointer-events-none">SUI</span>
                   </div>
 
                 </div>
@@ -2902,10 +2901,9 @@ export default function PostProjectPage() {
                   </span>
 
                   <span className="font-bold text-foreground">
-                    $
                     {estimatedBudget.toLocaleString()}
                     {" "}
-                    USDC Total
+                    SUI Total
                   </span>
 
                 </div>

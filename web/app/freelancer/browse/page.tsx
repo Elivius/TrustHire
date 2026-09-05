@@ -339,21 +339,11 @@ export default function BrowseProjectsPage() {
                 onChange={(e) => setSelectedBudgetFilter(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-foreground focus:outline-none"
               >
-                <option value="all" className="bg-white dark:bg-[#151622] text-foreground">
-                  All Budget Ranges
-                </option>
-                <option value="<500" className="bg-white dark:bg-[#151622] text-foreground">
-                  &lt; $500 USDC
-                </option>
-                <option value="500-2k" className="bg-white dark:bg-[#151622] text-foreground">
-                  $500 – $2k USDC
-                </option>
-                <option value="2k-10k" className="bg-white dark:bg-[#151622] text-foreground">
-                  $2k – $10k USDC
-                </option>
-                <option value="10k+" className="bg-white dark:bg-[#151622] text-foreground">
-                  $10k+ USDC
-                </option>
+                <option value="all" className="bg-white dark:bg-[#151622] text-foreground">All Budget Ranges</option>
+                <option value="<500" className="bg-white dark:bg-[#151622] text-foreground">&lt; 500 SUI</option>
+                <option value="500-2k" className="bg-white dark:bg-[#151622] text-foreground">500 – 2k SUI</option>
+                <option value="2k-10k" className="bg-white dark:bg-[#151622] text-foreground">2k – 10k SUI</option>
+                <option value="10k+" className="bg-white dark:bg-[#151622] text-foreground">10k+ SUI</option>
               </select>
             </div>
 
@@ -453,7 +443,7 @@ export default function BrowseProjectsPage() {
 
                       <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono flex-wrap">
                         <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
-                          ${project.estimatedBudget.toLocaleString()} USDC
+                          {project.estimatedBudget.toLocaleString()} SUI
                         </span>
                         <span>•</span>
                         <span>{project.timelineDays} days</span>

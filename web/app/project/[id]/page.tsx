@@ -173,7 +173,7 @@ export default function ProjectDetailPage() {
               </div>
               <div className="flex items-center gap-4 text-xs font-mono text-foreground/60 flex-wrap">
                 <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold text-sm">
-                  ${project.estimatedBudget.toLocaleString()} USDC
+                  {project.estimatedBudget.toLocaleString()} SUI
                 </span>
                 <span>•</span>
                 <span>{project.timelineDays} days duration</span>

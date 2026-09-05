@@ -81,7 +81,7 @@ export const TransactionCard: React.FC<TransactionCardProps> = ({ tx, className 
         {tx.amount !== undefined && (
           <div>
             <span className="text-foreground/50 block text-[10px] uppercase font-sans">Escrow Value</span>
-            <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${tx.amount.toLocaleString()} USDC</span>
+            <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{tx.amount.toLocaleString()} SUI</span>
           </div>
         )}
         {tx.fromAddress && (

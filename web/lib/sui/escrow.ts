@@ -10,18 +10,35 @@ export const SUI_COIN_TYPE = "0x2::sui::SUI";
 // Testnet package ID from environment
 export const TESTNET_PACKAGE_ID = process.env.NEXT_PUBLIC_TESTNET_PACKAGE_ID || "";
 
-// In Testnet mode, we scale USD values so a standard 1 SUI faucet drop can fund full test projects.
-// 100,000 MIST per $1 USD -> $3,000 USD project = 300,000,000 MIST = 0.3 SUI
-export const MIST_PER_USD = 100_000n;
+// 1 SUI = 1,000,000,000 MIST (10^9)
+export const SUI_BASE_MIST = 1_000_000_000n;
 
 /**
- * Convert USD amount to MIST (base SUI units).
- * Ensures at least 1,000 MIST.
+ * Convert SUI budget amount to MIST (base SUI units).
+ * 1 SUI = 1,000,000,000 MIST (10^9).
+ * For small test amounts (<= 5 SUI), 1 unit = 1 full SUI (1,000,000,000 MIST) so wallet balances visibly increase.
+ * For larger budgets (e.g. 10 - 5,000 SUI), scales to sensible testnet faucet fractions (0.1 - 0.5 SUI)
+ * so clients can fund them from standard testnet faucet balances.
  */
-export function usdToMist(usd: number): bigint {
-  const mist = BigInt(Math.max(1, Math.round(usd))) * MIST_PER_USD;
-  return mist > 0n ? mist : 1000n;
+export function suiToMist(amount: number): bigint {
+  const cleanVal = Number(amount) || 0;
+  if (cleanVal <= 0) return 100_000_000n; // Default 0.1 SUI
+
+  // Small test values (e.g. 1, 2, 3 SUI): 1 SUI = 1.0 SUI (1,000,000,000 MIST)
+  if (cleanVal <= 5) {
+    return BigInt(Math.round(cleanVal * 1_000_000_000));
+  }
+
+  // Medium test values (e.g. 10 - 100 SUI): 0.01 SUI per unit (e.g. 10 = 0.1 SUI, 50 = 0.5 SUI)
+  if (cleanVal <= 100) {
+    return BigInt(Math.round(cleanVal * 10_000_000));
+  }
+
+  // Large budgets (500 - 5,000 SUI): scaled to 0.2 - 0.5 SUI per milestone
+  return BigInt(Math.max(200_000_000, Math.min(1_000_000_000, Math.round(cleanVal * 200_000))));
 }
+
+export const usdToMist = suiToMist;
 
 /**
  * Explorer link helpers for Suiscan
@@ -60,7 +77,8 @@ export interface CreateEscrowParams {
     id: number;
     title: string;
     deliverable: string;
-    amountUsd: number;
+    amountSui: number;
+    amount?: number;
     deadlineMs?: number;
   }[];
   gonkaMatchRequestId?: string;
@@ -87,7 +105,7 @@ export function buildCreateEscrowTx(params: CreateEscrowParams): Transaction {
   let totalMist = 0n;
 
   params.milestones.forEach((m, idx) => {
-    const mist = usdToMist(m.amountUsd);
+    const mist = suiToMist(m.amountSui ?? m.amount ?? 0);
     milestoneIds.push(BigInt(m.id ?? idx));
     milestoneTitles.push(m.title || `Milestone ${idx + 1}`);
     milestoneDeliverables.push(m.deliverable || "Milestone deliverable");
