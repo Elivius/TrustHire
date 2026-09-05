@@ -150,7 +150,7 @@ export const TopNav: React.FC = () => {
                   <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-[#151622] p-2 text-xs shadow-2xl z-50 backdrop-blur-xl">
                     <div className="px-3 py-2 border-b border-black/5 dark:border-white/5 mb-1">
                       <p className="font-semibold text-foreground truncate">{currentUser.name}</p>
-                      <p className="text-foreground/50 truncate text-[11px]">{currentUser.email}</p>
+                      {/* <p className="text-foreground/50 truncate text-[11px]">{currentUser.email}</p> */}
                       <span className="inline-block text-[10px] font-mono text-[#0D9488] dark:text-[#2DD4BF] mt-0.5">
                         Active Role: {activeRole.toUpperCase()}
                       </span>

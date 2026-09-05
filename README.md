@@ -4,6 +4,7 @@ TrustHire is a decentralized hiring platform where **AI decides who to trust** a
 
 > Status: hackathon prototype. Some flows described in the requirements docs are still specification-only — see [Current state](#current-state).
 
+
 ## Key Sui Features
 
 This project leverages several standout features of the Sui blockchain to provide a seamless Web2-like experience with Web3 guarantees:

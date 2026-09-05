@@ -40,6 +40,7 @@ import {
   getSuiscanTxUrl,
   OnChainReputationData,
 } from "@/lib/sui/escrow";
+import { executeWithEnokiSponsorship } from "@/lib/sui/sponsored";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -413,11 +414,13 @@ export default function FreelancerProfilePage() {
     setRepInitDigest(null);
     try {
       const tx = buildCreateReputationRecordTx({ freelancerAddress: walletAddress });
-      const res = await dAppKit.signAndExecuteTransaction({ transaction: tx });
-      if (res.$kind === "FailedTransaction") {
-        throw new Error(res.FailedTransaction.status.error?.message ?? "Transaction failed on Sui");
-      }
-      const digest = res.Transaction.digest;
+      const { digest } = await executeWithEnokiSponsorship({
+        transaction: tx,
+        senderAddress: walletAddress,
+        suiClient: client,
+        dAppKit,
+      });
+
       if (digest) {
         setRepInitDigest(digest);
         setTimeout(() => {
@@ -970,14 +973,16 @@ export default function FreelancerProfilePage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-foreground/50 font-mono">Not initialized</span>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#0D9488]/15 text-[#0D9488] dark:text-[#2DD4BF] border border-[#0D9488]/30 flex items-center gap-1">
+                            <span>⚡ Gas Sponsored by Enoki</span>
+                          </span>
                           <GradientButton
                             size="sm"
                             loading={isInitializingRep}
                             onClick={handleInitializeReputation}
                           >
-                            Initialize Record
+                            Initialize Record (Free)
                           </GradientButton>
                         </div>
                       )}
