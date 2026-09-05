@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Compass,
   Sparkles,
   Search,
-  Filter,
-  DollarSign,
   ArrowRight,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  Cpu,
 } from "lucide-react";
 import { useApp } from "@/context/app-context";
 import { AppShell } from "@/components/layout/app-shell";
@@ -20,8 +19,19 @@ import { GlassCard } from "@/components/ui/glass-card";
 import { ScoreBadge } from "@/components/ui/score-badge";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { computeFreelancerMatchForProject } from "@/lib/simulation";
 import { clsx } from "clsx";
+
+type ProjectMatchResult = {
+  projectId: string;
+  matchScore: number;
+  reasoning: string;
+  skillEvaluation: {
+    skill: string;
+    matched: boolean;
+    evidence: string;
+  }[];
+  gonkaRequestId: string;
+};
 
 export default function BrowseProjectsPage() {
   const {
@@ -30,28 +40,269 @@ export default function BrowseProjectsPage() {
     users,
     freelancerProfiles,
     savedProjects,
-    toggleSaveProject
+    toggleSaveProject,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<"recommended" | "all">("recommended");
+  const [activeTab, setActiveTab] = useState<"recommended" | "all">(
+    "recommended"
+  );
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBudgetFilter, setSelectedBudgetFilter] = useState<string>("all");
-  const [selectedSkillFilter, setSelectedSkillFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"best_match" | "newest" | "budget">("best_match");
+  const [selectedBudgetFilter, setSelectedBudgetFilter] =
+    useState<string>("all");
+  const [selectedSkillFilter, setSelectedSkillFilter] =
+    useState<string>("all");
+  const [sortBy, setSortBy] = useState<
+    "best_match" | "newest" | "budget"
+  >("best_match");
 
-  const myProfile =
-    freelancerProfiles[currentUser.id] ||
-    (currentUser.walletAddress ? freelancerProfiles[currentUser.walletAddress] : undefined) ||
-    Object.entries(freelancerProfiles).find(
-      ([k]) =>
-        k.toLowerCase() === currentUser.id.toLowerCase() ||
-        (currentUser.walletAddress && k.toLowerCase() === currentUser.walletAddress.toLowerCase())
-    )?.[1] || {
-      trustScore: 90,
-      skills: ["React", "TypeScript", "Sui Move", "Smart Contracts", "Tailwind CSS"]
+  const [matchResults, setMatchResults] = useState<
+    Record<string, ProjectMatchResult>
+  >({});
+  const [isMatching, setIsMatching] = useState(false);
+  const [matchError, setMatchError] = useState<string | null>(null);
+
+  // Do not use mock/fallback freelancer data here.
+  const myProfile = freelancerProfiles[currentUser.id];
+
+  const openProjects = useMemo(
+    () => projects.filter((p) => p.status === "open"),
+    [projects]
+  );
+
+  /*
+   * Run the real Gonka freelancer -> project matching.
+   *
+   * We deliberately use a stable key so a normal React/context re-render
+   * does not repeatedly submit the same Gonka request.
+   */
+  const matchingKey = useMemo(() => {
+    if (!myProfile) return "";
+
+    return JSON.stringify({
+      freelancerId: currentUser.id,
+      skills: myProfile.skills,
+      bio: myProfile.bio,
+      experienceLevel: myProfile.experienceLevel,
+      trustScore: myProfile.trustScore,
+      projects: openProjects.map((project) => ({
+        id: project.id,
+        title: project.title,
+        description: project.descriptionRaw,
+        requiredSkills: project.requiredSkills,
+        experienceLevel: project.experienceLevel,
+        budget: project.estimatedBudget,
+        timelineDays: project.timelineDays,
+        deliverables: project.deliverables ?? [],
+      })),
+    });
+  }, [currentUser.id, myProfile, openProjects]);
+
+  useEffect(() => {
+    if (
+      activeTab !== "recommended" ||
+      !myProfile ||
+      openProjects.length === 0
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const runMatching = async () => {
+      setIsMatching(true);
+      setMatchError(null);
+
+      try {
+        // ------------------------------------------------------------
+        // 1. CHECK DATABASE FIRST
+        // ------------------------------------------------------------
+
+        const params = new URLSearchParams({
+          freelancerId: currentUser.id,
+        });
+
+        const cachedResponse = await fetch(
+          `/api/gonka/match-results?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (cachedResponse.ok) {
+          const cachedData = await cachedResponse.json();
+
+          if (
+            cachedData.success &&
+            Array.isArray(cachedData.results) &&
+            cachedData.results.length > 0
+          ) {
+            const cachedResults: Record<
+              string,
+              ProjectMatchResult
+            > = {};
+
+            for (const result of cachedData.results) {
+              if (
+                result &&
+                typeof result.projectId === "string" &&
+                typeof result.matchScore === "number"
+              ) {
+                cachedResults[result.projectId] = result;
+              }
+            }
+
+            // Only use cached results for projects that are
+            // currently open.
+            const openProjectIds = new Set(
+              openProjects.map((project) => project.id)
+            );
+
+            const filteredResults: Record<
+              string,
+              ProjectMatchResult
+            > = {};
+
+            for (const [projectId, result] of Object.entries(
+              cachedResults
+            )) {
+              if (openProjectIds.has(projectId)) {
+                filteredResults[projectId] = result;
+              }
+            }
+
+            if (
+              !cancelled &&
+              Object.keys(filteredResults).length > 0
+            ) {
+              console.log(
+                "[Freelancer Project Matching] Using cached Gonka results:",
+                Object.keys(filteredResults).length
+              );
+
+              setMatchResults(filteredResults);
+              setIsMatching(false);
+              return;
+            }
+          }
+        }
+
+        // ------------------------------------------------------------
+        // 2. NO CACHE → RUN GONKA
+        // ------------------------------------------------------------
+
+        console.log(
+          "[Freelancer Project Matching] No cached results. Running Gonka..."
+        );
+
+        const response = await fetch(
+          "/api/gonka/match-projects",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              freelancer: {
+                id: currentUser.id,
+                name: currentUser.name,
+                skills: myProfile.skills,
+                bio: myProfile.bio,
+                portfolioLinks:
+                  myProfile.portfolioLinks.map(
+                    (portfolio) => portfolio.url
+                  ),
+                experienceLevel:
+                  myProfile.experienceLevel,
+                trustScore: myProfile.trustScore,
+              },
+
+              projects: openProjects.map((project) => ({
+                id: project.id,
+                projectTitle: project.title,
+                projectDescription:
+                  project.descriptionRaw,
+                requiredSkills:
+                  project.requiredSkills,
+                experienceLevel:
+                  project.experienceLevel,
+                budget: {
+                  amount: project.estimatedBudget,
+                  currency: "USDC",
+                },
+                estimatedTimelineDays:
+                  project.timelineDays,
+                keyDeliverables:
+                  project.deliverables ?? [],
+              })),
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.message ||
+              "Failed to get Gonka project recommendations."
+          );
+        }
+
+        const nextResults: Record<
+          string,
+          ProjectMatchResult
+        > = {};
+
+        for (const result of data.results ?? []) {
+          if (
+            result &&
+            typeof result.projectId === "string" &&
+            typeof result.matchScore === "number"
+          ) {
+            nextResults[result.projectId] = result;
+          }
+        }
+
+        if (!cancelled) {
+          setMatchResults(nextResults);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "[Freelancer Project Matching]",
+            error
+          );
+
+          setMatchError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load Gonka recommendations."
+          );
+
+          setMatchResults({});
+        }
+      } finally {
+        if (!cancelled) {
+          setIsMatching(false);
+        }
+      }
     };
 
-  const openProjects = projects.filter((p) => p.status === "open");
+    void runMatching();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    currentUser.id,
+    currentUser.name,
+    matchingKey,
+    myProfile,
+    openProjects,
+  ]);
 
   // Filtering
   const filteredProjects = openProjects.filter((p) => {
@@ -61,18 +312,37 @@ export default function BrowseProjectsPage() {
         p.title.toLowerCase().includes(q) ||
         p.descriptionRaw.toLowerCase().includes(q) ||
         p.requiredSkills.some((s) => s.toLowerCase().includes(q));
+
       if (!match) return false;
     }
 
     if (selectedBudgetFilter !== "all") {
-      if (selectedBudgetFilter === "<500" && p.estimatedBudget >= 500) return false;
-      if (selectedBudgetFilter === "500-2k" && (p.estimatedBudget < 500 || p.estimatedBudget > 2000)) return false;
-      if (selectedBudgetFilter === "2k-10k" && (p.estimatedBudget < 2000 || p.estimatedBudget > 10000)) return false;
-      if (selectedBudgetFilter === "10k+" && p.estimatedBudget < 10000) return false;
+      if (selectedBudgetFilter === "<500" && p.estimatedBudget >= 500) {
+        return false;
+      }
+      if (
+        selectedBudgetFilter === "500-2k" &&
+        (p.estimatedBudget < 500 || p.estimatedBudget > 2000)
+      ) {
+        return false;
+      }
+      if (
+        selectedBudgetFilter === "2k-10k" &&
+        (p.estimatedBudget < 2000 || p.estimatedBudget > 10000)
+      ) {
+        return false;
+      }
+      if (selectedBudgetFilter === "10k+" && p.estimatedBudget < 10000) {
+        return false;
+      }
     }
 
     if (selectedSkillFilter !== "all") {
-      if (!p.requiredSkills.some((s) => s.toLowerCase() === selectedSkillFilter.toLowerCase())) {
+      if (
+        !p.requiredSkills.some(
+          (s) => s.toLowerCase() === selectedSkillFilter.toLowerCase()
+        )
+      ) {
         return false;
       }
     }
@@ -80,17 +350,21 @@ export default function BrowseProjectsPage() {
     return true;
   });
 
-  // Sorting
+  // Recommended projects are sorted using the actual Gonka score.
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     if (activeTab === "recommended" && sortBy === "best_match") {
-      const scoreA = computeFreelancerMatchForProject(myProfile.skills, a.requiredSkills, myProfile.trustScore).matchScore;
-      const scoreB = computeFreelancerMatchForProject(myProfile.skills, b.requiredSkills, myProfile.trustScore).matchScore;
+      const scoreA = matchResults[a.id]?.matchScore ?? -1;
+      const scoreB = matchResults[b.id]?.matchScore ?? -1;
       return scoreB - scoreA;
     }
+
     if (sortBy === "budget") {
       return b.estimatedBudget - a.estimatedBudget;
     }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+    return (
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   });
 
   const clearFilters = () => {
@@ -109,7 +383,8 @@ export default function BrowseProjectsPage() {
             Browse Opportunities
           </h1>
           <p className="text-xs sm:text-sm text-foreground/60 mt-1">
-            Explore open projects with guaranteed escrow deposits and verified scopes.
+            Explore open projects with guaranteed escrow deposits and verified
+            scopes.
           </p>
         </div>
 
@@ -156,7 +431,6 @@ export default function BrowseProjectsPage() {
         {/* Filter & Search Bar */}
         <div className="p-4 rounded-2xl border border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#151622]/60 backdrop-blur-md space-y-3 shadow-sm dark:shadow-none">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Search */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-foreground/40 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -168,7 +442,6 @@ export default function BrowseProjectsPage() {
               />
             </div>
 
-            {/* Budget Presets */}
             <div>
               <select
                 value={selectedBudgetFilter}
@@ -183,24 +456,52 @@ export default function BrowseProjectsPage() {
               </select>
             </div>
 
-            {/* Sort Dropdown */}
             <div>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
+                onChange={(e) =>
+                  setSortBy(
+                    e.target.value as "best_match" | "newest" | "budget"
+                  )
+                }
                 className="w-full px-3 py-2 text-xs rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] text-foreground focus:outline-none"
               >
                 {activeTab === "recommended" && (
-                  <option value="best_match" className="bg-white dark:bg-[#151622] text-foreground">Sort: Best AI Match</option>
+                  <option value="best_match" className="bg-white dark:bg-[#151622] text-foreground">
+                    Sort: Best AI Match
+                  </option>
                 )}
-                <option value="newest" className="bg-white dark:bg-[#151622] text-foreground">Sort: Newest First</option>
-                <option value="budget" className="bg-white dark:bg-[#151622] text-foreground">Sort: Highest Budget</option>
+                <option value="newest" className="bg-white dark:bg-[#151622] text-foreground">
+                  Sort: Newest First
+                </option>
+                <option value="budget" className="bg-white dark:bg-[#151622] text-foreground">
+                  Sort: Highest Budget
+                </option>
               </select>
             </div>
           </div>
         </div>
 
-        {/* Projects List */}
+        {/* Matching status */}
+        {activeTab === "recommended" && isMatching && (
+          <div className="text-xs text-foreground/60 font-mono">
+            Gonka is analyzing your profile against the open projects…
+          </div>
+        )}
+
+        {activeTab === "recommended" && matchError && (
+          <div className="text-xs text-red-500 dark:text-red-400 bg-red-500/5 border border-red-500/20 rounded-xl p-3">
+            Gonka matching failed: {matchError}
+          </div>
+        )}
+
+        {activeTab === "recommended" && !myProfile && (
+          <EmptyState
+            title="Complete your freelancer profile first"
+            description="Gonka needs your real profile, skills, experience, and portfolio to recommend projects."
+          />
+        )}
+
         {sortedProjects.length === 0 ? (
           <EmptyState
             title="No open projects match these filters"
@@ -215,23 +516,16 @@ export default function BrowseProjectsPage() {
           <div className="space-y-4">
             {sortedProjects.map((project) => {
               const clientUser = users.find(
-                (u) =>
-                  u.id === project.clientId ||
-                  (u.walletAddress && u.walletAddress.toLowerCase() === project.clientId.toLowerCase())
+                (u) => u.id === project.clientId
               );
+
               const isSaved = savedProjects.some(
                 (s) =>
-                  s.projectId === project.id &&
-                  (s.freelancerId === currentUser.id ||
-                    (currentUser.walletAddress &&
-                      s.freelancerId?.toLowerCase() === currentUser.walletAddress.toLowerCase()) ||
-                    s.freelancerId?.toLowerCase() === currentUser.id.toLowerCase())
+                  s.freelancerId === currentUser.id &&
+                  s.projectId === project.id
               );
-              const matchResult = computeFreelancerMatchForProject(
-                myProfile.skills,
-                project.requiredSkills,
-                myProfile.trustScore
-              );
+
+              const matchResult = matchResults[project.id];
 
               return (
                 <GlassCard
@@ -246,8 +540,13 @@ export default function BrowseProjectsPage() {
                             {project.title}
                           </h3>
                         </Link>
-                        {activeTab === "recommended" && (
-                          <ScoreBadge score={matchResult.matchScore} type="ai_match" size="sm" />
+
+                        {activeTab === "recommended" && matchResult && (
+                          <ScoreBadge
+                            score={matchResult.matchScore}
+                            type="ai_match"
+                            size="sm"
+                          />
                         )}
                       </div>
 
@@ -258,14 +557,21 @@ export default function BrowseProjectsPage() {
                         <span>•</span>
                         <span>{project.timelineDays} days</span>
                         <span>•</span>
-                        <span>Client: {clientUser?.companyName || clientUser?.name || "Verified Client"}</span>
+                        <span>
+                          Client: {clientUser?.name || "Verified Client"}
+                        </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                       <button
                         type="button"
-                        onClick={() => toggleSaveProject(currentUser.walletAddress || currentUser.id, project.id)}
+                        onClick={() =>
+                          toggleSaveProject(
+                            currentUser.id,
+                            project.id
+                          )
+                        }
                         className="p-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.03] hover:bg-black/[0.05] dark:hover:bg-white/[0.08] text-foreground/75 hover:text-foreground transition-all cursor-pointer"
                         title={isSaved ? "Saved" : "Save for later"}
                       >
@@ -277,7 +583,12 @@ export default function BrowseProjectsPage() {
                       </button>
 
                       <Link href={`/project/${project.id}`}>
-                        <GradientButton size="sm" icon={<ArrowRight className="w-3.5 h-3.5 ml-1" />}>
+                        <GradientButton
+                          size="sm"
+                          icon={
+                            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                          }
+                        >
                           View Details
                         </GradientButton>
                       </Link>
@@ -288,23 +599,62 @@ export default function BrowseProjectsPage() {
                     {project.descriptionRaw}
                   </p>
 
-                  {/* AI Reasoning preview (Recommended only) */}
-                  {activeTab === "recommended" && (
-                    <p className="text-xs text-foreground/70 bg-[#8B5CF6]/[0.06] p-2.5 rounded-xl border border-[#8B5CF6]/20 font-mono">
-                      <span className="text-[#A78BFA] font-semibold mr-1.5">Gonka Match:</span>
-                      {matchResult.reasoning}
-                    </p>
-                  )}
+{activeTab === "recommended" && matchResult && (
+  <div className="text-xs text-foreground/70 bg-[#8B5CF6]/[0.06] p-2.5 rounded-xl border border-[#8B5CF6]/20 font-mono">
+    <div>
+      <span className="text-[#A78BFA] font-semibold mr-1.5">
+        Gonka Match:
+      </span>
+      {matchResult.reasoning}
+    </div>
+
+    {matchResult.gonkaRequestId && (
+      <div className="pt-2 mt-2 border-t border-[#8B5CF6]/20 flex items-center justify-between text-[11px]">
+        <span className="flex items-center gap-1 text-[#A78BFA]">
+          <Cpu className="w-3 h-3" />
+          <span>Gonka Router v2.4</span>
+        </span>
+
+        <span className="bg-purple-500/10 dark:bg-black/30 px-2 py-0.5 rounded border border-purple-500/20 dark:border-white/5 text-[#A78BFA]/80">
+          {matchResult.gonkaRequestId}
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {project.requiredSkills.map((s) => (
-                      <SkillChip
-                        key={s}
-                        label={s}
-                        size="sm"
-                        highlighted={myProfile.skills.includes(s)}
-                      />
-                    ))}
+                      {project.requiredSkills.map((skill) => {
+                        /*
+                        * IMPORTANT:
+                        *
+                        * myProfile.skills can contain claimed/unverified skills.
+                        *
+                        * Only the actual Gonka match evaluation is allowed
+                        * to make a required skill green.
+                        */
+                        const skillEvaluation = Array.isArray(
+                          matchResult?.skillEvaluation
+                        )
+                          ? matchResult.skillEvaluation.find(
+                              (evaluation: any) =>
+                                evaluation.skill?.trim().toLowerCase() ===
+                                skill.trim().toLowerCase()
+                            )
+                          : undefined;
+
+                        const isVerified =
+                          skillEvaluation?.matched === true;
+
+                        return (
+                          <SkillChip
+                            key={skill}
+                            label={skill}
+                            size="sm"
+                            highlighted={isVerified}
+                          />
+                        );
+                      })}
                   </div>
                 </GlassCard>
               );

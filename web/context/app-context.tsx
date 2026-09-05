@@ -8,6 +8,7 @@ import {
   FreelancerProfile,
   Project,
   Milestone,
+  MilestoneVerification,
   ProjectStatus,
   MilestoneStatus,
   Invitation,
@@ -39,6 +40,10 @@ interface AppContextType {
   freelancerProfiles: Record<string, FreelancerProfile>;
   projects: Project[];
   milestones: Milestone[];
+  milestoneVerifications: Record<
+    string,
+    MilestoneVerification
+  >;
   invitations: Invitation[];
   applications: Application[];
   savedProjects: SavedProject[];
@@ -73,8 +78,18 @@ interface AppContextType {
   
   // Escrow & Execution
   fundProjectEscrow: (projectId: string, updatedMilestones?: Milestone[]) => Promise<{ txHash: string; escrowObjectId: string }>;
-  submitMilestoneWork: (milestoneId: string, content: string, links?: string[]) => Promise<string>;
-  requestChangesOnMilestone: (milestoneId: string, revisionNote: string) => void;
+submitMilestoneWork: (
+  milestoneId: string,
+  content: string,
+  links?: string[]
+) => Promise<{
+  txHash: string;
+  verification: {
+    verificationScore: number;
+    reasoning: string;
+    suggestions: string[];
+  } | null;
+}>;  requestChangesOnMilestone: (milestoneId: string, revisionNote: string) => void;
   approveAndReleaseMilestone: (milestoneId: string) => Promise<{ txHash: string }>;
   flagDisputeOnMilestone: (milestoneId: string, reason: string) => Promise<void>;
   submitRating: (projectId: string, freelancerId: string, stars: number, comment?: string) => void;
@@ -157,20 +172,24 @@ function mapSupabaseToClientProfile(cp: any): ClientProfile {
   };
 }
 
-function mapSupabaseToProject(p: any): Project {
+function mapSupabaseToProject(
+  p: any,
+  requiredSkills: string[] = []
+): Project {
   return {
     id: p.project_id,
     clientId: p.client_id,
     title: p.title || "Untitled Project",
     descriptionRaw: p.description || "",
-    requiredSkills: p.category ? [p.category] : ["General"],
+    requiredSkills,
+
     estimatedBudget: Number(p.total_budget) || 0,
     timelineDays: Number(p.timeline) || 14,
-    status: (p.status?.toLowerCase() as ProjectStatus) || "open",
-    escrowObjectId: p.escrow_object_id || undefined,
-    escrowTxHash: p.escrow_tx_hash || undefined,
-    createdAt: p.created_at || new Date().toISOString(),
-    updatedAt: p.created_at || new Date().toISOString()
+status: (p.status?.toLowerCase() as ProjectStatus) || "open",
+escrowObjectId: p.escrow_object_id || undefined,
+escrowTxHash: p.escrow_tx_hash || undefined,
+createdAt: p.created_at || new Date().toISOString(),
+updatedAt: p.created_at || new Date().toISOString(),
   };
 }
 
@@ -232,6 +251,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [transactions, setTransactions] = useState<OnChainTransaction[]>([]);
   const [ratings, setRatings] = useState<Rating[]>([]);
+  const [milestoneVerifications, setMilestoneVerifications] =
+  useState<Record<string, MilestoneVerification>>({});
 
   const currentAccount = useCurrentAccount();
   const dAppKit = useDAppKit();
@@ -326,25 +347,109 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const supabase = createClient();
 
         // Fetch profiles, skills, portfolios, users, clients, projects, milestones, proposals in parallel
-        const [
-          { data: dbProfiles },
-          { data: dbSkills },
-          { data: dbPortfolios },
-          { data: dbUsers },
-          { data: dbClients },
-          { data: dbProjects },
-          { data: dbMilestones },
-          { data: dbProposals }
-        ] = await Promise.all([
-          supabase.from("freelancer_profiles").select("*"),
-          supabase.from("freelancer_skills").select("freelancer_id, skills(skill_name)"),
-          supabase.from("freelancer_portfolios").select("freelancer_id, title, url"),
-          supabase.from("users").select("*"),
-          supabase.from("client_profiles").select("*"),
-          supabase.from("projects").select("*"),
-          supabase.from("milestones").select("*"),
-          supabase.from("proposals").select("*")
+          const [
+            { data: dbProfiles },
+            { data: dbSkills },
+            { data: dbPortfolios },
+            { data: dbUsers },
+            { data: dbClients },
+            { data: dbProjects },
+            { data: dbMilestones },
+            { data: dbProposals },
+            { data: dbVerifications },
+            { data: allSkills },
+          ] = await Promise.all([
+          supabase
+            .from("freelancer_profiles")
+            .select("*"),
+
+          supabase
+            .from("freelancer_skills")
+            .select("freelancer_id, skills(skill_name)"),
+
+          supabase
+            .from("freelancer_portfolios")
+            .select("freelancer_id, title, url"),
+
+          supabase
+            .from("users")
+            .select("*"),
+
+          supabase
+            .from("client_profiles")
+            .select("*"),
+
+          supabase
+            .from("projects")
+            .select("*"),
+
+          supabase
+            .from("milestones")
+            .select("*"),
+
+          supabase
+            .from("proposals")
+            .select("*"),
+
+          supabase
+            .from("milestone_verifications")
+            .select("*"),
+
+          // Get the actual skills table
+          supabase
+            .from("skills")
+            .select("skill_id, skill_name"),
         ]);
+
+        // Get project → skill relationships separately
+        const {
+          data: dbProjectSkills,
+          error: projectSkillsError,
+        } = await supabase
+          .from("project_skills")
+          .select("project_id, skill_id");
+
+        console.log(
+          "[Supabase DEBUG] project_skills:",
+          dbProjectSkills
+        );
+
+        console.log(
+          "[Supabase DEBUG] project_skills error:",
+          projectSkillsError
+        );
+
+        console.log(
+          "[Supabase DEBUG] skills:",
+          allSkills
+        );
+
+        const skillNameMap: Record<string, string> = {};
+
+        for (const skill of allSkills ?? []) {
+          skillNameMap[skill.skill_id] = skill.skill_name;
+        }
+
+        const projectSkillsMap: Record<string, string[]> = {};
+
+        for (const item of dbProjectSkills ?? []) {
+          const skillName = skillNameMap[item.skill_id];
+
+          if (!skillName) {
+            continue;
+          }
+
+          if (!projectSkillsMap[item.project_id]) {
+            projectSkillsMap[item.project_id] = [];
+          }
+
+          projectSkillsMap[item.project_id].push(skillName);
+        }
+
+        console.log(
+          "[Supabase DEBUG] projectSkillsMap:",
+          projectSkillsMap
+        );
 
         if (isCancelled) return;
 
@@ -360,6 +465,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
         }
+        // Group required skills by project_id
 
         // Group portfolios by freelancer_id
         const portfolioMap: Record<string, { title: string; url: string }[]> = {};
@@ -415,25 +521,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Build projects array
         if (dbProjects && dbProjects.length > 0) {
           const acceptedProposalMap: Record<string, string> = {};
+
           if (dbProposals) {
             for (const prop of dbProposals as any[]) {
-              if (prop.status === "ACCEPTED" && prop.project_id && prop.freelancer_id) {
-                acceptedProposalMap[prop.project_id] = prop.freelancer_id;
+              if (
+                prop.status === "ACCEPTED" &&
+                prop.project_id &&
+                prop.freelancer_id
+              ) {
+                acceptedProposalMap[prop.project_id] =
+                  prop.freelancer_id;
               }
             }
           }
-          const loadedProjects: Project[] = dbProjects.map((p: any) => {
-            const mapped = mapSupabaseToProject(p);
-            const matchedFreelancer = acceptedProposalMap[mapped.id];
-            // If project is still 'open' but client accepted a freelancer's proposal, it is 'matched' (awaiting client escrow funding)
-            const effectiveStatus: ProjectStatus =
-              mapped.status === "open" && matchedFreelancer ? "matched" : mapped.status;
-            return {
-              ...mapped,
-              status: effectiveStatus,
-              matchedFreelancerId: matchedFreelancer || undefined
-            };
-          });
+
+          const loadedProjects: Project[] = dbProjects.map(
+            (p: any) => {
+              const mapped = mapSupabaseToProject(
+                p,
+                projectSkillsMap[p.project_id] ?? []
+              );
+
+              const matchedFreelancer =
+                acceptedProposalMap[mapped.id];
+
+              // If the project is still open but a freelancer's
+              // proposal has been accepted, mark it as matched
+              // while waiting for escrow funding.
+              const effectiveStatus: ProjectStatus =
+                mapped.status === "open" &&
+                matchedFreelancer
+                  ? "matched"
+                  : mapped.status;
+
+              return {
+                ...mapped,
+                status: effectiveStatus,
+                matchedFreelancerId:
+                  matchedFreelancer || undefined,
+              };
+            }
+          );
+
           setProjects((prev) => {
             const existingIds = new Set(loadedProjects.map((p) => p.id));
             const unmanaged = prev.filter((p) => !existingIds.has(p.id));
@@ -457,6 +586,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const unmanaged = prev.filter((m) => !existingIds.has(m.id));
             return [...loadedMilestones, ...unmanaged];
           });
+        }
+
+        // ============================================================
+        // Load Gonka milestone verification results
+        // ============================================================
+
+        if (dbVerifications && dbVerifications.length > 0) {
+          const verificationMap: Record<
+            string,
+            MilestoneVerification
+          > = {};
+
+          for (const row of dbVerifications as any[]) {
+            if (!row.milestone_id) continue;
+
+            verificationMap[row.milestone_id] = {
+              verificationId:
+                row.verification_id || undefined,
+
+              milestoneId:
+                row.milestone_id,
+
+              score:
+                Number(row.score) || 0,
+
+              reasoning:
+                row.reasoning || "",
+
+              suggestions:
+                Array.isArray(row.suggestions)
+                  ? row.suggestions
+                  : [],
+
+              repository:
+                row.repository || undefined,
+
+              prNumber:
+                row.pr_number
+                  ? Number(row.pr_number)
+                  : undefined,
+
+              prTitle:
+                row.pr_title || undefined,
+
+              prDescription:
+                row.pr_description || undefined,
+
+              gonkaRequestId:
+                row.gonka_request_id || undefined,
+
+              status:
+                row.status || undefined,
+
+              createdAt:
+                row.created_at || undefined,
+            };
+          }
+
+          setMilestoneVerifications(
+            verificationMap
+          );
         }
 
         // Build applications array from proposals
@@ -666,85 +856,378 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createProject = (
-    projectData: Omit<Project, "id" | "clientId" | "createdAt" | "updatedAt">,
-    milestoneData: Omit<Milestone, "id" | "projectId">[]
+    projectData: Omit<
+      Project,
+      "id" | "clientId" | "createdAt" | "updatedAt"
+    >,
+    milestoneData: Omit<
+      Milestone,
+      "id" | "projectId"
+    >[]
   ): string => {
     const newProjectId = generateUUID();
-    const targetClientId = currentUser.walletAddress || currentUser.id;
+    const targetClientId =
+      currentUser.walletAddress || currentUser.id;
+
     const newProject: Project = {
       ...projectData,
       id: newProjectId,
       clientId: targetClientId,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
-    const newMilestones: Milestone[] = milestoneData.map((m) => ({
-      ...m,
-      id: generateUUID(),
-      projectId: newProjectId
-    }));
+    const newMilestones: Milestone[] =
+      milestoneData.map((m) => ({
+        ...m,
+        id: generateUUID(),
+        projectId: newProjectId,
+      }));
 
-    setProjects((prev) => [newProject, ...prev]);
-    setMilestones((prev) => [...prev, ...newMilestones]);
+    // Update local state immediately
+    setProjects((prev) => [
+      newProject,
+      ...prev,
+    ]);
 
-    // Asynchronously persist project & milestones to Supabase
+    setMilestones((prev) => [
+      ...prev,
+      ...newMilestones,
+    ]);
+
+    // Persist project, skills and milestones to Supabase
     (async () => {
       try {
         const supabase = createClient();
 
-        // 1. Ensure client user exists in users table
-        await supabase.from("users").upsert({
-          user_id: targetClientId,
-          name: currentUser.name || "Client",
-          email: currentUser.email || `${targetClientId.slice(0, 10)}@trusthire.io`,
-          role: "CLIENT",
-          status: "ACTIVE"
-        }, { onConflict: "user_id" });
+        /*
+        * ----------------------------------------------------
+        * 1. Ensure client exists
+        * ----------------------------------------------------
+        */
 
-        await supabase.from("client_profiles").upsert({
-          client_id: targetClientId,
-          company_name: currentUser.companyName || "Organization"
-        }, { onConflict: "client_id" });
+        const { error: userError } =
+          await supabase
+            .from("users")
+            .upsert(
+              {
+                user_id: targetClientId,
+                name:
+                  currentUser.name ||
+                  "Client",
+                email:
+                  currentUser.email ||
+                  `${targetClientId.slice(
+                    0,
+                    10
+                  )}@trusthire.io`,
+                role: "CLIENT",
+                status: "ACTIVE",
+              },
+              {
+                onConflict: "user_id",
+              }
+            );
 
-        // 2. Insert into projects table
-        await supabase.from("projects").insert({
-          project_id: newProjectId,
-          client_id: targetClientId,
-          title: newProject.title,
-          description: newProject.descriptionRaw,
-          total_budget: newProject.estimatedBudget,
-          timeline: newProject.timelineDays || 14,
-          status: newProject.status === "open" ? "OPEN" : "DRAFT",
-          category: newProject.requiredSkills[0] || "General"
-        });
-
-        // 3. Insert into milestones table
-        if (newMilestones.length > 0) {
-          await supabase.from("milestones").insert(
-            newMilestones.map((m) => ({
-              milestone_id: m.id,
-              project_id: newProjectId,
-              title: m.title,
-              description: m.deliverable,
-              amount: m.amount,
-              duration_days: Math.max(1, Math.round(newProject.timelineDays / newMilestones.length)),
-              status: "PENDING"
-            }))
+        if (userError) {
+          console.error(
+            "Failed to upsert client user:",
+            userError
           );
         }
+
+        const { error: clientError } =
+          await supabase
+            .from("client_profiles")
+            .upsert(
+              {
+                client_id: targetClientId,
+                company_name:
+                  currentUser.companyName ||
+                  "Organization",
+              },
+              {
+                onConflict: "client_id",
+              }
+            );
+
+        if (clientError) {
+          console.error(
+            "Failed to upsert client profile:",
+            clientError
+          );
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 2. Insert project
+        * ----------------------------------------------------
+        */
+
+        const { error: projectError } =
+          await supabase
+            .from("projects")
+            .insert({
+              project_id: newProjectId,
+              client_id: targetClientId,
+              title: newProject.title,
+              description:
+                newProject.descriptionRaw,
+              total_budget:
+                newProject.estimatedBudget,
+              timeline:
+                newProject.timelineDays || 14,
+              status:
+                newProject.status === "open"
+                  ? "OPEN"
+                  : "DRAFT",
+
+              // Keep category for compatibility
+              // with the existing database schema.
+              category:
+                newProject.requiredSkills?.[0] ||
+                "General",
+            });
+
+        if (projectError) {
+          console.error(
+            "Failed to insert project:",
+            projectError
+          );
+
+          return;
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 3. Insert ALL required skills
+        * ----------------------------------------------------
+        *
+        * Project:
+        * ["React", "TypeScript"]
+        *
+        *      ↓
+        *
+        * skills table:
+        * React      → UUID A
+        * TypeScript → UUID B
+        *
+        *      ↓
+        *
+        * project_skills:
+        * project_id → UUID A
+        * project_id → UUID B
+        */
+
+        const requiredSkills =
+          Array.from(
+            new Set(
+              (newProject.requiredSkills || [])
+                .map((skill) =>
+                  skill.trim()
+                )
+                .filter(Boolean)
+            )
+          );
+
+        console.log(
+          "[CreateProject DEBUG] requiredSkills:",
+          requiredSkills
+        );
+
+        if (requiredSkills.length > 0) {
+          const {
+            data: skillRows,
+            error: skillLookupError,
+          } = await supabase
+            .from("skills")
+            .select(
+              "skill_id, skill_name"
+            )
+            .in(
+              "skill_name",
+              requiredSkills
+            );
+
+          if (skillLookupError) {
+            console.error(
+              "[CreateProject] Failed to find skills:",
+              skillLookupError
+            );
+          } else {
+            console.log(
+              "[CreateProject DEBUG] skillRows:",
+              skillRows
+            );
+
+            /*
+            * Convert:
+            *
+            * ["React", "TypeScript"]
+            *
+            * into:
+            *
+            * [
+            *   {
+            *     project_id: "...",
+            *     skill_id: "react-uuid"
+            *   },
+            *   {
+            *     project_id: "...",
+            *     skill_id: "typescript-uuid"
+            *   }
+            * ]
+            */
+
+            const projectSkillRows =
+              (skillRows || []).map(
+                (skill) => ({
+                  project_id:
+                    newProjectId,
+                  skill_id:
+                    skill.skill_id,
+                })
+              );
+
+            console.log(
+              "[CreateProject DEBUG] projectSkillRows:",
+              projectSkillRows
+            );
+
+            if (
+              projectSkillRows.length > 0
+            ) {
+              const {
+                error:
+                  projectSkillsError,
+              } = await supabase
+                .from("project_skills")
+                .insert(
+                  projectSkillRows
+                );
+
+              if (
+                projectSkillsError
+              ) {
+                console.error(
+                  "[CreateProject] Failed to insert project skills:",
+                  projectSkillsError
+                );
+              } else {
+                console.log(
+                  "[CreateProject] Project skills inserted successfully."
+                );
+              }
+            }
+
+            /*
+            * Warn if some requested skills
+            * don't exist in the skills table.
+            */
+
+            const foundSkillNames =
+              new Set(
+                (skillRows || []).map(
+                  (skill) =>
+                    skill.skill_name
+                )
+              );
+
+            const missingSkills =
+              requiredSkills.filter(
+                (skill) =>
+                  !foundSkillNames.has(
+                    skill
+                  )
+              );
+
+            if (
+              missingSkills.length > 0
+            ) {
+              console.warn(
+                "[CreateProject] Skills not found in skills table:",
+                missingSkills
+              );
+            }
+          }
+        } else {
+          console.log(
+            "[CreateProject] No required skills specified."
+          );
+        }
+
+        /*
+        * ----------------------------------------------------
+        * 4. Insert milestones
+        * ----------------------------------------------------
+        */
+
+        if (
+          newMilestones.length > 0
+        ) {
+          const durationPerMilestone =
+            Math.max(
+              1,
+              Math.round(
+                newProject.timelineDays /
+                  newMilestones.length
+              )
+            );
+
+          const milestoneRows =
+            newMilestones.map(
+              (m) => ({
+                milestone_id: m.id,
+                project_id:
+                  newProjectId,
+                title: m.title,
+                description:
+                  m.deliverable,
+                amount: m.amount,
+                duration_days:
+                  durationPerMilestone,
+                status: "PENDING",
+              })
+            );
+
+          const {
+            error: milestoneError,
+          } = await supabase
+            .from("milestones")
+            .insert(
+              milestoneRows
+            );
+
+          if (milestoneError) {
+            console.error(
+              "Failed to insert milestones:",
+              milestoneError
+            );
+          }
+        }
+
+        console.log(
+          "[CreateProject] Project persisted successfully:",
+          newProjectId
+        );
       } catch (err) {
-        console.warn("Could not persist new project to Supabase:", err);
+        console.warn(
+          "Could not persist new project to Supabase:",
+          err
+        );
       }
     })();
 
-    // Notification if status is open
+    /*
+    * Notify client when project is open
+    */
+
     if (newProject.status === "open") {
       addNotification({
         userId: currentUser.id,
         type: "new_recommendation",
         text: `AI generated candidate recommendations for "${newProject.title}"`,
-        linkTo: `/project/${newProjectId}/candidates`
+        linkTo: `/project/${newProjectId}/candidates`,
       });
     }
 
@@ -1171,19 +1654,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { txHash, escrowObjectId };
   };
 
-  const submitMilestoneWork = async (milestoneId: string, content: string, links: string[] = []) => {
-    const targetMs = milestones.find((m) => m.id === milestoneId);
-    const proj = targetMs ? projects.find((p) => p.id === targetMs.projectId) : null;
+  const submitMilestoneWork = async (
+    milestoneId: string,
+    content: string,
+    links: string[] = []
+  ): Promise<{
+    txHash: string;
+    verification: {
+      verificationScore: number;
+      reasoning: string;
+      suggestions: string[];
+    } | null;
+  }> => {
+    const targetMs = milestones.find(
+      (m) => m.id === milestoneId
+    );
+
+    const proj = targetMs
+      ? projects.find(
+          (p) => p.id === targetMs.projectId
+        )
+      : null;
+
     let txHash = generateSuiTxHash();
 
-    if (targetMs && TESTNET_PACKAGE_ID && currentAccount?.address && proj?.escrowObjectId && proj.escrowObjectId.startsWith("0x")) {
+    // ============================================================
+    // 1. SUBMIT MILESTONE ON SUI
+    // ============================================================
+
+    if (
+      targetMs &&
+      TESTNET_PACKAGE_ID &&
+      currentAccount?.address &&
+      proj?.escrowObjectId &&
+      proj.escrowObjectId.startsWith("0x")
+    ) {
       try {
-        const onChainMilestoneId = getMilestoneOnChainId(targetMs, milestones);
+        const onChainMilestoneId =
+          getMilestoneOnChainId(
+            targetMs,
+            milestones
+          );
 
         const tx = buildSubmitMilestoneTx({
           packageId: TESTNET_PACKAGE_ID,
-          escrowObjectId: proj.escrowObjectId,
-          milestoneId: onChainMilestoneId,
+          escrowObjectId:
+            proj.escrowObjectId,
+          milestoneId:
+            onChainMilestoneId,
         });
 
         const { digest } = await executeWithEnokiSponsorship({
@@ -1195,40 +1713,311 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         txHash = digest;
         try {
-          if ((client as any).waitForTransaction) {
-            await (client as any).waitForTransaction({ digest: txHash });
-          } else if ((client.core as any)?.waitForTransaction) {
-            await (client.core as any).waitForTransaction({ digest: txHash });
+          if (
+            (client as any)
+              .waitForTransaction
+          ) {
+            await (
+              client as any
+            ).waitForTransaction({
+              digest: txHash,
+            });
+          } else if (
+            (client.core as any)
+              ?.waitForTransaction
+          ) {
+            await (
+              client.core as any
+            ).waitForTransaction({
+              digest: txHash,
+            });
           }
         } catch (e) {
-          console.warn("waitForTransaction warning:", e);
+          console.warn(
+            "waitForTransaction warning:",
+            e
+          );
         }
       } catch (err) {
-        console.error("On-chain submit_milestone failed, falling back to local simulation:", err);
+        console.error(
+          "On-chain submit_milestone failed, falling back to local simulation:",
+          err
+        );
       }
     } else {
-      await new Promise((r) => setTimeout(r, 1500));
+      // Local/demo mode
+      await new Promise((r) =>
+        setTimeout(r, 1500)
+      );
     }
 
-    const now = new Date().toISOString();
-    updateMilestone(milestoneId, {
-      status: "submitted",
-      submissionContent: content,
-      submissionLinks: links,
-      submittedAt: now,
-      ...(txHash && !txHash.startsWith("0x") ? { onChainTxHash: txHash } : {})
-    });
+    // ============================================================
+    // 2. SAVE FREELANCER SUBMISSION
+    // ============================================================
+
+    const now =
+      new Date().toISOString();
+
+    updateMilestone(
+      milestoneId,
+      {
+        status: "submitted",
+        submissionContent:
+          content,
+        submissionLinks:
+          links,
+        submittedAt: now,
+        ...(txHash &&
+        !txHash.startsWith("0x")
+          ? {
+              onChainTxHash:
+                txHash,
+            }
+          : {}),
+      }
+    );
+
+    // ============================================================
+    // 3. GONKA MILESTONE EVALUATION
+    // ============================================================
+
+    let verification: {
+      verificationScore: number;
+      reasoning: string;
+      suggestions: string[];
+    } | null = null;
+
+    try {
+      /*
+      * The submission links should contain the GitHub PR URL.
+      *
+      * Example:
+      * https://github.com/owner/repository/pull/123
+      */
+
+      const githubPrLink =
+        links.find((link) =>
+          /github\.com\/[^/]+\/[^/]+\/pull\/\d+/i.test(
+            link
+          )
+        );
+
+      if (githubPrLink) {
+        const githubMatch =
+          githubPrLink.match(
+            /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i
+          );
+
+        if (githubMatch) {
+          const repository =
+            `${githubMatch[1]}/${githubMatch[2]}`;
+
+          const prNumber =
+            Number(githubMatch[3]);
+
+          console.log(
+            "[Gonka Submission Verification] Starting evaluation..."
+          );
+
+          console.log(
+            "[Gonka Submission Verification] Milestone:",
+            milestoneId
+          );
+
+          console.log(
+            "[Gonka Submission Verification] Repository:",
+            repository
+          );
+
+          console.log(
+            "[Gonka Submission Verification] PR:",
+            prNumber
+          );
+
+          const response =
+            await fetch(
+              "/api/gonka/verify-submission",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify({
+                  milestoneId,
+
+                  repository,
+
+                  prNumber,
+
+                  submissionDescription:
+                    content,
+                }),
+              }
+            );
+
+          let result: any = null;
+          try {
+            result = await response.json();
+          } catch {
+            result = null;
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              result?.message ??
+                `Gonka milestone verification failed (HTTP ${response.status}).`
+            );
+          }
+
+          if (
+            result?.success &&
+            result?.verification
+          ) {
+              verification = {
+                verificationScore: Number(
+                  result.verification.verificationScore
+                ),
+
+                reasoning:
+                  result.verification.reasoning ?? "",
+
+                suggestions:
+                  Array.isArray(
+                    result.verification.suggestions
+                  )
+                    ? result.verification.suggestions
+                    : [],
+              };
+
+            // ============================================================
+            // Store Gonka verification in frontend state
+            // ============================================================
+
+            const savedVerification: MilestoneVerification = {
+              verificationId:
+                result.verification.id || undefined,
+
+              milestoneId,
+
+              score: Number(
+                result.verification.verificationScore
+              ),
+
+              reasoning:
+                result.verification.reasoning ?? "",
+
+              suggestions:
+                Array.isArray(
+                  result.verification.suggestions
+                )
+                  ? result.verification.suggestions
+                  : [],
+
+              repository:
+                result.verification.repository ||
+                repository,
+
+              prNumber:
+                result.verification.prNumber ||
+                prNumber,
+
+              prTitle:
+                result.verification.prTitle ||
+                undefined,
+
+              prDescription:
+                result.verification.prDescription ||
+                undefined,
+
+              gonkaRequestId:
+                result.verification.gonkaRequestId ||
+                undefined,
+
+              status: "COMPLETED",
+
+              createdAt:
+                new Date().toISOString(),
+            };
+
+            setMilestoneVerifications(
+              (prev) => ({
+                ...prev,
+                [milestoneId]:
+                  savedVerification,
+              })
+            );
+            setMilestones((prev) =>
+              prev.map((m) =>
+                m.id === milestoneId
+                  ? {
+                      ...m,
+                      verification:
+                        savedVerification,
+                    }
+                  : m
+              )
+            );
+
+            console.log(
+              "[Gonka Submission Verification] Completed:",
+              verification
+            );
+          }
+        }
+      } else {
+        console.log(
+          "[Gonka Submission Verification] No GitHub PR link supplied. Skipping AI evaluation."
+        );
+      }
+    } catch (error) {
+      /*
+      * Important:
+      *
+      * Gonka is an evaluation layer.
+      *
+      * If Gonka fails, we do NOT undo the freelancer's
+      * milestone submission or Sui transaction.
+      *
+      * The submission still exists and the client can
+      * review it normally.
+      */
+      console.error(
+        "[Gonka Submission Verification] Failed:",
+        error
+      );
+    }
+
+    // ============================================================
+    // 4. NOTIFY CLIENT
+    // ============================================================
 
     if (proj) {
       addNotification({
-        userId: proj.clientId,
-        type: "milestone_submitted",
-        text: `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
-        linkTo: `/project/${proj.id}/workspace`,
+        userId:
+          proj.clientId,
+
+        type:
+          "milestone_submitted",
+
+        text:
+          `${currentUser.name} submitted "${targetMs?.title}" — awaiting your review`,
+
+        linkTo:
+          `/project/${proj.id}/workspace`,
       });
     }
 
-    return txHash;
+    // ============================================================
+    // 5. RETURN SUBMISSION + GONKA RESULT
+    // ============================================================
+
+    return {
+      txHash,
+      verification,
+    };
   };
 
   const requestChangesOnMilestone = (milestoneId: string, revisionNote: string) => {
@@ -1415,6 +2204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         freelancerProfiles,
         projects,
         milestones,
+        milestoneVerifications,
         invitations,
         applications,
         savedProjects,

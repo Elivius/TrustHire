@@ -1,7 +1,7 @@
 import type {
   GitHubRepository,
   GitHubUser,
-} from "./github.js";
+} from "./github";
 
 export type ExperienceTier =
   | "Beginner"

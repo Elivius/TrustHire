@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { setCookie, getCookie } from "hono/cookie";
 import crypto from "node:crypto";
@@ -19,7 +20,17 @@ import {
   buildSkillEvidence,
 } from "./evidence.js";
 
-dotenv.config({ path: ".env.local" });
+import {
+  verifySkill,
+} from "../gonka/integrations/skillVerification.js";
+
+import {
+  verifyTrustScore,
+  type TrustScoreInput,
+} from "../gonka/integrations/trustScore.js";
+
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 const app = new Hono();
 
@@ -36,6 +47,25 @@ const app = new Hono();
 let latestTestSessionId: string | null = null;
 
 const PORT = 3010;
+
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ??
+  "http://localhost:3000";
+
+app.use(
+  "*",
+  cors({
+    origin: FRONTEND_URL,
+    allowMethods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
+    allowHeaders: ["Content-Type"],
+  }),
+);
 
 // ========================================
 // Health Check
@@ -135,6 +165,39 @@ app.get("/auth/github", (c) => {
   const state =
     crypto.randomBytes(32).toString("hex");
 
+  const requestedReturnTo =
+  c.req.query("returnTo");
+
+const defaultReturnTo =
+  "/freelancer/onboarding";
+
+let returnTo =
+  defaultReturnTo;
+
+if (
+  requestedReturnTo &&
+  requestedReturnTo.startsWith("/") &&
+  !requestedReturnTo.startsWith("//")
+) {
+  returnTo = requestedReturnTo;
+}
+
+// Store the destination temporarily.
+// SameSite=Lax allows this cookie to survive
+// the GitHub OAuth redirect.
+setCookie(
+  c,
+  "github_oauth_return_to",
+  returnTo,
+  {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: false, // localhost
+    maxAge: 600,
+    path: "/",
+  },
+);
+
   // Store state temporarily in a cookie.
   setCookie(
     c,
@@ -166,7 +229,7 @@ app.get("/auth/github", (c) => {
 
   githubUrl.searchParams.set(
     "scope",
-    "read:user",
+    "read:user repo",
   );
 
   githubUrl.searchParams.set(
@@ -190,21 +253,107 @@ app.get("/auth/github", (c) => {
 app.get(
   "/auth/github/callback",
   async (c) => {
-    const code =
-      c.req.query("code");
+const returnedState =
+  c.req.query("state");
 
-    const returnedState =
-      c.req.query("state");
+const savedStateCookie =
+  getCookie(
+    c,
+    "github_oauth_state",
+  );
 
-    const savedState =
-      getCookie(
-        c,
-        "github_oauth_state",
+const savedReturnTo =
+  getCookie(
+    c,
+    "github_oauth_return_to",
+  );
+
+let savedState: string | null = null;
+let returnTo: string =
+  "/freelancer/onboarding";
+
+/*
+ * Read the OAuth state cookie.
+ *
+ * The existing implementation stores the state
+ * as a plain string, so keep that behaviour.
+ */
+if (savedStateCookie) {
+  savedState =
+    savedStateCookie;
+}
+
+/*
+ * Read the optional return destination.
+ *
+ * Only allow relative frontend paths.
+ */
+if (
+  savedReturnTo &&
+  savedReturnTo.startsWith("/") &&
+  !savedReturnTo.startsWith("//")
+) {
+  returnTo =
+    savedReturnTo;
+}
+/*
+ * Support both:
+ *
+ * 1. New JSON OAuth state cookie
+ * 2. Old plain state cookie
+ *
+ * This keeps the existing OAuth flow
+ * backwards-compatible.
+ */
+if (savedStateCookie) {
+  try {
+    const decoded =
+      decodeURIComponent(
+        savedStateCookie,
       );
+
+    const parsed =
+      JSON.parse(decoded);
+
+    if (
+      parsed &&
+      typeof parsed.state === "string"
+    ) {
+      savedState = parsed.state;
+
+      if (
+        typeof parsed.returnTo ===
+          "string" &&
+        parsed.returnTo.startsWith("/") &&
+        !parsed.returnTo.startsWith("//")
+      ) {
+        returnTo =
+          parsed.returnTo;
+      }
+    } else {
+      /*
+       * Backwards compatibility with the
+       * previous plain state cookie.
+       */
+      savedState =
+        savedStateCookie;
+    }
+  } catch {
+    /*
+     * Existing cookie format was just the
+     * random state string.
+     */
+    savedState =
+      savedStateCookie;
+  }
+}
 
     // ------------------------------------
     // Check authorization code
     // ------------------------------------
+  
+    const code =
+      c.req.query("code");
 
     if (!code) {
       return c.text(
@@ -354,16 +503,59 @@ app.get(
       // Return result
       // ==================================
 
-      return c.json({
-        success: true,
+const frontendUrl =
+  process.env.FRONTEND_URL ??
+  "http://localhost:3000";
 
-        message:
-          "GitHub account successfully connected",
+const savedReturnTo =
+  getCookie(
+    c,
+    "github_oauth_return_to",
+  );
 
-        sessionId,
+const safeReturnTo =
+  savedReturnTo &&
+  savedReturnTo.startsWith("/") &&
+  !savedReturnTo.startsWith("//")
+    ? savedReturnTo
+    : "/freelancer/onboarding";
 
-        evidence,
-      });
+const redirectUrl =
+  new URL(
+    safeReturnTo,
+    frontendUrl,
+  );
+
+// Always tell the frontend GitHub is connected.
+redirectUrl.searchParams.set(
+  "github",
+  "connected",
+);
+
+redirectUrl.searchParams.set(
+  "sessionId",
+  sessionId,
+);
+
+redirectUrl.searchParams.set(
+  "username",
+  githubUser.login,
+);
+
+// Only onboarding needs step=3.
+if (
+  safeReturnTo ===
+  "/freelancer/onboarding"
+) {
+  redirectUrl.searchParams.set(
+    "step",
+    "3",
+  );
+}
+
+return c.redirect(
+  redirectUrl.toString(),
+);
     } catch (error) {
       console.error(
         "GitHub OAuth error:",
@@ -418,6 +610,117 @@ app.get(
 // Gonka multi-model verification will be
 // added after this evidence stage.
 // ========================================
+
+app.get(
+  "/github/repositories/:owner/:repo/pulls",
+  async (c) => {
+    try {
+      const sessionId =
+        c.req.query("sessionId");
+
+      const owner =
+        c.req.param("owner");
+
+      const repo =
+        c.req.param("repo");
+
+      if (!sessionId) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "sessionId is required",
+          },
+          400,
+        );
+      }
+
+      if (!owner || !repo) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Repository owner and name are required",
+          },
+          400,
+        );
+      }
+
+      const session =
+        getSession(sessionId);
+
+      if (!session) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Invalid or expired GitHub session",
+          },
+          401,
+        );
+      }
+
+      const response =
+        await fetch(
+          `https://api.github.com/repos/${encodeURIComponent(
+            owner,
+          )}/${encodeURIComponent(
+            repo,
+          )}/pulls?state=all&sort=updated&direction=desc&per_page=50`,
+          {
+            headers: {
+              Accept:
+                "application/vnd.github+json",
+
+              Authorization:
+                `Bearer ${session.accessToken}`,
+
+              "X-GitHub-Api-Version":
+                "2022-11-28",
+            },
+          },
+        );
+
+      if (!response.ok) {
+        const errorText =
+          await response.text();
+
+        throw new Error(
+          `GitHub Pull Request request failed: ${response.status} ${errorText}`,
+        );
+      }
+
+      const pullRequests =
+        await response.json();
+
+      return c.json({
+        success: true,
+
+        pullRequests,
+      });
+    } catch (error) {
+      console.error(
+        "GitHub Pull Requests error:",
+        error,
+      );
+
+      return c.json(
+        {
+          success: false,
+
+          message:
+            "Failed to retrieve GitHub Pull Requests",
+
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown error",
+        },
+        500,
+      );
+    }
+  },
+);
 
 app.post(
   "/profile/verify",
@@ -615,6 +918,71 @@ app.post(
   },
 );
 
+app.get(
+  "/github/repositories",
+  async (c) => {
+    try {
+      const sessionId =
+        c.req.query("sessionId");
+
+      if (!sessionId) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "sessionId is required",
+          },
+          400,
+        );
+      }
+
+      const session =
+        getSession(sessionId);
+
+      if (!session) {
+        return c.json(
+          {
+            success: false,
+            message:
+              "Invalid or expired GitHub session",
+          },
+          401,
+        );
+      }
+
+      const repositories =
+        await getGitHubRepositories(
+          session.accessToken,
+        );
+
+      return c.json({
+        success: true,
+
+        repositories,
+      });
+    } catch (error) {
+      console.error(
+        "GitHub repositories error:",
+        error,
+      );
+
+      return c.json(
+        {
+          success: false,
+
+          message:
+            "Failed to retrieve GitHub repositories",
+
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unknown error",
+        },
+        500,
+      );
+    }
+  },
+);
 // ========================================
 // Development OAuth Test Status
 // ========================================
@@ -624,6 +992,284 @@ app.post(
 //
 // This should only be used locally.
 // ========================================
+
+app.post("/profile/trust-score", async (c) => {
+  try {
+    const body = await c.req.json();
+
+    const {
+      sessionId,
+      skills,
+    } = body;
+
+    // ------------------------------------
+    // Validate request
+    // ------------------------------------
+
+    if (!sessionId) {
+      return c.json(
+        {
+          success: false,
+          message: "GitHub sessionId is required",
+        },
+        400,
+      );
+    }
+
+    if (
+      !Array.isArray(skills) ||
+      skills.length === 0
+    ) {
+      return c.json(
+        {
+          success: false,
+          message: "At least one skill is required",
+        },
+        400,
+      );
+    }
+
+    // ------------------------------------
+    // Get GitHub session
+    // ------------------------------------
+
+    const session = getSession(sessionId);
+
+    if (!session) {
+      return c.json(
+        {
+          success: false,
+          message: "GitHub session not found or expired",
+        },
+        401,
+      );
+    }
+
+    // ------------------------------------
+    // Get GitHub account
+    // ------------------------------------
+
+    const githubUser =
+      await getGitHubUser(
+        session.accessToken,
+      );
+
+    // ------------------------------------
+    // Get GitHub repositories
+    // ------------------------------------
+
+    const repositories =
+      await getGitHubRepositories(
+        session.accessToken,
+      );
+
+    // ------------------------------------
+    // Gonka Skill Verification
+    // ------------------------------------
+
+    const skillResults = [];
+    for (const skill of skills as Array<{
+      name: string;
+      tier: "Beginner" | "Intermediate" | "Expert";
+    }>) {
+      const evidence = buildSkillEvidence(
+        skill,
+        githubUser,
+        repositories,
+      );
+
+      const verification = await verifySkill(
+        skill,
+        evidence,
+      );
+
+      skillResults.push({
+        skill: skill.name,
+        tier: skill.tier,
+        evidence,
+        verification,
+      });
+    }
+
+    // ------------------------------------
+    // Calculate overall skill score
+    // ------------------------------------
+
+    const verifiedSkillResults =
+      skillResults.filter(
+        (result) =>
+          result.verification.consensus.verdict === "TRUE",
+      );
+
+    const overallSkillScore =
+      verifiedSkillResults.length > 0
+        ? Math.round(
+            verifiedSkillResults.reduce(
+              (total, result) =>
+                total +
+                result.verification.consensus.score,
+              0,
+            ) /
+              verifiedSkillResults.length,
+          )
+        : 0;
+
+    console.log(
+      "Gonka skill verification complete:",
+      {
+        totalSkills: skillResults.length,
+        verifiedSkills: verifiedSkillResults.length,
+        overallSkillScore,
+      },
+    );
+
+    // ------------------------------------
+    // Trust Score calculation
+    // ------------------------------------
+
+    const trustScoreInput: TrustScoreInput = {
+      skillVerification: {
+        score: overallSkillScore,
+      },
+
+      evidenceAuthenticity: {
+        ownershipVerified: true,
+        relevantRepositories:
+          repositories.length,
+      },
+
+      profileEvidence: {
+        profileComplete:
+          body.profileComplete ?? true,
+
+        portfolioCount:
+          body.portfolioCount ?? 0,
+      },
+
+      completedWork: {
+        completedProjects:
+          body.completedProjects ?? 0,
+
+        completedMilestones:
+          body.completedMilestones ?? 0,
+
+        onTimeCompletionRate:
+          body.onTimeCompletionRate ?? 0,
+
+        averageClientRating:
+          body.averageClientRating ?? 0,
+
+        totalClientReviews:
+          body.totalClientReviews ?? 0,
+      },
+
+      reliability: {
+        cancelledProjects:
+          body.cancelledProjects ?? 0,
+
+        disputedProjects:
+          body.disputedProjects ?? 0,
+      },
+    };
+
+    console.log(
+      "Calculating Trust Score..."
+    );
+
+    const trustScoreResult =
+      await verifyTrustScore(
+        skills[0],
+        skillResults[0].evidence,
+        trustScoreInput,
+      );
+
+    console.log(
+      "Trust Score verification complete:",
+      trustScoreResult.gonka.consensus,
+    );
+
+    return c.json({
+      success: true,
+
+      github: {
+        username: githubUser.login,
+        ownershipVerified: true,
+        repositoryCount:
+          repositories.length,
+      },
+
+      skillVerification: {
+        overallScore:
+          overallSkillScore,
+
+        skills:
+          skillResults.map(
+            (result) => ({
+              name: result.skill,
+              tier: result.tier,
+
+              score:
+                result.verification
+                  .consensus.score,
+
+              verdict:
+                result.verification
+                  .consensus.verdict,
+                  
+              verified:
+                result.verification.consensus.verdict === "TRUE",
+
+              confidence:
+                result.verification
+                  .consensus.confidence,
+
+              reasoning:
+                result.verification
+                  .consensus.reasoning,
+            }),
+          ),
+      },
+
+      // Temporary:
+      // Trust Score will be connected next.
+      trustScore: {
+        score: trustScoreResult.trustScore,
+
+        verdict:
+          trustScoreResult.gonka.consensus.verdict,
+
+        confidence:
+          trustScoreResult.gonka.consensus.confidence,
+
+        reasoning:
+          trustScoreResult.gonka.consensus.reasoning,
+
+        breakdown:
+          trustScoreResult.breakdown,
+      },
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Trust Score verification error:",
+      error,
+    );
+
+    return c.json(
+      {
+        success: false,
+        message:
+          "Failed to calculate Trust Score",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown error",
+      },
+      500,
+    );
+  }
+});
 
 app.get(
   "/test/oauth-status",

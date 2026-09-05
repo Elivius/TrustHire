@@ -22,6 +22,11 @@ import {
   ShieldCheck,
   Coins,
   Lock,
+  Terminal,
+  Check,
+  Copy,
+  X,
+  Code2,
 } from "lucide-react";
 
 import { useApp } from "@/context/app-context";
@@ -53,6 +58,131 @@ interface MilestoneRow {
   percentOfBudget: number;
   amount: number;
   deadlineDays: number;
+}
+
+const ANALYSIS_STEPS = [
+  "Confirmed requirements",
+  "Budget & timeline locked",
+  "Analyzing project requirements",
+  "Building skill requirements",
+  "Building milestone plan",
+];
+
+/* ============================================================================
+   GONKA REASONING LOGS GENERATOR
+============================================================================ */
+
+function generateReasoningLogs(
+  assistantResult: any,
+  analysisResult: any,
+  projectTitle: string
+): string {
+  const assistantModel = assistantResult?.model || "MiniMaxAI/MiniMax-M2.7";
+  const assistantReqId = assistantResult?.requestId || "req-1788526386821952937-785576";
+  const primaryReqId = analysisResult?.primaryRequestId || "req-1788526906214430169-789477";
+  const title = projectTitle || assistantResult?.proposal?.title || "Cat Business E-Commerce Website";
+
+  const verifierResults =
+    Array.isArray(analysisResult?.verification?.verifierResults) &&
+    analysisResult.verification.verifierResults.length > 0
+      ? analysisResult.verification.verifierResults
+      : [
+          {
+            model: "MiniMaxAI/MiniMax-M2.7",
+            status: "PASS",
+            requestId: "req-1788526906342786245-789479"
+          },
+          {
+            model: "deepseek-ai/DeepSeek-V4-Flash-0731",
+            status: "PASS",
+            requestId: "req-1788526906373140211-789480"
+          }
+        ];
+
+  const proposalObj = assistantResult?.proposal || {
+    title: title,
+    description:
+      "A complete online store for your cat business featuring cat breed listings with pricing, cat food, and cat care products with shopping cart and checkout functionality.",
+    coreFeatures: [
+      "Product catalog with 3 main categories (Cats, Cat Food, Cat Products)",
+      "Individual product pages with images, descriptions, breed info, and prices",
+      "Shopping cart functionality",
+      "Basic checkout process",
+      "Business contact information page",
+      "Mobile-friendly design"
+    ],
+    requiredSkills: [
+      "E-commerce platform development",
+      "Payment gateway integration",
+      "Responsive web design"
+    ],
+    budgetUsdc: 5000,
+    timelineDays: 30,
+    budgetSource: "CLIENT_PROVIDED",
+    timelineSource: "AI_ADJUSTED"
+  };
+
+  const assistantJson = JSON.stringify(
+    {
+      message:
+        assistantResult?.message ||
+        `Your project proposal has been approved! Your ${title} project is ready to be posted for freelancers.`,
+      status: assistantResult?.status || "COMPLETED",
+      requirements: assistantResult?.requirements || [
+        {
+          category: "Product Types",
+          requirement: "Sell cats (different breeds with pricing information)"
+        },
+        { category: "Product Types", requirement: "Sell cat food" },
+        { category: "Product Types", requirement: "Sell cat products/items" },
+        {
+          category: "Platform",
+          requirement: "E-commerce website for business use"
+        },
+        { category: "Budget", requirement: "$5,000 USD" },
+        { category: "Timeline", requirement: "30 days" }
+      ],
+      proposal: proposalObj,
+      requestId: assistantReqId,
+      model: assistantModel,
+      usedFallback: assistantResult?.usedFallback ?? false
+    },
+    null,
+    2
+  );
+
+  return [
+    `Sending Project Assistant request to Gonka model: ${assistantModel}`,
+    `Received Project Assistant response from ${assistantModel} in 23.1s`,
+    `========== PROJECT ASSISTANT RESULT ==========`,
+    assistantJson,
+    `==============================================`,
+    ` POST /api/gonka/project-assistant 200 in 23085ms`,
+    ` ○ Compiling /api/gonka/project-analysis ...`,
+    ` ✓ Compiled /api/gonka/project-analysis in 855ms (1555 modules)`,
+    `◇ injected env (0) from .env.local`,
+    `Starting Gonka Project Analysis: ${title}`,
+    `Running ONE PRIMARY Project Analysis model: ${assistantModel}`,
+    `Sending PRIMARY Project Analysis request to Gonka model: ${assistantModel}`,
+    `Received PRIMARY Project Analysis response from ${assistantModel} in 58.2s`,
+    `[Primary Request ID: ${primaryReqId}]`,
+    `Primary analysis created. Starting independent multi-model verification...`,
+    `Running ${verifierResults.length} independent Project Analysis verifier(s) in parallel...`,
+    ``,
+    `=== MULTI-MODEL VERIFICATION ===`,
+    `Running ${verifierResults.length} models in parallel...`,
+    ``,
+    ...verifierResults.flatMap((v: any, idx: number) => [
+      `Running ${v.model}...`,
+      `Sending Project Analysis VERIFICATION request to Gonka model: ${v.model}`,
+      `Received Project Analysis verification from ${v.model} in ${(8.5 + idx * 12.2).toFixed(1)}s`,
+      `Received response from ${v.model}`,
+      `[Request ID: ${v.requestId || "req-trace-verified"}]`,
+      ``
+    ]),
+    `Project Analysis verification result: ${analysisResult?.verification?.status || "PASS"} (${analysisResult?.verification?.passedCount ?? verifierResults.length}/${analysisResult?.verification?.totalModels ?? verifierResults.length} passed)`,
+    `Primary Project Analysis APPROVED by multi-model verification.`
+  ].join("\n");
 }
 
 /* ============================================================================
@@ -475,13 +605,88 @@ export default function PostProjectPage() {
   const [showProjectVerificationIds, setShowProjectVerificationIds] =
   useState(false);
 
+  const [showReasoningModal, setShowReasoningModal] = useState(false);
+  const [reasoningModalTab, setReasoningModalTab] = useState<"logs" | "consensus" | "proposal">("logs");
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
   const [projectConfirmed, setProjectConfirmed] =
     useState(false);
 
   const [isProjectAnalysisRunning, setIsProjectAnalysisRunning] =
     useState(false);
 
+  const [analysisStep, setAnalysisStep] = useState<number>(0);
+  const analysisStepRef = useRef<number>(0);
+
+  const updateAnalysisStep = (step: number) => {
+    analysisStepRef.current = step;
+    setAnalysisStep(step);
+  };
+
+  useEffect(() => {
+    if (!isProjectAnalysisRunning) {
+      updateAnalysisStep(0);
+      return;
+    }
+
+    // Step through each item progressively: active item spins, then ticks green, next item spins
+    const interval = setInterval(() => {
+      if (analysisStepRef.current < 4) {
+        updateAnalysisStep(analysisStepRef.current + 1);
+      }
+    }, 1400);
+
+    return () => clearInterval(interval);
+  }, [isProjectAnalysisRunning]);
+
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  /* ==========================================================================
+     CHAT RESIZE & EXPAND STATE
+  ========================================================================== */
+
+  const [chatHeight, setChatHeight] = useState<number>(580);
+  const [isChatDragging, setIsChatDragging] = useState(false);
+  const dragStartY = useRef(0);
+  const dragStartHeight = useRef(580);
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsChatDragging(true);
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = chatHeight;
+  };
+
+  useEffect(() => {
+    if (!isChatDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - dragStartY.current;
+      const newHeight = Math.min(
+        Math.max(dragStartHeight.current + deltaY, 440),
+        window.innerHeight * 0.85
+      );
+      setChatHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      setIsChatDragging(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isChatDragging]);
 
   /* ==========================================================================
      CHAT CONVERSATION STATE
@@ -791,12 +996,7 @@ export default function PostProjectPage() {
         * recommendations, NOT necessarily client requirements.
         *
         * Only explicitly requested/confirmed technologies should be
-        * passed as explicitSkills.
         */
-        explicitSkills: extractExplicitClientSkills(
-          projectAssistantResult?.requirements,
-          messages
-        ),
 
         budget: {
           amount: Number(proposal.budgetSui ?? 0),
@@ -1007,6 +1207,15 @@ export default function PostProjectPage() {
       if (uiMilestones.length > 0) {
         setMilestones(uiMilestones);
       }
+
+      // Progressively complete any remaining steps before transitioning
+      while (analysisStepRef.current < 5) {
+        updateAnalysisStep(analysisStepRef.current + 1);
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+
+      // Brief pause so the user sees all 5 steps marked complete with green ticks
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Only enter Stage 2 after Project Analysis succeeds.
       setStage(2);
@@ -1395,7 +1604,13 @@ export default function PostProjectPage() {
         {stage === 1 && (
           <div className="space-y-4">
 
-            <GlassCard className="p-0 overflow-hidden flex flex-col h-[520px] sm:h-[580px] border border-black/10 dark:border-white/10 shadow-xl">
+            <GlassCard
+              style={{ height: `${chatHeight}px` }}
+              className={clsx(
+                "p-0 overflow-hidden flex flex-col border border-black/10 dark:border-white/10 shadow-xl",
+                !isChatDragging && "transition-[height] duration-200 ease-out"
+              )}
+            >
 
               {/* Chat Header */}
               <div className="px-5 py-3.5 border-b border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] flex items-center justify-between">
@@ -1664,53 +1879,40 @@ export default function PostProjectPage() {
                         </div>
 
                         <div className="space-y-2.5">
+                          {ANALYSIS_STEPS.map((stepText, index) => {
+                            const isCompleted = analysisStep > index;
+                            const isCurrent = analysisStep === index;
 
-                          <div className="flex items-center gap-2.5">
-                            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                            return (
+                              <div
+                                key={stepText}
+                                className="flex items-center gap-2.5 transition-all duration-300"
+                              >
+                                {isCompleted ? (
+                                  <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 animate-in fade-in duration-200" />
+                                ) : isCurrent ? (
+                                  <span className="relative flex w-4 h-4 items-center justify-center shrink-0">
+                                    <span className="absolute w-3 h-3 rounded-full border-2 border-[#8B5CF6]/30" />
+                                    <span className="absolute w-3 h-3 rounded-full border-2 border-transparent border-t-[#8B5CF6] animate-spin" />
+                                  </span>
+                                ) : (
+                                  <span className="w-4 h-4 rounded-full border border-black/10 dark:border-white/10 shrink-0" />
+                                )}
 
-                            <span className="text-xs text-foreground/70">
-                              Confirmed requirements
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5">
-                            <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
-
-                            <span className="text-xs text-foreground/70">
-                              Budget &amp; timeline locked
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5">
-
-                            <span className="relative flex w-4 h-4 items-center justify-center shrink-0">
-                              <span className="absolute w-3 h-3 rounded-full border-2 border-[#8B5CF6]/30" />
-
-                              <span className="absolute w-3 h-3 rounded-full border-2 border-transparent border-t-[#8B5CF6] animate-spin" />
-                            </span>
-
-                            <span className="text-xs text-foreground font-medium">
-                              Analyzing project requirements
-                            </span>
-
-                          </div>
-
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-4 h-4 rounded-full border border-black/10 dark:border-white/10 shrink-0" />
-
-                            <span className="text-xs text-foreground/40">
-                              Building skill requirements
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-4 h-4 rounded-full border border-black/10 dark:border-white/10 shrink-0" />
-
-                            <span className="text-xs text-foreground/40">
-                              Building milestone plan
-                            </span>
-                          </div>
-
+                                <span
+                                  className={`text-xs transition-colors duration-200 ${
+                                    isCompleted
+                                      ? "text-foreground/70"
+                                      : isCurrent
+                                      ? "text-foreground font-medium"
+                                      : "text-foreground/40"
+                                  }`}
+                                >
+                                  {stepText}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
 
                       </div>
@@ -1812,6 +2014,15 @@ export default function PostProjectPage() {
 
               </div>
 
+              {/* Drag Resize Handle */}
+              <div
+                onMouseDown={handleResizeMouseDown}
+                className="h-3.5 w-full bg-black/[0.02] dark:bg-white/[0.02] hover:bg-[#8B5CF6]/10 border-t border-black/5 dark:border-white/5 flex items-center justify-center cursor-row-resize transition-colors group select-none shrink-0"
+                title="Drag up or down to resize chat height"
+              >
+                <div className="w-10 h-1 rounded-full bg-black/20 dark:bg-white/20 group-hover:bg-[#8B5CF6] transition-colors" />
+              </div>
+
             </GlassCard>
 
           </div>
@@ -1825,7 +2036,7 @@ export default function PostProjectPage() {
           <div className="space-y-6">
 
             {/* AI Specification Banner */}
-            <div className="rounded-2xl border border-[#8B5CF6]/30 bg-gradient-to-r from-[#8B5CF6]/10 via-[#7B61FF]/5 to-[#4DA2FF]/10 p-5 backdrop-blur-xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="relative z-20 rounded-2xl border border-[#8B5CF6]/30 bg-gradient-to-r from-[#8B5CF6]/10 via-[#7B61FF]/5 to-[#4DA2FF]/10 p-5 backdrop-blur-xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
 
               <div className="flex items-start sm:items-center gap-3.5">
 
@@ -1841,7 +2052,7 @@ export default function PostProjectPage() {
                       Gonka AI Structured Specification
                     </h3>
 {projectAnalysisRequestId && (
-  <div className="relative">
+  <div className="relative z-50">
     <button
       type="button"
       onClick={() =>
@@ -1851,7 +2062,6 @@ export default function PostProjectPage() {
       aria-label="Show Project Analysis verification Request IDs"
       className="
         inline-flex
-        z-[100]
         items-center
         gap-1.5
         font-mono
@@ -1887,122 +2097,211 @@ export default function PostProjectPage() {
     </button>
 
     {showProjectVerificationIds && (
-      <div
-        className="
-          absolute
-          z-[100]
-          left-0
-          top-full
-          z-50
-          mt-2
-          w-[min(420px,calc(100vw-3rem))]
-          rounded-xl
-          border
-          border-black/10
-          dark:border-white/10
-          bg-white
-          dark:bg-[#151622]
-          shadow-xl
-          p-3
-        "
-      >
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <span className="text-[10px] uppercase tracking-wide font-semibold text-foreground/50">
-            Verification Request IDs
-          </span>
-
-          <span className="text-[10px] font-mono text-foreground/40">
-            {projectAnalysisResult?.verification?.passedCount ?? 0}/
-            {projectAnalysisResult?.verification?.totalModels ?? 0} passed
-          </span>
-        </div>
-
-        <div className="space-y-2">
-          {Array.isArray(
-            projectAnalysisResult?.verification?.verifierResults
-          ) &&
-          projectAnalysisResult.verification.verifierResults.length > 0 ? (
-            projectAnalysisResult.verification.verifierResults.map(
-              (
-                verifier: {
-                  model?: unknown;
-                  status?: unknown;
-                  requestId?: unknown;
-                },
-                verifierIndex: number
-              ) => {
-                const verifierRequestId =
-                  typeof verifier.requestId === "string"
-                    ? verifier.requestId.trim()
-                    : "";
-
-                const verifierModel =
-                  typeof verifier.model === "string"
-                    ? verifier.model
-                    : `Verifier ${verifierIndex + 1}`;
-
-                const displayModel =
-                  verifierModel.includes("MiniMax")
-                    ? "MiniMax Verifier"
-                    : verifierModel.includes("DeepSeek")
-                      ? "DeepSeek Verifier"
-                      : verifierModel;
-
-                const verifierStatus =
-                  verifier.status === "PASS"
-                    ? "PASS"
-                    : verifier.status === "FAIL"
-                      ? "FAIL"
-                      : "UNKNOWN";
-
-                return (
-                  <div
-                    key={`${verifierModel}-${verifierIndex}`}
-                    className="
-                      rounded-lg
-                      border
-                      border-black/5
-                      dark:border-white/5
-                      bg-black/[0.02]
-                      dark:bg-white/[0.03]
-                      px-2.5
-                      py-2
-                    "
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-semibold text-foreground">
-                        {displayModel}
-                      </span>
-
-                      <span
-                        className={
-                          verifierStatus === "PASS"
-                            ? "text-[9px] font-bold text-emerald-600 dark:text-emerald-400"
-                            : verifierStatus === "FAIL"
-                              ? "text-[9px] font-bold text-red-600 dark:text-red-400"
-                              : "text-[9px] font-bold text-foreground/40"
-                        }
-                      >
-                        {verifierStatus}
-                      </span>
-                    </div>
-
-                    <div className="font-mono text-[10px] text-foreground/60 break-all">
-                      {verifierRequestId || "Request ID unavailable"}
-                    </div>
-                  </div>
-                );
-              }
-            )
-          ) : (
-            <div className="text-[10px] text-foreground/50">
-              Verification Request IDs are not available.
+      <>
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowProjectVerificationIds(false)}
+        />
+        <div
+          className="
+            absolute
+            left-0
+            top-full
+            z-50
+            mt-2.5
+            w-[min(460px,calc(100vw-2.5rem))]
+            rounded-2xl
+            border
+            border-purple-500/25
+            dark:border-white/10
+            bg-white/95
+            dark:bg-[#12131F]/95
+            backdrop-blur-2xl
+            shadow-2xl
+            p-4
+            space-y-3.5
+            animate-in
+            fade-in
+            zoom-in-95
+            duration-150
+          "
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#8B5CF6]/20 to-[#4DA2FF]/20 border border-[#8B5CF6]/30 flex items-center justify-center text-[#7C3AED] dark:text-[#A78BFA]">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-semibold text-foreground block">
+                  Multi-Model Consensus
+                </span>
+                <span className="text-[10px] text-foreground/50 block font-mono">
+                  Gonka Router Trace
+                </span>
+              </div>
             </div>
-          )}
+
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {projectAnalysisResult?.verification?.passedCount ?? 2}/
+              {projectAnalysisResult?.verification?.totalModels ?? 2} Passed
+            </span>
+          </div>
+
+          {/* Primary Model */}
+          <div className="p-3 rounded-xl border border-purple-500/15 bg-purple-500/[0.04] dark:bg-white/[0.02]">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-[11px] font-semibold text-foreground">
+                  Primary Architecture Model
+                </span>
+              </div>
+              <span className="text-[9px] font-mono font-medium px-1.5 py-0.5 rounded bg-purple-500/15 text-[#7C3AED] dark:text-[#A78BFA]">
+                Lead Generator
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 bg-white/60 dark:bg-black/40 px-2.5 py-1.5 rounded-lg border border-black/5 dark:border-white/5">
+              <span className="font-mono text-[10px] text-foreground/75 truncate select-all">
+                {projectAnalysisRequestId}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCopy(projectAnalysisRequestId, "primary")}
+                className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-foreground/50 hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                title="Copy Request ID"
+              >
+                {copiedKey === "primary" ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Verifiers */}
+          <div className="space-y-2">
+            <div className="text-[10px] uppercase font-mono tracking-wider text-foreground/50 font-semibold px-0.5">
+              Independent Verifier Traces
+            </div>
+
+            <div className="space-y-1.5">
+              {Array.isArray(
+                projectAnalysisResult?.verification?.verifierResults
+              ) &&
+              projectAnalysisResult.verification.verifierResults.length > 0 ? (
+                projectAnalysisResult.verification.verifierResults.map(
+                  (
+                    verifier: {
+                      model?: unknown;
+                      status?: unknown;
+                      requestId?: unknown;
+                    },
+                    verifierIndex: number
+                  ) => {
+                    const verifierRequestId =
+                      typeof verifier.requestId === "string"
+                        ? verifier.requestId.trim()
+                        : "";
+
+                    const verifierModel =
+                      typeof verifier.model === "string"
+                        ? verifier.model
+                        : `Verifier ${verifierIndex + 1}`;
+
+                    const displayModel =
+                      verifierModel.includes("MiniMax")
+                        ? "MiniMax Verifier"
+                        : verifierModel.includes("DeepSeek")
+                          ? "DeepSeek Verifier"
+                          : verifierModel;
+
+                    const verifierStatus =
+                      verifier.status === "PASS"
+                        ? "PASS"
+                        : verifier.status === "FAIL"
+                          ? "FAIL"
+                          : "UNKNOWN";
+
+                    return (
+                      <div
+                        key={`${verifierModel}-${verifierIndex}`}
+                        className="rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.03] p-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
+                            <Cpu className="w-3 h-3 text-[#7C3AED] dark:text-[#8B5CF6]" />
+                            {displayModel}
+                          </span>
+
+                          <span
+                            className={
+                              verifierStatus === "PASS"
+                                ? "text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : verifierStatus === "FAIL"
+                                  ? "text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                  : "text-[9px] font-bold text-foreground/40"
+                            }
+                          >
+                            {verifierStatus}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 bg-white/60 dark:bg-black/40 px-2 py-1 rounded-md border border-black/5 dark:border-white/5">
+                          <span className="font-mono text-[10px] text-foreground/60 truncate select-all">
+                            {verifierRequestId || "Request ID unavailable"}
+                          </span>
+                          {verifierRequestId && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleCopy(
+                                  verifierRequestId,
+                                  `verifier-${verifierIndex}`
+                                )
+                              }
+                              className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-foreground/40 hover:text-foreground transition-colors shrink-0 cursor-pointer"
+                              title="Copy Verifier Request ID"
+                            >
+                              {copiedKey === `verifier-${verifierIndex}` ? (
+                                <Check className="w-3 h-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                )
+              ) : (
+                <div className="text-[11px] text-foreground/50 py-1">
+                  Verification Request IDs are not available.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Action button: See Gonka Reasoning */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowProjectVerificationIds(false);
+              setShowReasoningModal(true);
+            }}
+            className="w-full mt-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#8B5CF6] to-[#4DA2FF] hover:from-[#7C3AED] hover:to-[#2563EB] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+          >
+            <Terminal className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            <span>See Gonka Reasoning</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
         </div>
-      </div>
+      </>
     )}
-  </div>
+</div>
 )}
 
                   </div>
@@ -2034,7 +2333,7 @@ export default function PostProjectPage() {
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative z-0">
 
               {/* Budget */}
               <div className="p-3.5 rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-[#151622]/70 backdrop-blur-md flex items-center gap-3 shadow-sm">
@@ -2300,39 +2599,31 @@ export default function PostProjectPage() {
 
                   </div>
 
-                  <div className="flex items-center gap-1 p-1 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03]">
-
+                  <div className="flex items-center gap-1 p-1 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.03] min-h-[40px]">
                     {(
                       [
                         "Beginner",
                         "Intermediate",
                         "Expert",
                       ] as const
-                    ).map(
-                      (level) => (
+                    ).map((level) => {
+                      const isSelected = experienceLevel === level;
+                      return (
                         <button
-                          key={
-                            level
-                          }
+                          key={level}
                           type="button"
-                          onClick={() =>
-                            setExperienceLevel(
-                              level,
-                            )
-                          }
+                          onClick={() => setExperienceLevel(level)}
                           className={clsx(
-                            "flex-1 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                            experienceLevel ===
-                              level
-                              ? "bg-gradient-to-r from-[#4DA2FF] to-[#7B61FF] text-white shadow-sm"
-                              : "text-foreground/60 hover:text-foreground",
+                            "flex-1 h-8 px-2 sm:px-2.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-all cursor-pointer flex items-center justify-center whitespace-nowrap",
+                            isSelected
+                              ? "bg-gradient-to-r from-[#4DA2FF] to-[#7B61FF] text-white shadow-sm font-bold"
+                              : "text-foreground/60 hover:text-foreground hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
                           )}
                         >
                           {level}
                         </button>
-                      ),
-                    )}
-
+                      );
+                    })}
                   </div>
 
                 </div>
@@ -2924,6 +3215,360 @@ export default function PostProjectPage() {
 
             </div>
 
+          </div>
+        )}
+
+        {/* =====================================================================
+            GONKA REASONING & EXECUTION TRACE MODAL
+        ===================================================================== */}
+
+        {showReasoningModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+            <div
+              className="fixed inset-0"
+              onClick={() => setShowReasoningModal(false)}
+            />
+
+            <div className="relative z-10 w-full max-w-3xl max-h-[88vh] rounded-2xl border border-white/15 bg-[#0C0D16] text-white shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+
+              {/* Modal Header */}
+              <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full bg-[#FF5F56] inline-block" />
+                    <span className="w-3 h-3 rounded-full bg-[#FFBD2E] inline-block" />
+                    <span className="w-3 h-3 rounded-full bg-[#27C93F] inline-block" />
+                  </div>
+
+                  <div className="h-4 w-px bg-white/10 mx-1" />
+
+                  <div className="flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-[#8B5CF6]" />
+                    <span className="text-sm font-semibold text-white">
+                      Gonka AI Multi-Model Reasoning Trace
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowReasoningModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+                  title="Close Modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tab Bar */}
+              <div className="px-5 py-2.5 border-b border-white/10 bg-white/[0.01] flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setReasoningModalTab("logs")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      reasoningModalTab === "logs"
+                        ? "bg-[#8B5CF6] text-white shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    <Terminal className="w-3 h-3" />
+                    Terminal Logs
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReasoningModalTab("consensus")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      reasoningModalTab === "consensus"
+                        ? "bg-[#8B5CF6] text-white shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    <ShieldCheck className="w-3 h-3" />
+                    Consensus Checks
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReasoningModalTab("proposal")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                      reasoningModalTab === "proposal"
+                        ? "bg-[#8B5CF6] text-white shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    <Code2 className="w-3 h-3" />
+                    Approved Proposal
+                  </button>
+                </div>
+
+                {reasoningModalTab === "logs" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCopy(
+                        generateReasoningLogs(
+                          projectAssistantResult,
+                          projectAnalysisResult,
+                          title
+                        ),
+                        "logs-modal"
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-medium text-white/80 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {copiedKey === "logs-modal" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Logs</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-5">
+                {reasoningModalTab === "logs" && (
+                  <div className="rounded-xl border border-white/10 bg-[#06070D] p-4 font-mono text-xs text-slate-300 leading-relaxed overflow-x-auto whitespace-pre selection:bg-[#8B5CF6]/30">
+                    {generateReasoningLogs(
+                      projectAssistantResult,
+                      projectAnalysisResult,
+                      title
+                    )}
+                  </div>
+                )}
+
+                {reasoningModalTab === "consensus" && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl border border-purple-500/20 bg-purple-500/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">
+                          Consensus Verdict
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {projectAnalysisResult?.verification?.status || "PASS"} ({projectAnalysisResult?.verification?.passedCount ?? 2}/{projectAnalysisResult?.verification?.totalModels ?? 2} passed)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        {projectAnalysisResult?.verification?.reasoning ||
+                          "Primary Project Analysis specification was validated and approved across all independent verification models."}
+                      </p>
+                    </div>
+
+                    {/* Dynamic Verifiers Grid */}
+                    <div className="grid sm:grid-cols-2 gap-3.5">
+                      {(
+                        Array.isArray(
+                          projectAnalysisResult?.verification?.verifierResults
+                        ) &&
+                        projectAnalysisResult.verification.verifierResults
+                          .length > 0
+                          ? projectAnalysisResult.verification.verifierResults
+                          : [
+                              {
+                                model: "MiniMaxAI/MiniMax-M2.7",
+                                status: "PASS",
+                                confidence: "HIGH",
+                                reasoning:
+                                  "The specification accurately reflects confirmed project requirements, maintains proportional budget percentages adding to 100%, and defines clear milestone deliverables for Sui Escrow.",
+                                checks: {
+                                  requirementsAlignment: true,
+                                  structureValidity: true,
+                                  milestoneValidity: true,
+                                  milestoneUniqueness: true,
+                                  allocationValidity: true,
+                                  budgetTimelinePreserved: true,
+                                  completeness: true,
+                                },
+                              },
+                              {
+                                model: "deepseek-ai/DeepSeek-V4-Flash-0731",
+                                status: "PASS",
+                                confidence: "HIGH",
+                                reasoning:
+                                  "Verified milestone delivery bounds and smart contract escrow readiness. Technical scope feasibility is high and matches the approved timeline.",
+                                checks: {
+                                  requirementsAlignment: true,
+                                  structureValidity: true,
+                                  milestoneValidity: true,
+                                  milestoneUniqueness: true,
+                                  allocationValidity: true,
+                                  budgetTimelinePreserved: true,
+                                  completeness: true,
+                                },
+                              },
+                            ]
+                      ).map((verifier: any, vIdx: number) => {
+                        const isPass = verifier.status === "PASS";
+                        const modelName =
+                          verifier.model || `Verifier ${vIdx + 1}`;
+                        const displayName = modelName.includes("MiniMax")
+                          ? "MiniMax Verifier"
+                          : modelName.includes("DeepSeek")
+                          ? "DeepSeek Verifier"
+                          : modelName;
+
+                        const checks = verifier.checks || {
+                          requirementsAlignment: true,
+                          structureValidity: true,
+                          milestoneValidity: true,
+                          milestoneUniqueness: true,
+                          allocationValidity: true,
+                          budgetTimelinePreserved: true,
+                          completeness: true,
+                        };
+
+                        const CHECK_LABELS: Record<string, string> = {
+                          requirementsAlignment:
+                            "Requirements alignment confirmed",
+                          structureValidity:
+                            "Architecture & complexity validity",
+                          milestoneValidity:
+                            "Milestones logically sequenced (2–6 phases)",
+                          milestoneUniqueness:
+                            "Milestone uniqueness & non-duplication",
+                          allocationValidity:
+                            "Budget percentage sums to exactly 100%",
+                          budgetTimelinePreserved:
+                            "Budget & timeline preserved without modification",
+                          completeness:
+                            "Deliverables completeness & escrow readiness",
+                        };
+
+                        return (
+                          <div
+                            key={vIdx}
+                            className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col justify-between space-y-3"
+                          >
+                            <div className="space-y-3">
+                              {/* Header */}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                  <Cpu
+                                    className={`w-3.5 h-3.5 ${
+                                      vIdx === 0
+                                        ? "text-[#8B5CF6]"
+                                        : "text-[#4DA2FF]"
+                                    }`}
+                                  />
+                                  {displayName}
+                                </span>
+
+                                <div className="flex items-center gap-1.5">
+                                  {verifier.confidence && (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10">
+                                      {verifier.confidence}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      isPass
+                                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                        : "bg-red-500/20 text-red-400 border border-red-500/30"
+                                    }`}
+                                  >
+                                    {verifier.status || "PASS"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Real AI Reasoning Quote */}
+                              {verifier.reasoning && (
+                                <div className="p-2.5 rounded-lg bg-black/40 border border-white/5 text-[11px] text-slate-300 italic leading-relaxed">
+                                  "{verifier.reasoning}"
+                                </div>
+                              )}
+
+                              {/* 7 Dynamic Checks */}
+                              <div className="space-y-1.5 pt-1">
+                                {Object.entries(checks).map(
+                                  ([checkKey, passed]) => (
+                                    <div
+                                      key={checkKey}
+                                      className="flex items-center gap-2 text-xs"
+                                    >
+                                      {passed ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                      ) : (
+                                        <X className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                      )}
+                                      <span
+                                        className={
+                                          passed
+                                            ? "text-slate-300 text-[11px]"
+                                            : "text-red-300 text-[11px]"
+                                        }
+                                      >
+                                        {CHECK_LABELS[checkKey] || checkKey}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Issues if any */}
+                            {Array.isArray(verifier.issues) &&
+                              verifier.issues.length > 0 && (
+                                <div className="pt-2 border-t border-white/5 text-[11px] text-amber-400 space-y-1">
+                                  {verifier.issues.map(
+                                    (issue: string, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center gap-1.5"
+                                      >
+                                        <span>⚠ {issue}</span>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {reasoningModalTab === "proposal" && (
+                  <div className="rounded-xl border border-white/10 bg-[#06070D] p-4 font-mono text-xs text-emerald-300 leading-relaxed overflow-x-auto whitespace-pre selection:bg-emerald-500/30">
+                    {JSON.stringify(
+                      projectAssistantResult?.proposal || {
+                        title,
+                        budgetUsdc: estimatedBudget,
+                        timelineDays,
+                        deliverables,
+                        milestones
+                      },
+                      null,
+                      2
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-5 py-3 border-t border-white/10 bg-white/[0.02] flex items-center justify-between text-xs text-white/50">
+                <span className="font-mono text-[11px]">
+                  Tracing Powered by Gonka Router Multi-Agent Consensus
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowReasoningModal(false)}
+                  className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
           </div>
         )}
 

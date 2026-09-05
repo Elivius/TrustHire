@@ -123,8 +123,10 @@ export default function ClientProjectsPage() {
   const handleRowClick = (project: typeof clientProjects[0]) => {
     if (project.status === "draft") {
       router.push(`/client/projects/new?draftId=${project.id}`);
-    } else if (project.status === "open" || project.status === "matched") {
-      router.push(`/project/${project.id}`);
+    } else if (project.status === "open") {
+      router.push(`/project/${project.id}/candidates`);
+    } else if (project.status === "matched") {
+      router.push(`/project/${project.id}/fund`);
     } else {
       router.push(`/project/${project.id}/workspace`);
     }

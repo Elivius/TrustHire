@@ -2,9 +2,8 @@ import dotenv from "dotenv";
 import { spawn } from "node:child_process";
 import { exec } from "node:child_process";
 
-dotenv.config({
-  path: ".env.local",
-});
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 // ============================================================
 // Configuration

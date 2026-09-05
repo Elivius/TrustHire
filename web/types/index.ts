@@ -49,6 +49,25 @@ export type ProjectStatus = "draft" | "open" | "matched" | "in_progress" | "comp
 
 export type MilestoneStatus = "pending" | "submitted" | "changes_requested" | "approved" | "released" | "disputed";
 
+export interface MilestoneVerification {
+  verificationId?: string;
+  milestoneId: string;
+
+  score: number;
+  reasoning: string;
+  suggestions: string[];
+
+  repository?: string;
+  prNumber?: number;
+  prTitle?: string;
+  prDescription?: string;
+
+  gonkaRequestId?: string;
+
+  status?: string;
+  createdAt?: string;
+}
+
 export interface Milestone {
   id: string;
   projectId: string;
@@ -56,15 +75,37 @@ export interface Milestone {
   deliverable: string;
   amount: number;
   percentOfBudget: number;
-  deadline: string; // ISO date
+  deadline: string;
   status: MilestoneStatus;
   submissionContent?: string;
   submissionLinks?: string[];
-  revisionNote?: string;      // set when status = changes_requested
-  disputeReason?: string;     // set when status = disputed
-  onChainTxHash?: string;     // set once released
+  revisionNote?: string;
+  disputeReason?: string;
+  onChainTxHash?: string;
   submittedAt?: string;
   releasedAt?: string;
+}export interface Milestone {
+  id: string;
+  projectId: string;
+  title: string;
+  deliverable: string;
+  amount: number;
+  percentOfBudget: number;
+  deadline: string;
+  status: MilestoneStatus;
+
+  submissionContent?: string;
+  submissionLinks?: string[];
+
+  revisionNote?: string;
+  disputeReason?: string;
+
+  onChainTxHash?: string;
+
+  submittedAt?: string;
+  releasedAt?: string;
+
+  verification?: MilestoneVerification;
 }
 
 export interface Project {

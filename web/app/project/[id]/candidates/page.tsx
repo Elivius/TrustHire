@@ -23,12 +23,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ScoreBadge } from "@/components/ui/score-badge";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { computeFreelancerMatchForProject } from "@/lib/simulation";
 import { clsx } from "clsx";
 
 export default function CandidatesPage() {
   const params = useParams();
   const projectId = params.id as string;
+  const [rankedFreelancers, setRankedFreelancers] = useState<any[]>([]);
 
   const {
     currentUser,
@@ -42,21 +42,226 @@ export default function CandidatesPage() {
 
   const [activeTab, setActiveTab] = useState<"recommended" | "applications" | "invited">("recommended");
   const [isMatchingLoading, setIsMatchingLoading] = useState(true);
+  const [matchingError, setMatchingError] = useState<string | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
+  console.log("[Candidates] FULL PROJECT:", project);
+
+console.log(
+  "[Candidates] Project requiredSkills:",
+  project?.requiredSkills
+);
+
+console.log(
+  "[Candidates] Required skill count:",
+  project?.requiredSkills?.length
+);
+  const calculateOverallScore = (
+    matchScore: number,
+    trustScore: number | null | undefined
+  ) => {
+    const match = Math.max(0, Math.min(100, matchScore));
+    const trust = Math.max(0, Math.min(100, trustScore ?? 0));
+
+    return Math.round(match * 0.7 + trust * 0.3);
+  };
 
   // Simulated Match Freelancers loading state (1.5-3s)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsMatchingLoading(false);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [projectId]);
+    let cancelled = false;
+
+    async function loadGonkaMatches() {
+      const currentProject = projects.find(
+        (p) => p.id === projectId
+      );
+
+      if (!currentProject) {
+        console.warn(
+          "[Candidates] Project not found:",
+          projectId
+        );
+        setIsMatchingLoading(false);
+        return;
+      }
+
+      try {
+        setIsMatchingLoading(true);
+        setMatchingError(null);
+
+        // Build freelancer data for Gonka AI matching
+        const freelancers = Object.values(freelancerProfiles)
+          .filter((profile) => profile.isDiscoverable)
+          .map((profile) => {
+            const user = users.find(
+              (u) => u.id === profile.userId
+            );
+
+            return {
+              id: profile.userId,
+              name: user?.name,
+              skills: profile.skills,
+              bio: profile.bio,
+              portfolioLinks:
+                profile.portfolioLinks?.map(
+                  (link) => link.url
+                ) ?? [],
+              experienceLevel:
+                profile.experienceLevel,
+              trustScore:
+                profile.trustScore ?? null,
+            };
+          })
+          .filter(
+            (
+              freelancer
+            ): freelancer is typeof freelancer & {
+              name: string;
+            } => Boolean(freelancer.name)
+          );
+
+          console.log("[Candidates] Project skills:", currentProject.requiredSkills);
+          console.log("[Candidates] Freelancers being sent to Gonka:", freelancers);
+          console.log("[Candidates] Freelancer count:", freelancers.length);
+
+          const response = await fetch(
+            "/api/gonka/match-freelancers",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              project: {
+                id: currentProject.id,
+
+                projectTitle:
+                  currentProject.title,
+
+                projectDescription:
+                  currentProject.descriptionRaw,
+
+                requiredSkills:
+                  currentProject.requiredSkills,
+
+                experienceLevel:
+                  currentProject.experienceLevel,
+
+                budget:
+                  currentProject.estimatedBudget !==
+                  undefined
+                    ? {
+                        amount:
+                          currentProject.estimatedBudget,
+                        currency: "USD",
+                      }
+                    : undefined,
+
+                estimatedTimelineDays:
+                  currentProject.timelineDays,
+
+                keyDeliverables:
+                  currentProject.deliverables ?? [],
+              },
+
+              freelancers,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `Matching request failed: ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+
+        console.log(
+          "[Candidates] Gonka response:",
+          data
+        );
+
+        if (!data.success) {
+          throw new Error(
+            data.message ||
+              "Gonka matching failed."
+          );
+        }
+
+        const displayResults = data.results
+          .map((result: any) => {
+            const profile =
+              freelancerProfiles[result.freelancerId];
+
+            const user = users.find(
+              (u) => u.id === result.freelancerId
+            );
+
+            if (!profile || !user) {
+              return null;
+            }
+
+            const overallScore = calculateOverallScore(
+              result.matchScore,
+              profile.trustScore
+            );
+
+            return {
+              profile,
+              user,
+              match: result,
+              overallScore,
+            };
+          })
+          .filter(Boolean)
+          .sort(
+            (a: any, b: any) =>
+              b.overallScore - a.overallScore
+          );
+
+        if (!cancelled) {
+          setRankedFreelancers(
+            displayResults
+          );
+        }
+      } catch (error) {
+        console.error(
+          "[Candidates] Gonka matching failed:",
+          error
+        );
+
+        if (!cancelled) {
+          setMatchingError(
+            error instanceof Error
+              ? error.message
+              : "Failed to find freelancer matches."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsMatchingLoading(false);
+        }
+      }
+    }
+
+    loadGonkaMatches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    projects,
+    projectId,
+    freelancerProfiles,
+    users,
+  ]);
 
   if (!project) {
     return (
       <AppShell>
-        <div className="text-center py-20">Project not found.</div>
+        <div className="text-center py-20">
+          Project not found.
+        </div>
       </AppShell>
     );
   }
@@ -66,27 +271,6 @@ export default function CandidatesPage() {
   const matchedFreelancer = project.matchedFreelancerId
     ? users.find((u) => u.id === project.matchedFreelancerId)
     : null;
-
-  // Ranked recommended freelancers
-  const rankedFreelancers = Object.values(freelancerProfiles)
-    .map((prof) => {
-      const match = computeFreelancerMatchForProject(
-        prof.skills,
-        project.requiredSkills,
-        prof.trustScore
-      );
-      return {
-        profile: prof,
-        user: users.find(
-          (u) =>
-            u.id.toLowerCase() === prof.userId.toLowerCase() ||
-            (u.walletAddress && u.walletAddress.toLowerCase() === prof.userId.toLowerCase())
-        ),
-        match
-      };
-    })
-    .filter((item) => item.user && item.profile.isDiscoverable)
-    .sort((a, b) => b.match.matchScore - a.match.matchScore);
 
   return (
     <AppShell>
@@ -197,7 +381,7 @@ export default function CandidatesPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {rankedFreelancers.map(({ profile, user, match }) => {
+                {rankedFreelancers.map(({ profile, user, match, overallScore }) => {
                   if (!user) return null;
                   const existingInv = projectInvitations.find((i) => i.freelancerId === user.id);
 
@@ -217,6 +401,7 @@ export default function CandidatesPage() {
                             <h3 className="text-base font-bold text-foreground">{user.name}</h3>
                             <p className="text-xs text-foreground/60 line-clamp-1">{profile.headline}</p>
                             <div className="flex items-center gap-2 pt-1">
+                              <ScoreBadge score={overallScore} type="overall" size="sm"/>
                               <ScoreBadge score={match.matchScore} type="ai_match" size="sm" />
                               <ScoreBadge score={profile.trustScore} type="trust" size="sm" />
                             </div>
@@ -243,22 +428,76 @@ export default function CandidatesPage() {
                         </div>
                       </div>
 
-                      {/* AI Reasoning */}
-                      <p className="text-xs text-foreground/75 leading-relaxed bg-black/[0.02] dark:bg-white/[0.02] p-3 rounded-xl border border-black/5 dark:border-white/5">
-                        <span className="text-[#7C3AED] dark:text-[#A78BFA] font-semibold mr-1.5">Gonka AI:</span>
-                        {match.reasoning}
-                      </p>
+                      {/* Gonka AI Reasoning */}
+                      <div className="rounded-xl border border-purple-200/70 bg-purple-50/40 p-4 dark:border-purple-900/50 dark:bg-purple-950/20">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400">
+                            ✦
+                          </div>
+
+                          <div>
+                            <div className="text-sm font-semibold text-purple-900 dark:text-purple-200">
+                              AI Matching 
+                            </div>
+                            <div className="text-xs text-purple-600/70 dark:text-purple-400/70">
+                              Powered by Gonka AI
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          {match.reasoning}
+                        </p>
+
+                        <div className="mt-4 flex items-center gap-2 border-t border-purple-200/60 pt-3 dark:border-purple-900/40">
+                          <span className="text-xs text-muted-foreground">
+                            Gonka Request ID
+                          </span>
+
+                          <span className="rounded-md bg-purple-100/80 px-2 py-1 font-mono text-[11px] text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                            {match.gonkaRequestId}
+                          </span>
+                        </div>
+                      </div>
 
                       {/* Skills */}
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {profile.skills.map((s) => (
-                          <SkillChip
-                            key={s}
-                            label={s}
-                            size="sm"
-                            highlighted={project.requiredSkills.includes(s)}
-                          />
-                        ))}
+                        {profile.skills.map((skill: string) => {
+                          /*
+                          * IMPORTANT:
+                          *
+                          * A skill being present in profile.skills does NOT mean
+                          * that the skill has been verified.
+                          *
+                          * The green SkillChip is reserved for skills that Gonka
+                          * explicitly evaluated as matched/verified.
+                          *
+                          * This prevents a claimed database/profile skill such as
+                          * "Python" from appearing green when its verification
+                          * status is false or unverified.
+                          */
+                          const skillEvaluation = Array.isArray(
+                            match.skillEvaluation
+                          )
+                            ? match.skillEvaluation.find(
+                                (evaluation: any) =>
+                                  evaluation.skill?.trim().toLowerCase() ===
+                                  skill.trim().toLowerCase()
+                              )
+                            : undefined;
+
+                          const isVerified =
+                            skillEvaluation?.matched === true;
+
+                          return (
+                            <SkillChip
+                              key={skill}
+                              label={skill}
+                              size="sm"
+                              highlighted={isVerified}
+                            />
+                          );
+                        })}
                       </div>
                     </GlassCard>
                   );

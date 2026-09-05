@@ -1,12 +1,12 @@
-import { gonka } from "../client.js";
-import type { SkillClaim } from "../../server/evidence.js";
-import { parseGonkaJson } from "../responseParser.js";
-import { runAcrossModels } from "../multiModel.js";
-import { calculateConsensus } from "../consensus.js";
+import { gonka } from "../client";
+import type { SkillClaim } from "../../server/evidence";
+import { parseGonkaJson } from "../responseParser";
+import { runAcrossModels } from "../multiModel";
+import { calculateConsensus } from "../consensus";
 import type {
   ModelVerificationResult,
   ConsensusResult,
-} from "../types.js";
+} from "../types";
 
 export interface SkillVerificationResult {
   model: ModelVerificationResult["model"];

@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";import {
   Sparkles,
   ArrowRight,
   ArrowLeft,
@@ -24,7 +26,6 @@ import { useApp } from "@/context/app-context";
 import { GradientButton } from "@/components/ui/gradient-button";
 import { GhostButton } from "@/components/ui/ghost-button";
 import { SkillChip } from "@/components/ui/skill-chip";
-import { simulateTrustScoreCalculation, simulateGithubRepoDiscovery } from "@/lib/simulation";
 import { clsx } from "clsx";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
@@ -32,12 +33,19 @@ import { useCurrentAccount } from "@mysten/dapp-kit-react";
 
 export default function FreelancerOnboardingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currentUser, updateFreelancerProfile, addRoleToUser } = useApp();
   const currentAccount = useCurrentAccount();
   const payoutWallet = currentAccount?.address || currentUser.walletAddress || currentUser.id;
+  const [step, setStep] = useState(() => {
+    const stepParam = searchParams.get("step");
+    const parsedStep = Number(stepParam);
 
-  const [step, setStep] = useState(1);
-  const [name, setName] = useState(
+    return parsedStep >= 1 && parsedStep <= 4
+      ? parsedStep
+      : 1;
+  });
+    const [name, setName] = useState(
     currentUser.name && currentUser.name !== "Alex Rivera" && currentUser.name !== "Elena Vance"
       ? currentUser.name
       : ""
@@ -72,6 +80,25 @@ export default function FreelancerOnboardingPage() {
   const [isCalculatingScore, setIsCalculatingScore] = useState(false);
   const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
 
+  useEffect(() => {
+    const githubStatus = searchParams.get("github");
+    const sessionId = searchParams.get("sessionId");
+    const username = searchParams.get("username");
+
+    if (githubStatus === "connected" && sessionId) {
+      sessionStorage.setItem(
+        "trusthire_github_session",
+        sessionId
+      );
+
+      setIsGithubConnected(true);
+
+      if (username) {
+        setGithubUsername(username);
+      }
+    }
+  }, [searchParams]);
+
   const handleAddSkill = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && newSkillInput.trim()) {
       e.preventDefault();
@@ -86,15 +113,11 @@ export default function FreelancerOnboardingPage() {
     setSkills(skills.filter((s) => s !== skill));
   };
 
-  const handleConnectGithub = async () => {
-    setIsScanningGithub(true);
-    try {
-      const repos = await simulateGithubRepoDiscovery(githubUsername);
-      setVerifiedRepos(repos);
-      setIsGithubConnected(true);
-    } finally {
-      setIsScanningGithub(false);
-    }
+  const handleConnectGithub = () => {
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3010";
+
+    window.location.href = `${apiUrl}/auth/github`;
   };
 
   const handleAddCustomLink = () => {
@@ -112,6 +135,8 @@ export default function FreelancerOnboardingPage() {
   };
 
   const handleFinishOnboarding = async () => {
+    console.log("[Onboarding] Calculate Trust Score clicked");
+
     setIsCalculatingScore(true);
 
     const combinedPortfolio = [
@@ -123,25 +148,109 @@ export default function FreelancerOnboardingPage() {
         commitsCount: r.commitsCount,
         primaryLanguage: r.primaryLanguage
       })),
-      ...customLinks.filter((c) => c.title.trim() && c.url.trim()).map((c) => ({
-        title: c.title,
-        url: c.url,
-        isVerified: false
-      }))
+
+      ...customLinks
+        .filter((c) => c.title.trim() && c.url.trim())
+        .map((c) => ({
+          title: c.title,
+          url: c.url,
+          isVerified: false
+        }))
     ];
 
     try {
-      const scoreResult = await simulateTrustScoreCalculation(
-        skills.length,
-        combinedPortfolio.length > 0,
-        experienceLevel,
-        isGithubConnected,
-        githubUsername
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://localhost:3010";
+
+      const githubSession =
+        sessionStorage.getItem(
+          "trusthire_github_session"
+        );
+
+      if (!githubSession) {
+        throw new Error(
+          "GitHub account is not connected. Please connect GitHub before calculating your Trust Score."
+        );
+      }
+
+      console.log(
+        "[Onboarding] Calling Trust Score API:",
+        {
+          apiUrl,
+          hasGithubSession: Boolean(githubSession),
+          skills,
+          experienceLevel,
+          portfolioCount:
+            combinedPortfolio.length
+        }
       );
 
-      setCalculatedScore(scoreResult.trustScore);
+      const response = await fetch(
+        `${apiUrl}/profile/trust-score`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+        body: JSON.stringify({
+          freelancerId: payoutWallet,
+
+          sessionId: githubSession,
+
+          skills: skills.map((skill) => ({
+            name: skill,
+            tier: experienceLevel
+          })),
+
+
+            profileComplete:
+              Boolean(name.trim()) &&
+              Boolean(headline.trim()) &&
+              Boolean(bio.trim()),
+
+            portfolioCount:
+              combinedPortfolio.length,
+
+            completedProjects: 0,
+            completedMilestones: 0,
+            onTimeCompletionRate: 0,
+            averageClientRating: 0,
+            totalClientReviews: 0,
+
+            cancelledProjects: 0,
+            disputedProjects: 0
+          })
+        }
+      );
+
+      console.log(
+        "[Onboarding] Trust Score API response:",
+        response.status
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Trust Score request failed: ${response.status}`
+        );
+      }
+
+      const scoreResult =
+        await response.json();
+
+      console.log(
+        "[Onboarding] Trust Score result:",
+        scoreResult
+      );
+
+      setCalculatedScore(
+        scoreResult.trustScore.score
+      );
 
       addRoleToUser("freelancer");
+
       updateFreelancerProfile({
         name,
         avatarUrl,
@@ -150,14 +259,33 @@ export default function FreelancerOnboardingPage() {
         skills,
         experienceLevel,
         portfolioLinks: combinedPortfolio,
-        githubUsername: isGithubConnected ? githubUsername : undefined,
-        isGithubVerified: isGithubConnected,
-        trustScore: scoreResult.trustScore,
-        trustScoreConfidence: scoreResult.confidence,
-        trustScoreReasoning: scoreResult.reasoning,
-        trustScoreRequestId: scoreResult.requestId,
-        trustScoreUpdatedAt: new Date().toISOString(),
+
+        githubUsername:
+          isGithubConnected
+            ? githubUsername
+            : undefined,
+
+        isGithubVerified:
+          isGithubConnected,
+
+        trustScore:
+          scoreResult.trustScore.score,
+
+        trustScoreConfidence:
+          scoreResult.trustScore.confidence,
+
+        trustScoreReasoning:
+          scoreResult.trustScore.reasoning,
+
+        trustScoreRequestId:
+          scoreResult.requestId,
+
+        trustScoreUpdatedAt:
+          new Date().toISOString(),
+
         isDiscoverable: true,
+
+        // TEMPORARY DEMO VALUES
         completedProjectsCount: 14,
         onTimeDeliveryPct: 98,
         averageRating: 4.95
@@ -165,32 +293,147 @@ export default function FreelancerOnboardingPage() {
 
       try {
         const supabase = createClient();
-        const targetUserId = payoutWallet;
 
-        // 1. Upsert public.users with role FREELANCER
-        const userEmail = `${targetUserId.slice(0, 10).toLowerCase()}@trusthire.io`;
-        await supabase.from("users").upsert({
-          user_id: targetUserId,
-          name: name.trim() || currentUser.name || "Freelancer",
-          email: userEmail,
-          role: "FREELANCER",
-          status: "ACTIVE"
-        }, { onConflict: "user_id" });
+        const targetUserId =
+          payoutWallet;
 
-        // 2. Upsert freelancer profile
-        await supabase.from("freelancer_profiles").upsert({
-          freelancer_id: targetUserId,
-          prof_headline: headline,
-          bio: bio,
-          trust_score: scoreResult.trustScore,
-          experience_level: experienceLevel
-        }, { onConflict: "freelancer_id" });
+        const userEmail =
+          `${targetUserId
+            .slice(0, 10)
+            .toLowerCase()}@trusthire.io`;
+
+        await supabase
+          .from("users")
+          .upsert(
+            {
+              user_id: targetUserId,
+              name:
+                name.trim() ||
+                currentUser.name ||
+                "Freelancer",
+
+              email: userEmail,
+              role: "FREELANCER",
+              status: "ACTIVE"
+            },
+            {
+              onConflict: "user_id"
+            }
+          );
+
+        await supabase
+          .from("freelancer_profiles")
+          .upsert(
+            {
+              freelancer_id: targetUserId,
+              prof_headline: headline,
+              bio: bio,
+
+              // IMPORTANT
+              trust_score:
+                scoreResult.trustScore.score,
+
+              experience_level:
+                experienceLevel
+            },
+            {
+              onConflict:
+                "freelancer_id"
+            }
+          );
+
+          // ========================================
+          // Save Gonka skill verification
+          // ========================================
+
+          const verifiedSkills =
+            scoreResult.skillVerification?.skills ?? [];
+
+          for (const skillResult of verifiedSkills) {
+            let claimStatus = "UNVERIFIED";
+
+            if (skillResult.verdict === "TRUE") {
+              claimStatus = "VERIFIED";
+            } else if (
+              skillResult.verdict === "PARTIAL"
+            ) {
+              claimStatus = "SUPPORTED";
+            } else if (
+              skillResult.verdict === "FALSE"
+            ) {
+              claimStatus = "UNVERIFIED";
+            }
+
+            // Save the freelancer's skill claim
+            const { data: claim, error: claimError } =
+              await supabase
+                .from("profile_claims")
+                .insert({
+                  freelancer_id: targetUserId,
+
+                  claim_text:
+                    `${skillResult.name} - ${skillResult.tier}`,
+
+                  claim_type: "Skill",
+
+                  status: claimStatus
+                })
+                .select("claim_id")
+                .single();
+
+            if (claimError) {
+              console.error(
+                `Failed to save skill claim: ${skillResult.name}`,
+                claimError
+              );
+
+              continue;
+            }
+
+            // Save GitHub/Gonka evidence
+            await supabase
+              .from("evidence")
+              .insert({
+                claim_id: claim.claim_id,
+
+                evidence_type: "TEXT",
+
+                description:
+                  `Gonka skill verification for ${skillResult.name}. ` +
+                  `Verdict: ${skillResult.verdict}. ` +
+                  `Score: ${skillResult.score}. ` +
+                  `Confidence: ${skillResult.confidence}. ` +
+                  `Reasoning: ${skillResult.reasoning}`
+              });
+          }
+
       } catch (e) {
-        console.warn("Could not sync freelancer profile to Supabase:", e);
+        console.warn(
+          "Could not sync freelancer profile to Supabase:",
+          e
+        );
       }
 
-      await new Promise((r) => setTimeout(r, 1200));
-      router.push("/freelancer/dashboard");
+      await new Promise(
+        (r) => setTimeout(r, 1200)
+      );
+
+      router.push(
+        "/freelancer/dashboard"
+      );
+
+    } catch (error) {
+      console.error(
+        "[Onboarding] Trust Score calculation failed:",
+        error
+      );
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to calculate Trust Score."
+      );
+
     } finally {
       setIsCalculatingScore(false);
     }
@@ -427,7 +670,7 @@ export default function FreelancerOnboardingPage() {
 
                   {isGithubConnected && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#2DD4BF]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#2DD4BF]/30 font-mono">
-                      <Check className="w-3 h-3" /> GitHub Verified
+                        Verified
                     </span>
                   )}
                 </div>
@@ -469,9 +712,9 @@ export default function FreelancerOnboardingPage() {
 
                     {/* Auto-discovered Verified Repos */}
                     <div className="space-y-2">
-                      <span className="text-[11px] font-mono text-[#0D9488] dark:text-[#2DD4BF] block font-semibold">
-                        Gonka AI Auto-Discovered & Verified Repositories ({verifiedRepos.length}):
-                      </span>
+                        <span className="text-[11px] font-mono text-[#0D9488] dark:text-[#2DD4BF] block font-semibold">
+                          GitHub Account Verified • Public Repositories ({verifiedRepos.length})
+                        </span>
                       {verifiedRepos.map((repo, idx) => (
                         <div key={idx} className="p-3 rounded-xl border border-[#2DD4BF]/30 bg-[#2DD4BF]/10 flex items-center justify-between gap-2 text-xs">
                           <div className="space-y-0.5">

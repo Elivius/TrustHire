@@ -53,8 +53,9 @@ export async function getGitHubRepositories(
     const response = await fetch(
       `https://api.github.com/user/repos?` +
         new URLSearchParams({
-          visibility: "public",
-          affiliation: "owner",
+          visibility: "all",
+          affiliation:
+            "owner,collaborator,organization_member",
           sort: "created",
           direction: "asc",
           per_page: "100",
