@@ -4,6 +4,7 @@ TrustHire is a decentralized hiring platform where **AI decides who to trust** a
 
 > Status: hackathon prototype. Some flows described in the requirements docs are still specification-only — see [Current state](#current-state).
 
+
 ## Key Sui Features
 
 This project leverages several standout features of the Sui blockchain to provide a seamless Web2-like experience with Web3 guarantees:
@@ -13,6 +14,38 @@ This project leverages several standout features of the Sui blockchain to provid
 - **Programmable Transaction Blocks (PTBs)**: Atomic, multi-step transactions. TrustHire uses PTBs to securely batch coin splitting, escrow funding, and milestone approvals into single, atomic executions. *(See [`web/lib/sui/escrow.ts`](web/lib/sui/escrow.ts))*.
 - **On-chain Milestone Escrow**: Trustless payment rails. Client funds are locked securely in a shared escrow object, eliminating platform custody and guaranteeing freelancers get paid when work is approved. *(See [`smart-contracts/trusthire/sources/escrow.move`](smart-contracts/trusthire/sources/escrow.move))*.
 - **On-chain Reputation**: Immutable work history. A shared `ReputationRegistry` tracks completed projects, lifetime earnings, and AI-verified trust scores, giving freelancers verifiable and portable identities. *(See [`smart-contracts/trusthire/sources/reputation.move`](smart-contracts/trusthire/sources/reputation.move))*.
+
+## Hackathon Tracks & Judging Criteria
+
+### <img src="https://cryptologos.cc/logos/sui-sui-logo.svg" width="24" height="24" alt="Sui Logo" style="vertical-align: middle; margin-right: 4px;"/> Sui Track 02: AI × Sui
+**The Problem (Trust & Fairness):** On traditional platforms, freelancers worry about clients defaulting on payments, while clients worry about fake profiles or subpar work. 
+**The Solution:** TrustHire uses Sui smart contracts to enforce payment fairness via **On-chain Milestone Escrow**. Clients securely lock funds in advance, and freelancers build an immutable **On-chain Reputation** that proves their skills and track record, eliminating fake profiles.
+
+**Product UX (Web2 UX + Web3 Power):** 
+To ensure real-world readiness, TrustHire completely removes blockchain friction for talent:
+- **Zero-Friction Onboarding:** Freelancers sign in with Google (**zkLogin**)—no seed phrases or wallet extensions required.
+- **Gasless Interactions:** Using **Enoki Sponsored Transactions**, freelancer onboarding and milestone submissions are 100% sponsored. They never need faucet tokens to start working.
+
+**Technical Implementation (End-to-End Completeness):**
+The core Sui integration is fully complete, prioritizing robust, working mechanics over unnecessary complexity:
+- **Programmable Transaction Blocks (PTBs):** Used to atomically split client SUI coins and fund the escrow contract in a single step (see `web/lib/sui/escrow.ts`).
+- **Secure Move Contracts:** A clean `escrow.move` contract handles milestone locking and release logic securely on-chain.
+- **Seamless App Integration:** The Next.js frontend is fully wired to the Sui testnet using `@mysten/dapp-kit`, handling wallet connections, Enoki sponsorship, and on-chain state querying.
+
+### <img src="https://gonkarouter.io/gonkaIcon.png" width="24" height="24" alt="Gonka Logo" style="vertical-align: middle; margin-right: 4px; background-color: white; border-radius: 50%; padding: 2px;"/> Gonka Track: AI Fact Checker for Society (WIP)
+*Note: This integration is actively under development.*
+To guarantee unbiased milestone approvals, TrustHire utilizes the Gonka Router to verify freelancer submissions (e.g., GitHub PRs or URL links):
+- **Decentralized Verification:** When a milestone is submitted, the proof (URL/Text) is sent to `gonkarouter.io` to analyze against the project requirements.
+- **Multi-Model Consensus:** The submission is cross-verified by at least two different AI models to ensure neutrality and prevent hallucination.
+- **Truth Score & Transparency:** The AI outputs a **Truth Score (0-100%)** and a detailed reasoning trace evaluating the work. The specific **Gonka Request IDs** are displayed on the dashboard for complete transparency.
+
+## Tech Stack
+
+- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS
+- **Blockchain:** Sui Move (Smart Contracts), `@mysten/dapp-kit` (React hooks), `@mysten/enoki` (zkLogin & Sponsored Transactions)
+- **Database & Off-chain state:** Supabase (PostgreSQL)
+- **AI & Verification:** Gonka Router (Multi-model consensus, API client)
+- **Backend Services:** Hono (Node.js server for GitHub OAuth/Evidence)
 
 ## Repository layout
 
