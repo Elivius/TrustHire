@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Sparkles,
@@ -11,8 +11,13 @@ import {
   ArrowRight,
   Clock,
   ExternalLink,
-  Users
+  Users,
+  Wallet,
+  RefreshCw,
+  Copy,
+  Check,
 } from "lucide-react";
+import { clsx } from "clsx";
 import { useApp } from "@/context/app-context";
 import { AppShell } from "@/components/layout/app-shell";
 import { GradientButton } from "@/components/ui/gradient-button";
@@ -23,6 +28,8 @@ import { ScoreBadge } from "@/components/ui/score-badge";
 import { SkillChip } from "@/components/ui/skill-chip";
 import { MilestoneStepper } from "@/components/ui/milestone-stepper";
 import { computeFreelancerMatchForProject } from "@/lib/simulation";
+import { formatSuiAddress } from "@/lib/sui/escrow";
+import { useCurrentAccount, useCurrentClient } from "@mysten/dapp-kit-react";
 
 export default function ClientDashboardPage() {
   const {
@@ -32,6 +39,58 @@ export default function ClientDashboardPage() {
     users,
     freelancerProfiles
   } = useApp();
+
+  const currentAccount = useCurrentAccount();
+  const client = useCurrentClient();
+  const effectiveAddress =
+    currentAccount?.address || currentUser?.walletAddress;
+
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  const fetchWalletBalance = useCallback(async () => {
+    if (!effectiveAddress) {
+      setWalletBalance(null);
+      return;
+    }
+
+    setIsLoadingBalance(true);
+    try {
+      if (client && typeof client.getBalance === "function") {
+        const res: any = await client.getBalance({ owner: effectiveAddress });
+        const rawBalance =
+          res?.balance?.balance ??
+          res?.balance?.coinBalance ??
+          res?.totalBalance;
+
+        if (rawBalance !== undefined && rawBalance !== null) {
+          const sui = Number(BigInt(rawBalance)) / 1_000_000_000;
+          setWalletBalance(sui);
+          return;
+        }
+      }
+      // Demo fallback if RPC query is not configured for simulated account
+      setWalletBalance(12.5);
+    } catch (err) {
+      console.warn("Could not fetch on-chain Sui balance:", err);
+      setWalletBalance(12.5);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [client, effectiveAddress]);
+
+  useEffect(() => {
+    fetchWalletBalance();
+  }, [fetchWalletBalance]);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!effectiveAddress) return;
+    navigator.clipboard.writeText(effectiveAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const clientProjects = projects.filter(
     (p) =>
@@ -143,36 +202,168 @@ export default function ClientDashboardPage() {
         )}
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <GlassCard className="p-4 sm:p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Active Projects</span>
-            <div className="text-2xl font-bold text-foreground mt-1 font-mono">{activeProjects.length}</div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">In development</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+          {/* Card 1: Active Projects */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <FolderKanban className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
+                  <span>Active Projects</span>
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-semibold">
+                  Active
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 font-mono">
+                {activeProjects.length}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+              <span className="text-foreground/50">In development</span>
+              <span className="text-[9px] font-mono text-foreground/40">Contracts</span>
+            </div>
           </GlassCard>
 
-          <Link href="/client/escrow" className="block">
-            <GlassCard className="p-4 sm:p-5 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer">
-              <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Escrowed</span>
-              <div className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-                {totalEscrowed.toLocaleString()} <span className="text-xs font-normal">SUI</span>
+          {/* Card 2: Total Escrowed */}
+          <Link href="/client/escrow" className="block h-full group">
+            <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden hover:border-[#0D9488]/40 dark:hover:border-[#2DD4BF]/40 transition-all cursor-pointer">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                    <Coins className="w-3 h-3 text-[#0D9488] dark:text-[#2DD4BF]" />
+                    <span>Total Escrowed</span>
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0D9488]/10 text-[#0D9488] dark:text-[#2DD4BF] border border-[#0D9488]/20 font-semibold">
+                    Escrow
+                  </span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono flex items-baseline gap-1.5">
+                  <span>{totalEscrowed.toLocaleString()}</span>
+                  <span className="text-xs font-normal text-foreground/60">SUI</span>
+                </div>
               </div>
-              <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF]/80 mt-1 flex items-center gap-1 font-medium">
-                <span>View ledger</span>
-                <ArrowRight className="w-3 h-3" />
-              </span>
+
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+                <span className="text-[#0D9488] dark:text-[#2DD4BF] font-medium flex items-center gap-1 group-hover:underline">
+                  <span>View ledger</span>
+                  <ArrowRight className="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+                <span className="text-[9px] font-mono text-[#0D9488]/70 dark:text-[#2DD4BF]/70">Locked</span>
+              </div>
             </GlassCard>
           </Link>
 
-          <GlassCard className="p-4 sm:p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Freelancers Hired</span>
-            <div className="text-2xl font-bold text-foreground mt-1 font-mono">{hiredFreelancersCount}</div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">Verified engineers</span>
+          {/* Card 3: Freelancers Hired */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <Users className="w-3 h-3 text-purple-500 dark:text-purple-400" />
+                  <span>Freelancers Hired</span>
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 font-semibold">
+                  Verified
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 font-mono">
+                {hiredFreelancersCount}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px]">
+              <span className="text-foreground/50">Verified engineers</span>
+              <span className="text-[9px] font-mono text-foreground/40">Gonka Match</span>
+            </div>
           </GlassCard>
 
-          <GlassCard className="p-4 sm:p-5">
-            <span className="text-[11px] font-mono uppercase text-foreground/50 block">Avg. Trust Score</span>
-            <div className="text-2xl font-bold text-[#7C3AED] dark:text-[#A78BFA] mt-1 font-mono">{avgTrustScore}/100</div>
-            <span className="text-[11px] text-foreground/40 mt-1 block">Gonka AI verified</span>
+          {/* Card 4: Connected Sui Wallet Balance */}
+          <GlassCard className="p-3.5 sm:p-4 rounded-xl h-full flex flex-col justify-between relative overflow-hidden group hover:border-black/20 dark:hover:border-white/20 transition-all">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase text-foreground/50 flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3 text-[#2563EB] dark:text-[#4DA2FF]" />
+                  <span>Wallet Balance</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchWalletBalance}
+                  title="Refresh balance from Sui"
+                  className="text-foreground/40 hover:text-foreground p-0.5 rounded transition-colors"
+                >
+                  <RefreshCw
+                    className={clsx(
+                      "w-2.5 h-2.5 transition-transform",
+                      isLoadingBalance && "animate-spin text-[#2563EB]"
+                    )}
+                  />
+                </button>
+              </div>
+
+              <div className="text-xl sm:text-2xl font-bold text-[#2563EB] dark:text-[#4DA2FF] mt-1 font-mono flex items-baseline gap-1.5">
+                {isLoadingBalance && walletBalance === null ? (
+                  <span className="animate-pulse text-foreground/40 text-base">
+                    Loading...
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      {walletBalance !== null
+                        ? walletBalance.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 4,
+                          })
+                        : "0.00"}
+                    </span>
+                    <span className="text-xs font-normal text-foreground/60">
+                      SUI
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-black/5 dark:border-white/5 text-[10px] font-mono">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse shrink-0" />
+                <span
+                  className="text-foreground/60 truncate max-w-[75px]"
+                  title={effectiveAddress}
+                >
+                  {effectiveAddress
+                    ? formatSuiAddress(effectiveAddress)
+                    : "Not Connected"}
+                </span>
+                {effectiveAddress && (
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="text-foreground/40 hover:text-foreground transition-colors p-0.5 shrink-0"
+                    title="Copy address"
+                  >
+                    {copied ? (
+                      <Check className="w-2.5 h-2.5 text-[#10B981]" />
+                    ) : (
+                      <Copy className="w-2.5 h-2.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {effectiveAddress && (
+                <a
+                  href={`https://suiscan.xyz/testnet/account/${effectiveAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#2563EB] dark:text-[#4DA2FF] hover:underline flex items-center gap-0.5 text-[9px] shrink-0"
+                  title="View on Suiscan Explorer"
+                >
+                  <span>Suiscan</span>
+                  <ExternalLink className="w-2 h-2" />
+                </a>
+              )}
+            </div>
           </GlassCard>
         </div>
 

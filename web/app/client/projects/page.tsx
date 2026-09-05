@@ -23,6 +23,69 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ProjectStatus } from "@/types";
 import { clsx } from "clsx";
 
+const STATUS_TABS = [
+  {
+    key: "all" as const,
+    label: "All",
+    active:
+      "border-[#7C3AED]/40 bg-[#7C3AED]/15 text-[#7C3AED] dark:text-[#A78BFA] shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 border-black/10 dark:border-white/10",
+    badgeActive: "bg-[#7C3AED]/20 text-[#7C3AED] dark:text-[#A78BFA]",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+  {
+    key: "draft" as const,
+    label: "Drafts",
+    active:
+      "border-zinc-400/40 bg-zinc-500/15 text-zinc-800 dark:text-zinc-200 shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-foreground hover:bg-zinc-500/10 border-black/10 dark:border-white/10",
+    badgeActive: "bg-zinc-500/20 text-zinc-800 dark:text-zinc-200",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+  {
+    key: "open" as const,
+    label: "Open",
+    active:
+      "border-blue-500/40 bg-blue-500/15 text-blue-700 dark:text-[#4DA2FF] shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-blue-600 dark:hover:text-[#4DA2FF] hover:bg-blue-500/10 border-black/10 dark:border-white/10",
+    badgeActive: "bg-blue-500/20 text-blue-700 dark:text-[#4DA2FF]",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+  {
+    key: "matched" as const,
+    label: "Matched",
+    active:
+      "border-purple-500/40 bg-purple-500/15 text-purple-700 dark:text-[#A78BFA] shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-purple-600 dark:hover:text-[#A78BFA] hover:bg-purple-500/10 border-black/10 dark:border-white/10",
+    badgeActive: "bg-purple-500/20 text-purple-700 dark:text-[#A78BFA]",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+  {
+    key: "in_progress" as const,
+    label: "In Progress",
+    active:
+      "border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-[#F59E0B] shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-amber-600 dark:hover:text-[#F59E0B] hover:bg-amber-500/10 border-black/10 dark:border-white/10",
+    badgeActive: "bg-amber-500/20 text-amber-700 dark:text-[#F59E0B]",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+  {
+    key: "completed" as const,
+    label: "Completed",
+    active:
+      "border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-[#10B981] shadow-sm",
+    inactive:
+      "text-foreground/70 hover:text-emerald-600 dark:hover:text-[#10B981] hover:bg-emerald-500/10 border-black/10 dark:border-white/10",
+    badgeActive: "bg-emerald-500/20 text-emerald-700 dark:text-[#10B981]",
+    badgeInactive: "bg-black/5 dark:bg-white/10 text-foreground/60",
+  },
+];
+
 export default function ClientProjectsPage() {
   const router = useRouter();
   const { currentUser, projects, users, invitations, applications } = useApp();
@@ -92,20 +155,13 @@ export default function ClientProjectsPage() {
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-            {(
-              [
-                { key: "all", label: "All" },
-                { key: "draft", label: "Drafts" },
-                { key: "open", label: "Open" },
-                { key: "matched", label: "Matched" },
-                { key: "in_progress", label: "In Progress" },
-                { key: "completed", label: "Completed" }
-              ] as const
-            ).map((tab) => {
+            {STATUS_TABS.map((tab) => {
               const count =
                 tab.key === "all"
                   ? clientProjects.length
                   : clientProjects.filter((p) => p.status === tab.key).length;
+
+              const isSelected = selectedFilter === tab.key;
 
               return (
                 <button
@@ -113,14 +169,17 @@ export default function ClientProjectsPage() {
                   type="button"
                   onClick={() => setSelectedFilter(tab.key)}
                   className={clsx(
-                    "px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5",
-                    selectedFilter === tab.key
-                      ? "bg-black/10 dark:bg-white/15 text-foreground dark:text-white border border-black/15 dark:border-white/20 shadow-sm"
-                      : "text-foreground/60 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 border border-transparent"
+                    "px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 border",
+                    isSelected ? tab.active : tab.inactive
                   )}
                 >
                   <span>{tab.label}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/5 dark:bg-white/10 opacity-80">
+                  <span
+                    className={clsx(
+                      "text-[10px] font-mono px-1.5 py-0.5 rounded-full transition-colors",
+                      isSelected ? tab.badgeActive : tab.badgeInactive
+                    )}
+                  >
                     {count}
                   </span>
                 </button>
