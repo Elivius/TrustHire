@@ -982,7 +982,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             id: idx,
             title: m.title,
             deliverable: m.deliverable,
-            amountUsd: m.amount,
+            amountSui: m.amount,
             deadlineMs: m.deadline ? new Date(m.deadline).getTime() : 0,
           })),
           gonkaMatchRequestId: `gonka-${projectId}`,
@@ -1097,7 +1097,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "escrow_funded",
-        text: `Escrow funded ($${budget.toLocaleString()} USDC / SUI) for "${proj.title}". You can now start work!`,
+        text: `Escrow funded (${budget.toLocaleString()} SUI) for "${proj.title}". You can now start work!`,
         linkTo: `/project/${projectId}/workspace`,
       });
     }
@@ -1261,7 +1261,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification({
         userId: proj.matchedFreelancerId,
         type: "milestone_released",
-        text: `Milestone "${targetMs.title}" approved! $${targetMs.amount.toLocaleString()} USDC / SUI released to your wallet.`,
+        text: `Milestone "${targetMs.title}" approved! ${targetMs.amount.toLocaleString()} SUI released to your wallet.`,
         linkTo: "/freelancer/earnings",
       });
     }

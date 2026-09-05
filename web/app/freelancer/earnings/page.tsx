@@ -100,7 +100,7 @@ export default function FreelancerEarningsPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Earned (All-Time)</span>
             <div className="text-2xl sm:text-3xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-              ${totalEarned.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              {totalEarned.toLocaleString()} <span className="text-xs font-normal">SUI</span>
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">Direct non-custodial payouts</span>
           </GlassCard>
@@ -108,7 +108,7 @@ export default function FreelancerEarningsPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">Pending in Escrow</span>
             <div className="text-2xl sm:text-3xl font-bold text-[#D97706] dark:text-[#F59E0B] mt-1 font-mono">
-              ${pendingEscrowAmount.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              {pendingEscrowAmount.toLocaleString()} <span className="text-xs font-normal">SUI</span>
             </div>
             <span className="text-[11px] text-[#D97706] dark:text-[#F59E0B]/80 mt-1 block">Locked for active milestones (not yet released)</span>
           </GlassCard>
@@ -116,7 +116,7 @@ export default function FreelancerEarningsPage() {
           <GlassCard className="p-5">
             <span className="text-[11px] font-mono uppercase text-foreground/50 block">This Month</span>
             <div className="text-2xl sm:text-3xl font-bold text-foreground mt-1 font-mono">
-              ${totalEarned.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+              {totalEarned.toLocaleString()} <span className="text-xs font-normal">SUI</span>
             </div>
             <span className="text-[11px] text-foreground/40 mt-1 block">
               {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
@@ -169,7 +169,7 @@ export default function FreelancerEarningsPage() {
                   <div className="flex items-center gap-6 text-xs">
                     <div className="text-right sm:text-left">
                       <span className="text-foreground/40 text-[10px] uppercase block font-mono">Amount</span>
-                      <span className="text-[#0D9488] dark:text-[#2DD4BF] font-bold text-sm sm:text-base">${tx.amount.toLocaleString()} USDC</span>
+                      <span className="text-[#0D9488] dark:text-[#2DD4BF] font-bold text-sm sm:text-base">{tx.amount.toLocaleString()} SUI</span>
                     </div>
 
                     {isRealSuiDigest(tx.txHash) ? (

@@ -447,7 +447,7 @@ export default function LandingPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-sm font-semibold text-foreground">Sui Merchant Payment App</p>
-                            <p className="text-[11px] text-foreground/40">3 milestones · $4,500 USDC escrowed</p>
+                            <p className="text-[11px] text-foreground/40">3 milestones · 4,500 SUI escrowed</p>
                           </div>
                           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#2DD4BF]/10 border border-[#2DD4BF]/20 text-[10px] font-semibold text-[#0D9488] dark:text-[#2DD4BF]">
                             <Lock className="w-3 h-3" /> Secured
@@ -652,12 +652,12 @@ export default function LandingPage() {
                   Non-custodial escrow vault
                 </h3>
                 <p className="text-sm text-foreground/50 leading-relaxed mb-6">
-                  USDC locks into a Sui Move smart contract. Neither party can unilaterally alter or withdraw funds. Release happens only on milestone approval.
+                  SUI locks into a Sui Move smart contract. Neither party can unilaterally alter or withdraw funds. Release happens only on milestone approval.
                 </p>
                 <div className="mt-auto flex items-center gap-3 p-4 rounded-xl bg-[#2DD4BF]/[0.04] border border-[#2DD4BF]/10">
                   <Lock className="w-5 h-5 text-[#0D9488] dark:text-[#2DD4BF] shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-foreground">$4,500 USDC locked</p>
+                    <p className="text-xs font-semibold text-foreground">4,500 SUI locked</p>
                     <p className="text-[11px] text-foreground/40">3 milestones · auto-release on approval</p>
                   </div>
                 </div>
@@ -727,7 +727,7 @@ export default function LandingPage() {
                   <CheckCheck className="w-5 h-5 text-[#10B981] shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-foreground">Milestone 1 released</p>
-                    <p className="text-[10px] font-mono text-foreground/30">0x7a3f...e2b1 · $1,800 USDC → 0x4f2a...9a2c</p>
+                    <p className="text-[10px] font-mono text-foreground/30">0x7a3f...e2b1 · 1,800 SUI → 0x4f2a...9a2c</p>
                   </div>
                 </div>
               </div>
@@ -997,7 +997,7 @@ export default function LandingPage() {
             {
               icon: Lock,
               title: "Smart escrow",
-              desc: "Sui Move contracts lock USDC with milestone-gated release. Zero platform custody.",
+              desc: "Sui Move contracts lock SUI with milestone-gated release. Zero platform custody.",
               accent: "#4DA2FF",
             },
             {

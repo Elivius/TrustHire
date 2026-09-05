@@ -163,7 +163,7 @@ export default function FreelancerApplicationsPage() {
                         </div>
 
                         <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono">
-                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${proj.estimatedBudget.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{proj.estimatedBudget.toLocaleString()} SUI</span>
                           <span>•</span>
                           <span>Client: {clientUser?.name || "Client"}</span>
                           <span>•</span>
@@ -229,7 +229,7 @@ export default function FreelancerApplicationsPage() {
                               <StatusBadge status={inv.status} />
                             </div>
                             <p className="text-xs text-foreground/70">
-                              Invited by <strong>{clientUser?.name}</strong> • ${proj.estimatedBudget.toLocaleString()} USDC
+                              Invited by <strong>{clientUser?.name}</strong> • {proj.estimatedBudget.toLocaleString()} SUI
                             </p>
                             <span className="text-[11px] font-mono text-foreground/45 block">
                               Invited {new Date(inv.invitedAt).toLocaleDateString()}
@@ -309,7 +309,7 @@ export default function FreelancerApplicationsPage() {
                         </div>
 
                         <div className="text-xs font-mono text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
-                          ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
+                          {proj.estimatedBudget.toLocaleString()} SUI • {proj.timelineDays} days
                         </div>
 
                         <p className="text-xs text-foreground/70 line-clamp-2 leading-relaxed">

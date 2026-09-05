@@ -212,7 +212,7 @@ export default function FinalizeAndFundPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] font-mono text-foreground/60">
                   <span>Milestone Funding Distribution:</span>
-                  <span className="font-bold text-foreground">${totalBudget.toLocaleString()} USDC Total</span>
+                  <span className="font-bold text-foreground">{totalBudget.toLocaleString()} SUI Total</span>
                 </div>
                 <div className="h-3.5 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden flex gap-1 p-0.5">
                   {editableMilestones.map((m, idx) => {
@@ -231,7 +231,7 @@ export default function FinalizeAndFundPage() {
                           "h-full rounded-full transition-all flex items-center justify-center text-[9px] font-mono text-white font-bold",
                           colors[idx % colors.length]
                         )}
-                        title={`Milestone ${idx + 1}: ${m.percentOfBudget}% ($${m.amount} USDC)`}
+                        title={`Milestone ${idx + 1}: ${m.percentOfBudget}% (${m.amount} SUI)`}
                       />
                     );
                   })}
@@ -393,7 +393,7 @@ export default function FinalizeAndFundPage() {
                 <div className="sm:text-right">
                   <span className="text-[11px] text-foreground/45 uppercase font-mono block">Total Deposit Required</span>
                   <span className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] font-mono">
-                    ${totalBudget.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+                    {totalBudget.toLocaleString()} <span className="text-xs font-normal">SUI</span>
                   </span>
                 </div>
               </div>
@@ -411,7 +411,7 @@ export default function FinalizeAndFundPage() {
                     <span className="text-foreground">
                       M{idx + 1}. {m.title} ({m.percentOfBudget}%)
                     </span>
-                    <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${m.amount.toLocaleString()} USDC</span>
+                    <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{m.amount.toLocaleString()} SUI</span>
                   </div>
                 ))}
               </div>
@@ -476,7 +476,7 @@ export default function FinalizeAndFundPage() {
                 onClick={handleFundEscrow}
                 icon={<Lock className="w-4 h-4 ml-1" />}
               >
-                {isFunding ? "Confirming on Sui…" : `Confirm & Lock $${totalBudget.toLocaleString()} USDC`}
+                {isFunding ? "Confirming on Sui…" : `Confirm & Lock ${totalBudget.toLocaleString()} SUI`}
               </GradientButton>
             </div>
           </GlassCard>

@@ -131,7 +131,7 @@ export default function ClientDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold mr-2">Ready to Fund:</span>
                     <span className="text-foreground font-medium">"{p.title}"</span>
-                    <span className="text-foreground/50 ml-2">(${p.estimatedBudget.toLocaleString()} USDC)</span>
+                    <span className="text-foreground/50 ml-2">({p.estimatedBudget.toLocaleString()} SUI)</span>
                   </div>
                   <Link href={`/project/${p.id}/fund`} className="shrink-0">
                     <GradientButton size="sm">Finalize & Fund Escrow</GradientButton>
@@ -154,7 +154,7 @@ export default function ClientDashboardPage() {
             <GlassCard className="p-4 sm:p-5 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer">
               <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Escrowed</span>
               <div className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-                ${totalEscrowed.toLocaleString()} <span className="text-xs font-normal">USDC</span>
+                {totalEscrowed.toLocaleString()} <span className="text-xs font-normal">SUI</span>
               </div>
               <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF]/80 mt-1 flex items-center gap-1 font-medium">
                 <span>View ledger</span>
@@ -212,7 +212,7 @@ export default function ClientDashboardPage() {
                             {proj.title}
                           </h3>
                           <p className="text-xs text-foreground/50 font-mono">
-                            ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
+                            {proj.estimatedBudget.toLocaleString()} SUI • {proj.timelineDays} days
                           </p>
                         </div>
                         <StatusBadge status={proj.status} />

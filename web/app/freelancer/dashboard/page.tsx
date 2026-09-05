@@ -110,7 +110,7 @@ export default function FreelancerDashboardPage() {
             <GlassCard className="p-5 hover:border-black/20 dark:hover:border-white/20 transition-all cursor-pointer">
               <span className="text-[11px] font-mono uppercase text-foreground/50 block">Total Earned</span>
               <div className="text-2xl font-bold text-[#0D9488] dark:text-[#2DD4BF] mt-1 font-mono">
-                ${(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">USDC</span>
+                {(totalEarned || 1500).toLocaleString()} <span className="text-xs font-normal">SUI</span>
               </div>
               <span className="text-[11px] text-[#0D9488] dark:text-[#2DD4BF]/80 mt-1 flex items-center gap-1">
                 <span>View earnings proof</span>
@@ -169,7 +169,7 @@ export default function FreelancerDashboardPage() {
                             {proj.title}
                           </h3>
                           <p className="text-xs text-foreground/50 font-mono">
-                            ${proj.estimatedBudget.toLocaleString()} USDC • Escrow Funded
+                            {proj.estimatedBudget.toLocaleString()} SUI • Escrow Funded
                           </p>
                         </div>
                         <StatusBadge status={proj.status} />
@@ -235,7 +235,7 @@ export default function FreelancerDashboardPage() {
                     </div>
 
                     <div className="text-xs font-mono text-[#0D9488] dark:text-[#2DD4BF] font-semibold">
-                      ${proj.estimatedBudget.toLocaleString()} USDC • {proj.timelineDays} days
+                      {proj.estimatedBudget.toLocaleString()} SUI • {proj.timelineDays} days
                     </div>
 
                     <div className="flex flex-wrap gap-1">

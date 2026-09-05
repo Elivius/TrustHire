@@ -172,7 +172,7 @@ export default function ActiveWorkspacePage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-sm text-foreground">Escrow Secured on Sui</span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 dark:bg-[#2DD4BF]/20 text-emerald-700 dark:text-[#2DD4BF] border border-emerald-500/20 dark:border-transparent font-semibold">
-                      {releasedAmount === totalAmount ? "100% Released" : `$${releasedAmount.toLocaleString()} of $${totalAmount.toLocaleString()} Released`}
+                      {releasedAmount === totalAmount ? "100% Released" : `${releasedAmount.toLocaleString()} SUI of ${totalAmount.toLocaleString()} SUI Released`}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-foreground/65">
@@ -254,7 +254,7 @@ export default function ActiveWorkspacePage() {
                       <div>
                         <h3 className="font-bold text-sm sm:text-base text-foreground">{m.title}</h3>
                         <div className="flex items-center gap-3 text-xs text-foreground/50 font-mono mt-0.5">
-                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">${m.amount.toLocaleString()} USDC</span>
+                          <span className="text-[#0D9488] dark:text-[#2DD4BF] font-semibold">{m.amount.toLocaleString()} SUI</span>
                           <span>•</span>
                           <span>Due {new Date(m.deadline).toLocaleDateString()}</span>
                         </div>
@@ -373,7 +373,7 @@ export default function ActiveWorkspacePage() {
                                 onClick={() => handleApproveRelease(m.id)}
                                 icon={<CheckCircle2 className="w-4 h-4 mr-1" />}
                               >
-                                Approve & Release Payment (${m.amount.toLocaleString()} USDC)
+                                Approve & Release Payment ({m.amount.toLocaleString()} SUI)
                               </GradientButton>
 
                               <GhostButton
