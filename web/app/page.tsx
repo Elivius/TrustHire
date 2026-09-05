@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useInView } from "framer-motion";
+import { CursorParticles } from "@/components/ui/cursor-particles";
 import {
   Sparkles,
   ShieldCheck,
@@ -272,6 +273,7 @@ export default function LandingPage() {
           SECTION 1 — HERO
       ═══════════════════════════════════════════════════════════════════ */}
       <section className="relative pt-24 pb-12 md:pt-36 md:pb-20 px-4 overflow-hidden">
+        <CursorParticles />
         {/* Ambient mesh gradient — GPU-safe, pointer-events-none */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-br from-[#4DA2FF]/12 via-[#7B61FF]/15 to-[#2DD4BF]/10 blur-[140px] rounded-full pointer-events-none" />
         <div className="absolute top-[200px] right-[10%] w-[300px] h-[300px] bg-[#8B5CF6]/10 blur-[100px] rounded-full pointer-events-none" />
