@@ -20,7 +20,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { GlassCard } from "@/components/ui/glass-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WalletChip } from "@/components/ui/wallet-chip";
-import { isRealSuiDigest, formatSuiAddress } from "@/lib/sui/escrow";
+import { isRealSuiDigest, formatSuiAddress, getSuiscanTxUrl } from "@/lib/sui/escrow";
 import { useCurrentAccount, useCurrentClient } from "@mysten/dapp-kit-react";
 
 export default function FreelancerEarningsPage() {
@@ -106,7 +106,13 @@ export default function FreelancerEarningsPage() {
         projectTitle: proj?.title || "Project Milestone",
         milestoneTitle: m.title,
         amount: m.amount,
-        txHash: m.onChainTxHash || "",
+        txHash: m.onChainTxHash || (proj?.escrowTxHash ? proj.escrowTxHash : ""),
+        timestamp:
+          m.releasedAt ||
+          m.submittedAt ||
+          m.deadline ||
+          proj?.createdAt ||
+          new Date().toISOString(),
         status: "confirmed" as const,
       };
     }),
@@ -126,9 +132,12 @@ export default function FreelancerEarningsPage() {
         milestoneTitle: t.milestoneTitle || "Milestone Payout",
         amount: t.amount,
         txHash: t.txHash,
+        timestamp: t.timestamp || new Date().toISOString(),
         status: t.status,
       })),
-  ];
+  ].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 
   const totalEarned = releasedPayoutItems.reduce((s, t) => s + t.amount, 0);
 
@@ -339,57 +348,70 @@ export default function FreelancerEarningsPage() {
               description="Your on-chain earnings will show up here once your first milestone is approved and released by the client."
             />
           ) : (
-            <div className="space-y-3">
-              {filteredTxs.map((tx) => (
-                <GlassCard
-                  key={tx.id}
-                  className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono"
-                >
-                  <div className="space-y-1 font-sans">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#10B981]" />
-                      <h4 className="font-semibold text-sm sm:text-base text-foreground">
-                        {tx.milestoneTitle || tx.projectTitle}
-                      </h4>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#10B981]/15 text-[#10B981] font-mono text-[10px]">
-                        Released
-                      </span>
-                    </div>
-                    <span className="text-xs text-foreground/50 block">
-                      Contract: {tx.projectTitle}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-6 text-xs">
-                    <div className="text-right sm:text-left">
-                      <span className="text-foreground/40 text-[10px] uppercase block font-mono">
-                        Amount
-                      </span>
-                      <span className="text-[#0D9488] dark:text-[#2DD4BF] font-bold text-sm sm:text-base">
-                        {tx.amount.toLocaleString()} SUI
-                      </span>
-                    </div>
-
-                    {isRealSuiDigest(tx.txHash) ? (
-                      <a
-                        href={`https://suiscan.xyz/testnet/tx/${tx.txHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-[#2563EB] dark:text-[#4DA2FF] hover:text-[#7B61FF] transition-colors"
+            <div className="rounded-2xl border border-black/[0.08] dark:border-white/10 bg-white/80 dark:bg-[#151622]/80 overflow-hidden backdrop-blur-md shadow-sm dark:shadow-none">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-black/[0.02] dark:bg-white/[0.03] text-foreground/50 uppercase font-mono text-[10px] border-b border-black/[0.05] dark:border-white/5">
+                    <tr>
+                      <th className="py-3 px-4">Event Type</th>
+                      <th className="py-3 px-4">Project &amp; Milestone</th>
+                      <th className="py-3 px-4">Amount</th>
+                      <th className="py-3 px-4">Tx Hash &amp; Explorer</th>
+                      <th className="py-3 px-4">Timestamp</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/[0.05] dark:divide-white/5 font-mono">
+                    {filteredTxs.map((tx) => (
+                      <tr
+                        key={tx.id}
+                        className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
                       >
-                        <span className="truncate max-w-[100px]">
-                          {formatSuiAddress(tx.txHash) || tx.txHash}
-                        </span>
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                      </a>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-mono border border-amber-500/20">
-                        Simulated
-                      </span>
-                    )}
-                  </div>
-                </GlassCard>
-              ))}
+                        <td className="py-3.5 px-4">
+                          <span className="inline-flex items-center gap-1.5 text-xs text-foreground capitalize font-sans">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                            <span>Milestone Release</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-sans">
+                            <p className="font-medium text-foreground">
+                              {tx.projectTitle}
+                            </p>
+                            <p className="text-[11px] text-foreground/50">
+                              {tx.milestoneTitle}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-foreground">
+                          {tx.amount.toLocaleString()} SUI
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {isRealSuiDigest(tx.txHash) ? (
+                            <a
+                              href={getSuiscanTxUrl(tx.txHash)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[#2563EB] dark:text-[#4DA2FF] hover:underline"
+                            >
+                              <span className="font-mono text-[11px]">
+                                {formatSuiAddress(tx.txHash) || tx.txHash}
+                              </span>
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <span className="font-mono text-[11px] text-amber-600 dark:text-amber-400">
+                              Simulated Demo
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-foreground/50 text-[11px]">
+                          {new Date(tx.timestamp).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
